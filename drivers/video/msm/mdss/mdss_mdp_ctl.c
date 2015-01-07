@@ -1554,16 +1554,7 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 	ctl->intf_type = MDSS_MDP_NO_INTF;
 	ctl->is_secure = false;
 	ctl->power_state = MDSS_PANEL_POWER_OFF;
-	ctl->start_fnc = NULL;
-	ctl->stop_fnc = NULL;
-	ctl->prepare_fnc = NULL;
-	ctl->display_fnc = NULL;
-	ctl->wait_fnc = NULL;
-	ctl->read_line_cnt_fnc = NULL;
-	ctl->add_vsync_handler = NULL;
-	ctl->remove_vsync_handler = NULL;
-	ctl->config_fps_fnc = NULL;
-	ctl->panel_data = NULL;
+	memset(&ctl->ops, 0, sizeof(ctl->ops));
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
 	return 0;
@@ -1726,14 +1717,14 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 
 	ctl->mixer_left = mixer;
 
-	ctl->start_fnc = mdss_mdp_writeback_start;
+	ctl->ops.start_fnc = mdss_mdp_writeback_start;
 	ctl->power_state = MDSS_PANEL_POWER_ON;
 	ctl->wb_type = (rotator ? MDSS_MDP_WB_CTL_TYPE_BLOCK :
 			MDSS_MDP_WB_CTL_TYPE_LINE);
 	mixer->ctl = ctl;
 
-	if (ctl->start_fnc)
-		ctl->start_fnc(ctl);
+	if (ctl->ops.start_fnc)
+		ctl->ops.start_fnc(ctl);
 
 	return mixer;
 error:
@@ -1759,8 +1750,8 @@ int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer)
 
 	pr_debug("destroy ctl=%d mixer=%d\n", ctl->num, mixer->num);
 
-	if (ctl->stop_fnc)
-		ctl->stop_fnc(ctl, MDSS_PANEL_POWER_OFF);
+	if (ctl->ops.stop_fnc)
+		ctl->ops.stop_fnc(ctl, MDSS_PANEL_POWER_OFF);
 
 	mdss_mdp_ctl_free(ctl);
 
@@ -2075,7 +2066,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 		ctl->intf_num = MDSS_MDP_INTF0;
 		ctl->intf_type = MDSS_INTF_EDP;
 		ctl->opmode = MDSS_MDP_CTL_OP_VIDEO_MODE;
-		ctl->start_fnc = mdss_mdp_video_start;
+		ctl->ops.start_fnc = mdss_mdp_video_start;
 		break;
 	case MIPI_VIDEO_PANEL:
 		ctl->is_video_mode = true;
@@ -2087,7 +2078,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 				MDSS_MDP_INTF2;
 		ctl->intf_type = MDSS_INTF_DSI;
 		ctl->opmode = MDSS_MDP_CTL_OP_VIDEO_MODE;
-		ctl->start_fnc = mdss_mdp_video_start;
+		ctl->ops.start_fnc = mdss_mdp_video_start;
 		break;
 	case MIPI_CMD_PANEL:
 		if (pdata->panel_info.pdest == DISPLAY_1)
@@ -2098,21 +2089,21 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 				MDSS_MDP_INTF2;
 		ctl->intf_type = MDSS_INTF_DSI;
 		ctl->opmode = MDSS_MDP_CTL_OP_CMD_MODE;
-		ctl->start_fnc = mdss_mdp_cmd_start;
+		ctl->ops.start_fnc = mdss_mdp_cmd_start;
 		break;
 	case DTV_PANEL:
 		ctl->is_video_mode = true;
 		ctl->intf_num = MDSS_MDP_INTF3;
 		ctl->intf_type = MDSS_INTF_HDMI;
 		ctl->opmode = MDSS_MDP_CTL_OP_VIDEO_MODE;
-		ctl->start_fnc = mdss_mdp_video_start;
+		ctl->ops.start_fnc = mdss_mdp_video_start;
 		ret = mdss_mdp_limited_lut_igc_config(ctl);
 		if (ret)
 			pr_err("Unable to config IGC LUT data\n");
 		break;
 	case WRITEBACK_PANEL:
 		ctl->intf_num = MDSS_MDP_NO_INTF;
-		ctl->start_fnc = mdss_mdp_writeback_start;
+		ctl->ops.start_fnc = mdss_mdp_writeback_start;
 		ret = mdss_mdp_ctl_setup_wfd(ctl);
 		if (ret)
 			goto ctl_init_fail;
@@ -2384,8 +2375,8 @@ void mdss_mdp_ctl_restore(void)
 			mdss_mdp_ctl_restore_sub(sctl);
 			mdss_mdp_ctl_split_display_enable(1, ctl, sctl);
 		}
-		if (ctl->restore_fnc)
-			ctl->restore_fnc(ctl);
+		if (ctl->ops.restore_fnc)
+			ctl->ops.restore_fnc(ctl);
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
@@ -2405,8 +2396,8 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 	 * (2) continuous splash finished.
 	 */
 	if (handoff || !ctl->panel_data->panel_info.cont_splash_enabled) {
-		if (ctl->start_fnc)
-			ret = ctl->start_fnc(ctl);
+		if (ctl->ops.start_fnc)
+			ret = ctl->ops.start_fnc(ctl);
 		else
 			pr_warn("no start function for ctl=%d type=%d\n",
 					ctl->num,
@@ -2547,8 +2538,8 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 
 	mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
 
-	if (ctl->stop_fnc) {
-		ret = ctl->stop_fnc(ctl, power_state);
+	if (ctl->ops.stop_fnc) {
+		ret = ctl->ops.stop_fnc(ctl, power_state);
 		if (ctl->panel_data->panel_info.fbc.enabled)
 			mdss_mdp_ctl_fbc_enable(0, ctl->mixer_left,
 				&ctl->panel_data->panel_info);
@@ -2556,8 +2547,8 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 		pr_warn("no stop func for ctl=%d\n", ctl->num);
 	}
 
-	if (sctl && sctl->stop_fnc) {
-		ret = sctl->stop_fnc(sctl, power_state);
+	if (sctl && sctl->ops.stop_fnc) {
+		ret = sctl->ops.stop_fnc(sctl, power_state);
 		if (ctl->panel_data->panel_info.fbc.enabled)
 			mdss_mdp_ctl_fbc_enable(0, sctl->mixer_left,
 				&sctl->panel_data->panel_info);
@@ -3223,8 +3214,8 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl, int fps)
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
-	if (ctl->config_fps_fnc)
-		ret = ctl->config_fps_fnc(ctl, sctl, fps);
+	if (ctl->ops.config_fps_fnc)
+		ret = ctl->ops.config_fps_fnc(ctl, sctl, fps);
 
 	return ret;
 }
@@ -3238,7 +3229,7 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 	u32 time_of_line, time_to_vsync;
 	ktime_t current_time = ktime_get();
 
-	if (!ctl->read_line_cnt_fnc)
+	if (!ctl->ops.read_line_cnt_fnc)
 		return -ENOSYS;
 
 	pinfo = &ctl->panel_data->panel_info;
@@ -3269,7 +3260,7 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 	if (!time_of_line)
 		return -EINVAL;
 
-	current_line = ctl->read_line_cnt_fnc(ctl);
+	current_line = ctl->ops.read_line_cnt_fnc(ctl);
 
 	total_line = pinfo->lcdc.v_back_porch +
 		pinfo->lcdc.v_front_porch +
@@ -3315,8 +3306,8 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 	}
 
 	ATRACE_BEGIN("wait_fnc");
-	if (ctl->wait_fnc)
-		ret = ctl->wait_fnc(ctl, NULL);
+	if (ctl->ops.wait_fnc)
+		ret = ctl->ops.wait_fnc(ctl, NULL);
 	ATRACE_END("wait_fnc");
 
 	trace_mdp_commit(ctl);
@@ -3355,8 +3346,8 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl)
 		return 0;
 	}
 
-	if (ctl->wait_pingpong)
-		ret = ctl->wait_pingpong(ctl, NULL);
+	if (ctl->ops.wait_pingpong)
+		ret = ctl->ops.wait_pingpong(ctl, NULL);
 
 	mutex_unlock(&ctl->lock);
 
@@ -3412,8 +3403,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		(ctl->mixer_left && ctl->mixer_left->params_changed) ||
 		(ctl->mixer_right && ctl->mixer_right->params_changed)) {
 		ATRACE_BEGIN("prepare_fnc");
-		if (ctl->prepare_fnc)
-			ret = ctl->prepare_fnc(ctl, arg);
+		if (ctl->ops.prepare_fnc)
+			ret = ctl->ops.prepare_fnc(ctl, arg);
 		ATRACE_END("prepare_fnc");
 		if (ret) {
 			pr_err("error preparing display\n");
@@ -3482,14 +3473,14 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
 	ATRACE_END("frame_ready");
 
-	if (ctl->wait_pingpong) {
+	if (ctl->ops.wait_pingpong) {
 		ATRACE_BEGIN("wait_pingpong");
-		ctl->wait_pingpong(ctl, NULL);
+		ctl->ops.wait_pingpong(ctl, NULL);
 		ATRACE_END("wait_pingpong");
 
-		if (sctl && sctl->wait_pingpong) {
+		if (sctl && sctl->ops.wait_pingpong) {
 			ATRACE_BEGIN("wait_pingpong sctl");
-			sctl->wait_pingpong(sctl, NULL);
+			sctl->ops.wait_pingpong(sctl, NULL);
 			ATRACE_END("wait_pingpong sctl");
 		}
 	}
@@ -3517,11 +3508,11 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		 * Seperate kickoff on DSI1 is needed only when we have
 		 * ONLY right half updating on a dual DSI panel
 		 */
-		if (sctl->display_fnc)
-			ret = sctl->display_fnc(sctl, arg); /* DSI1 kickoff */
+		if (sctl->ops.display_fnc)
+			ret = sctl->ops.display_fnc(sctl, arg);
 	} else {
-		if (ctl->display_fnc)
-			ret = ctl->display_fnc(ctl, arg); /* DSI0 kickoff */
+		if (ctl->ops.display_fnc)
+			ret = ctl->ops.display_fnc(ctl, arg); /* DSI0 kickoff */
 	}
 
 	if (sctl)
