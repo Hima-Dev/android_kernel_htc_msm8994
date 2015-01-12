@@ -27,7 +27,6 @@
 #include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/kernel.h>
-#include <linux/leds.h>
 #include <linux/memory.h>
 #include <linux/minifb.h>
 #include <linux/mm.h>
@@ -227,6 +226,11 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 		mfd->panel_info->max_brt = MDSS_MAX_BL_BRIGHTNESS;
 		mfd->panel_info->act_brt = false;
 		pr_info("[DISP] orig brightness mode %d \n", mfd->panel_info->max_brt);
+	}
+
+	if (mfd->boot_notification_led) {
+		led_trigger_event(mfd->boot_notification_led, 0);
+		mfd->boot_notification_led = NULL;
 	}
 
 	if (value > mfd->panel_info->brightness_max)
@@ -747,6 +751,15 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		mfd->split_mode = MDP_DUAL_LM_DUAL_DISPLAY;
 
 	mfd->mdp = *mdp_instance;
+
+	rc = of_property_read_bool(pdev->dev.of_node,
+		"qcom,boot-indication-enabled");
+
+	if (rc) {
+		led_trigger_register_simple("boot-indication",
+			&(mfd->boot_notification_led));
+	}
+
 	INIT_LIST_HEAD(&mfd->proc_list);
 
 	mutex_init(&mfd->bl_lock);
