@@ -476,24 +476,6 @@ static bool is_factor_needed(struct mdss_mdp_perf_params *perf_temp,
 			perf_temp->bw_vote_mode);
 }
 
-static inline u32 get_panel_yres(struct mdss_panel_info *pinfo)
-{
-	u32 yres;
-
-	yres = pinfo->yres + pinfo->lcdc.border_top +
-				pinfo->lcdc.border_bottom;
-	return yres;
-}
-
-static inline u32 get_panel_xres(struct mdss_panel_info *pinfo)
-{
-	u32 xres;
-
-	xres = pinfo->xres + pinfo->lcdc.border_left +
-				pinfo->lcdc.border_right;
-	return xres;
-}
-
 static u32 mdss_mdp_get_rotator_fps(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -557,6 +539,9 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	} else if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 		struct mdss_panel_info *pinfo;
 
+		if (!mixer->ctl)
+			return -EINVAL;
+
 		pinfo = &mixer->ctl->panel_data->panel_info;
 		if (pinfo->type == MIPI_VIDEO_PANEL) {
 			fps = pinfo->panel_max_fps;
@@ -565,9 +550,14 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 			fps = mdss_panel_get_framerate(pinfo);
 			v_total = mdss_panel_get_vtotal(pinfo);
 		}
-		xres = get_panel_xres(pinfo);
+		xres = get_panel_width(mixer->ctl);
 		is_fbc = pinfo->fbc.enabled;
 		h_total = mdss_panel_get_htotal(pinfo, false);
+
+		if (is_pingpong_split(mixer->ctl->mfd))
+			h_total += mdss_panel_get_htotal(
+				&mixer->ctl->panel_data->next->panel_info,
+				false);
 	} else {
 		v_total = mixer->height;
 		xres = mixer->width;
@@ -1898,6 +1888,32 @@ static inline u32 get_panel_width(struct mdss_mdp_ctl *ctl)
 		width += get_panel_xres(&ctl->panel_data->next->panel_info);
 
 	return width;
+}
+
+void mdss_mdp_get_interface_type(struct mdss_mdp_ctl *ctl, int *intf_type,
+		int *split_needed)
+{
+	u32 panel_width = get_panel_width(ctl);
+	u32 max_mixer_width = ctl->mdata->max_mixer_width;
+	u32 nmixer_without_dspp = ctl->mdata->nmixers_intf - ctl->mdata->ndspp;
+	*intf_type = MDSS_MDP_MIXER_TYPE_INTF;
+	*split_needed = false;
+
+	/*
+	 * On devices having mixers without DSPP, mixers with DSPP are
+	 * reserved for primary display. For external displays, allocate
+	 * two such mixers if available. Or else, we can do with one such
+	 * mixer since they can support upto 4K width.
+	 */
+
+	if (ctl->panel_data->panel_info.type == DTV_PANEL
+			&& nmixer_without_dspp) {
+		*intf_type = MDSS_MDP_MIXER_TYPE_INTF_NO_DSPP;
+		if (panel_width > max_mixer_width && nmixer_without_dspp >= 2)
+			*split_needed = true;
+	} else if (panel_width > max_mixer_width) {
+		*split_needed = true;
+	}
 }
 
 int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
