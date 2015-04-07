@@ -1967,6 +1967,7 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	bool use_iommu = false;
 	int ret = -EINVAL;
 	int rc = 0;
+	bool hs_req = false;
 
 	if (mdss_get_sd_client_cnt())
 		return -EPERM;
@@ -1985,6 +1986,9 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 
 	if (req == NULL)
 		goto need_lock;
+
+	if (req && (req->flags & CMD_REQ_HS_MODE))
+		hs_req = true;
 
 	/* make sure dsi_cmd_mdp is idle */
 	mdss_dsi_cmd_mdp_busy(ctrl);
@@ -2081,8 +2085,7 @@ need_lock:
 		mutex_unlock(&ctrl->cmd_mutex);
 	} else {	/* from dcs send */
 		if (ctrl->cmd_clk_ln_recovery_en &&
-				ctrl->panel_mode == DSI_CMD_MODE &&
-				(req->flags & CMD_REQ_HS_MODE))
+				ctrl->panel_mode == DSI_CMD_MODE && hs_req)
 			mdss_dsi_cmd_stop_hs_clk_lane(ctrl);
 	}
 
