@@ -369,6 +369,11 @@ Optional properties:
 - qcom,mdss-dram-channels:	This represents the number of channels in the
 				Bus memory controller.
 
+
+- htc,fbmem-heap-remapping: A boolean property that indicates ION fbmem heap
+                            was reserved and can be used for remapping by fb
+                            device memory.
+
 Fudge Factors:			Fudge factors are used to boost demand for
 				resources like bus bandswidth, clk rate etc. to
 				overcome system inefficiencies and avoid any

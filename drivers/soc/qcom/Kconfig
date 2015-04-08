@@ -467,6 +467,11 @@ config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
 
+config HTC_SCM
+	bool "HTC Secure Channel Manager (SCM) features support"
+	depends on MSM_SCM
+	default y
+
 config MAXIMUM_CURRENT_THROTTLING
 	tristate "CPU current throttling driver"
 	help
@@ -552,6 +557,12 @@ config MSM_PERFORMANCE
 	  This driver is used to provide CPU hotplug support to userspace.
 	  It ensures that no more than a user specified number of CPUs stay
 	  online at any given point in time.
+
+config QCOM_NPA_DUMP
+	bool "Read NPA dump from the RPM memory"
+	depends on DEBUG_FS
+	help
+	  Read the NPA dump from RPM memory through debugfs.
 
 source "drivers/soc/qcom/memshare/Kconfig"
 
