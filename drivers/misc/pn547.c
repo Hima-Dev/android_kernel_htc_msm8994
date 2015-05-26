@@ -35,7 +35,7 @@
 #include <linux/gpio.h>
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
-#include <linux/pn547.h>
+#include <linux/nfc/pn547.h>
 #include <linux/wakelock.h>
 #include <linux/of_gpio.h>
 
@@ -47,7 +47,7 @@
 #include <linux/clk.h>
 #endif
 
-#include <mach/board-nfc.h>
+#include <linux/nfc/board-nfc.h>
 
 #define MAX_BUFFER_SIZE		512
 

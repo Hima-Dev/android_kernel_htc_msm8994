@@ -13,7 +13,7 @@
 
 #include <linux/device.h>
 #include <linux/i2c.h>
-#include <linux/pn547.h>
+#include <linux/nfc/pn547.h>
 
 int board_nfc_parse_dt(struct device *dev,
 		struct pn547_i2c_platform_data *pdata);
