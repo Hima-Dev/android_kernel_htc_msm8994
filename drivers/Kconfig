@@ -192,4 +192,6 @@ source "drivers/htc_debug/stability/Kconfig"
 
 source "drivers/htc_mnemosyne/Kconfig"
 
+source "drivers/htc_power_debug/Kconfig"
+
 endmenu
