@@ -10,45 +10,49 @@
  * GNU General Public License for more details.
  */
 
-qcom,itech-3020mah {
+qcom,hima-id1-batterydata {
 	qcom,max-voltage-uv = <4350000>;
 	qcom,v-cutoff-uv = <3400000>;
 	qcom,chg-term-ua = <100000>;
-	qcom,batt-id-kohm = <100>;
-	qcom,battery-type = "itech_3020mah";
-	htc,batt_id = <2>;
-	htc,id_raw_min = <331>;
-	htc,id_raw_max = <550>;
+	qcom,nom-batt-capacity-mah = <2840>;
+	qcom,batt-id-kohm = <10>;
+	qcom,battery-beta = <4360>;
+	qcom,battery-type = "hima_id1";
+	qcom,checksum = <0x2DD6>;
+	htc,batt_id = <1>;
+	htc,id_raw_min = <2000>;
+	htc,id_raw_max = <23000>;
+
 	qcom,fg-profile-data = [
-		 E4 83 A6 7C
-		 94 80 1F 76
-		 70 83 02 7C
-		 33 8B 67 95
-		 EA 81 EB 99
-		 0A BC 5C C3
-		 5B 18 32 88
-		 75 84 B6 83
-		 06 7E 5B 83
-		 07 51 F7 80
-		 33 8C 74 82
-		 FD 93 B4 B5
-		 7A C1 64 13
-		 3C 0A B9 5B
-		 CE 6E 29 FC
-		 3E 2C 96 45
-		 C6 3A 00 00
-		 34 3D 1E 45
-		 1C 36 00 00
+		 F3 83 9F 7D
+		 BB 81 32 7C
+		 43 83 4D 6B
+		 13 71 5C 7F
+		 0C 82 9A 9A
+		 D0 BD 12 CB
+		 5D 0E 08 88
+		 33 7E 19 82
+		 87 7C 53 83
+		 96 68 14 7B
+		 D3 87 42 82
+		 F9 99 54 BD
+		 6F CA 5B 0D
+		 4E 0B 7A 5B
+		 14 70 B8 FE
+		 6C 37 30 44
+		 3F 39 00 00
+		 E0 45 25 2A
+		 D7 45 00 00
 		 00 00 00 00
 		 00 00 00 00
-		 17 70 68 6B
-		 CC 72 15 88
-		 DE 74 E0 63
-		 3E 6A 11 81
-		 A2 6F 11 60
-		 00 00 00 00
-		 0A 54 60 B6
-		 56 A0 71 0C
+		 4F 70 C4 70
+		 BA 74 99 83
+		 C7 74 71 60
+		 86 67 1D 80
+		 A0 74 81 5B
+		 95 91 9C C1
+		 1F 4C 69 5D
+		 67 A0 71 0C
 		 28 00 FF 36
 		 F0 11 30 03
 		 00 00 00 00
