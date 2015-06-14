@@ -19,7 +19,6 @@
 #include "msm8994.dtsi"
 #include "msm8994-coresight-v2.dtsi"
 #include "msm8994-camera-v2.dtsi"
-
 &soc {
 
 	arm64-cpu-erp@f9100000 {
@@ -49,6 +48,13 @@
 
 	qcom,cpu-bwmon {
 		compatible = "qcom,bimc-bwmon2";
+	};
+
+	htc_pnpmgr{
+		compatible = "htc,perf_table_v2";
+		htc,cluster-map = <0xF0>, <0x0F>;
+		htc,perf_table = <960000>, <960000>, <960000>, <960000>, <960000>,
+				<960000>, <960000>, <960000>, <960000>, <960000>;
 	};
 
 	qcom,lmh {
