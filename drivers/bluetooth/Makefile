@@ -24,6 +24,10 @@ obj-$(CONFIG_MSM_BT_POWER)	+= bluetooth-power.o
 btmrvl-y			:= btmrvl_main.o
 btmrvl-$(CONFIG_DEBUG_FS)	+= btmrvl_debugfs.o
 
+obj-$(CONFIG_ARCH_MSM8994)	+= board-8994-rfkill.o
+obj-$(CONFIG_ARCH_MSM8994)	+= htc_bdaddress.o
+obj-$(CONFIG_ARCH_MSM8994)	+= bluesleep.o
+
 hci_uart-y				:= hci_ldisc.o
 hci_uart-$(CONFIG_BT_HCIUART_H4)	+= hci_h4.o
 hci_uart-$(CONFIG_BT_HCIUART_BCSP)	+= hci_bcsp.o
