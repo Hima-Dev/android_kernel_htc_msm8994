@@ -86,6 +86,7 @@
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
 			status = "okay";
+			regulator-always-on;
 		};
 	};
 
@@ -235,6 +236,7 @@
 			qcom,proxy-consumer-enable;
 			qcom,proxy-consumer-current = <10000>;
 			status = "okay";
+			regulator-always-on;
 		};
 	};
 
@@ -261,9 +263,14 @@
 	rpm-regulator-ldoa17 {
 		status = "okay";
 		pm8994_l17: regulator-l17 {
+			/* HTC_CAM_START, change from 2700000 to 2800000
 			regulator-min-microvolt = <2700000>;
 			regulator-max-microvolt = <2700000>;
 			qcom,init-voltage = <2700000>;
+			HTC_CAM_END */
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2800000>;
 			status = "okay";
 		};
 	};
@@ -271,20 +278,23 @@
 	rpm-regulator-ldoa18 {
 		status = "okay";
 		pm8994_l18: regulator-l18 {
-			regulator-min-microvolt = <2850000>;
-			regulator-max-microvolt = <2850000>;
-			qcom,init-voltage = <2850000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
+			regulator-boot-on;
+			regulator-always-on;
 		};
 	};
 
 	rpm-regulator-ldoa19 {
 		status = "okay";
 		pm8994_l19: regulator-l19 {
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			qcom,init-voltage = <2800000>;
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2850000>;
+			qcom,init-voltage = <2850000>;
 			status = "okay";
+			regulator-always-on;
 		};
 	};
 
@@ -313,20 +323,23 @@
 	rpm-regulator-ldoa22 {
 		status = "okay";
 		pm8994_l22: regulator-l22 {
-			regulator-min-microvolt = <3000000>;
-			regulator-max-microvolt = <3000000>;
-			qcom,init-voltage = <3000000>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <3300000>;
 			status = "okay";
+			regulator-boot-on;
+			regulator-always-on;
 		};
 	};
 
 	rpm-regulator-ldoa23 {
 		status = "okay";
 		pm8994_l23: regulator-l23 {
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			qcom,init-voltage = <2800000>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <3300000>;
 			status = "okay";
+			regulator-boot-on;
 		};
 	};
 
@@ -346,6 +359,7 @@
 			regulator-min-microvolt = <1000000>;
 			regulator-max-microvolt = <1000000>;
 			qcom,init-voltage = <1000000>;
+			qcom,init-ldo-mode = <1>;
 			status = "okay";
 		};
 	};
@@ -388,10 +402,12 @@
 	rpm-regulator-ldoa29 {
 		status = "okay";
 		pm8994_l29: regulator-l29 {
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			qcom,init-voltage = <2800000>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <3300000>;
 			status = "okay";
+			regulator-boot-on;
+			regulator-always-on;
 		};
 	};
 
@@ -401,6 +417,8 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
+			regulator-boot-on;
+			regulator-always-on;
 			status = "okay";
 		};
 	};
@@ -575,7 +593,7 @@
 		regulator-name = "mem_acc0_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <4>;
-		qcom,corner-acc-map = <1 1 0 0>;
+		qcom,corner-acc-map = <0 0 0 0>;
 		qcom,mem-acc-type1 = <0x02 0x02 0x00 0x00>;
 		qcom,mem-acc-type2 = <0x02 0x02 0x00 0x00>;
 		qcom,mem-acc-type3 = <0x02 0x02 0x00 0x00>;
@@ -951,24 +969,5 @@
 		startup-delay-us = <4000>;
 		enable-active-high;
 		gpio = <&pm8994_gpios 9 0>;
-	};
-
-	usb_otg_switch: usb-otg-switch {
-		compatible = "regulator-fixed";
-		regulator-name = "usb_otg_vreg";
-		vin-supply = <&smbcharger_external_otg>;
-		enable-active-high;
-		gpio = <&pmi8994_gpios 5 0>;
-	};
-};
-
-&pmi8994_charger {
-	otg-parent-supply = <&pmi8994_boost_5v>;
-	smbcharger_charger_otg: qcom,smbcharger-boost-otg {
-		regulator-name = "smbcharger_charger_otg";
-	};
-
-	smbcharger_external_otg: qcom,smbcharger-external-otg {
-		regulator-name = "smbcharger_external_otg";
 	};
 };
