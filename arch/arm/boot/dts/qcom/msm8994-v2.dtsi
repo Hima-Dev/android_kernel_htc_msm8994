@@ -26,7 +26,7 @@
 	qcom,msm-id = <207 0x20000>;
 
 	chosen {
-		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
+		bootargs = "boot_cpus=0,1,2,3 sched_enable_hmp=1 sched_enable_power_aware=1 androidboot.rpmdevice=fc190000.qcom,rpm-stats-ver";
 	};
 };
 
@@ -59,6 +59,13 @@
 
 	qcom,cpu-bwmon {
 		compatible = "qcom,bimc-bwmon2";
+	};
+
+	htc_pnpmgr{
+		compatible = "htc,perf_table_v2";
+		htc,cluster-map = <0xF0>, <0x0F>;
+		htc,perf_table = <960000>, <960000>, <960000>, <960000>, <960000>,
+				<960000>, <960000>, <960000>, <960000>, <960000>;
 	};
 
 	qcom,lmh {
