@@ -170,3 +170,4 @@ obj-$(CONFIG_SENSORS)		+= sensors/
 obj-$(CONFIG_SENSORS_SSC)	+= sensors/
 
 obj-$(CONFIG_HTC_DEBUG)		+= htc_debug/
+obj-$(CONFIG_HTC_DEBUG_FOOTPRINT)	+= htc_mnemosyne/
