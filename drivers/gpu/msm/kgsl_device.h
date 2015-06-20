@@ -387,6 +387,8 @@ struct kgsl_device {
 	struct workqueue_struct *events_wq;
 
 	struct device *busmondev; /* pseudo dev for GPU BW voting governor */
+
+	int gpu_fault_no_panic;
 };
 
 
