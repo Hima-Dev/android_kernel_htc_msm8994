@@ -17,12 +17,13 @@
 #include <linux/msm_iommu_domains.h>
 #include "msm_vidc_resources.h"
 #include "msm_vidc_debug.h"
+#include "htc_msm_smem.h"
 
-struct smem_client {
+/* struct smem_client {
 	int mem_type;
 	void *clnt;
 	struct msm_vidc_platform_resources *res;
-};
+}; */
 
 static int get_device_address(struct smem_client *smem_client,
 		struct ion_handle *hndl, unsigned long align,
@@ -291,7 +292,12 @@ static void *ion_new_client(void)
 
 static void ion_delete_client(struct smem_client *client)
 {
-	ion_client_destroy(client->clnt);
+	if ((client->clnt_alloc != NULL) && (client->clnt_import != NULL)) {
+		ion_client_destroy(client->clnt_alloc);
+		ion_client_destroy(client->clnt_import);
+		} else {
+			ion_client_destroy(client->clnt);
+		}
 }
 
 struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
@@ -342,6 +348,7 @@ static int ion_cache_operations(struct smem_client *client,
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"ion_handle_get_flags failed: %d\n", rc);
+		dump_stack();
 		goto cache_op_failed;
 	}
 	if (ION_IS_CACHED(ionflag)) {
@@ -417,6 +424,8 @@ void *msm_smem_new_client(enum smem_type mtype,
 		if (client) {
 			client->mem_type = mtype;
 			client->clnt = clnt;
+			client->clnt_alloc = NULL;
+			client->clnt_import = NULL;
 			client->res = res;
 		}
 	} else {
@@ -474,7 +483,21 @@ void msm_smem_free(void *clt, struct msm_smem *mem)
 	}
 	switch (client->mem_type) {
 	case SMEM_ION:
+		if ((mem->buffer_type == HAL_BUFFER_INTERNAL_SCRATCH) ||
+			(mem->buffer_type == HAL_BUFFER_INTERNAL_SCRATCH_1) ||
+			(mem->buffer_type == HAL_BUFFER_INTERNAL_SCRATCH_2) ||
+			(mem->buffer_type == HAL_BUFFER_INTERNAL_PERSIST) ||
+			(mem->buffer_type == HAL_BUFFER_INTERNAL_PERSIST_1)) {
+				client->clnt = client->clnt_alloc;
+			}
 		free_ion_mem(client, mem);
+		if ((mem->buffer_type == HAL_BUFFER_INTERNAL_SCRATCH) ||
+			(mem->buffer_type == HAL_BUFFER_INTERNAL_SCRATCH_1) ||
+			(mem->buffer_type == HAL_BUFFER_INTERNAL_SCRATCH_2) ||
+			(mem->buffer_type == HAL_BUFFER_INTERNAL_PERSIST) ||
+			(mem->buffer_type == HAL_BUFFER_INTERNAL_PERSIST_1)) {
+					client->clnt = client->clnt_import;
+			}
 		break;
 	default:
 		dprintk(VIDC_ERR, "Mem type not supported\n");
