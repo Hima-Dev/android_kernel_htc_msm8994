@@ -74,6 +74,26 @@ static struct kobj_attribute _name##_attr = {	\
 	.store	= _name##_store,		\
 }
 
+#define power_ro_attr(_name)			\
+static struct kobj_attribute _name##_attr = {	\
+	.attr	= {				\
+		.name = __stringify(_name),	\
+		.mode = 0444,			\
+	},					\
+	.show	= _name##_show,			\
+	.store	= NULL,				\
+}
+
+#define power_wo_attr(_name)			\
+static struct kobj_attribute _name##_attr = {	\
+	.attr	= {				\
+		.name = __stringify(_name),	\
+		.mode = 0220,			\
+	},					\
+	.show	= NULL,				\
+	.store	= _name##_store,		\
+}
+
 /* Preferred image size in bytes (default 500 MB) */
 extern unsigned long image_size;
 /* Size of memory reserved for drivers (default SPARE_PAGES x PAGE_SIZE) */
