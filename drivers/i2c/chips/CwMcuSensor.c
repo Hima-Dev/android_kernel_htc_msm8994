@@ -180,6 +180,7 @@ static u8 g_touch_status = 0xff;
 static int p_status = 9;
 static u32 adc_table[10] = {0};
 
+static int tap2wake = 0;
 struct cwmcu_data {
 	struct i2c_client *client;
 	atomic_t delay;
@@ -4137,18 +4138,16 @@ void easy_access_irq_handler(struct cwmcu_data *mcu_data, u8 easy_access_type)
 	D("%s: data_event = 0x%x, data_buff(0, 1) = (0x%x, 0x%x)\n",
 	  __func__, data_event, data_buff[0], data_buff[1]);
 	if (vib_trigger) {
-		if (data[0] == HTC_GESTURE_MOTION_TYPE_SWIPE_UP ||
-			  data[0] == HTC_GESTURE_MOTION_TYPE_SWIPE_DOWN ||
-			  data[0] == HTC_GESTURE_MOTION_TYPE_SWIPE_LEFT ||
-			  data[0] == HTC_GESTURE_MOTION_TYPE_SWIPE_RIGHT ||
-			  data[0] == HTC_GESTURE_MOTION_TYPE_LAUNCH_CAMERA ||
-			  data[0] == HTC_GESTURE_MOTION_TYPE_DOUBLE_TAP) {
-			I("%s: gesture detected = %d, vibrates for %d ms\n",
-			  __func__, data[0], mcu_data->vibrate_ms);
-			vib_trigger_event(vib_trigger, mcu_data->vibrate_ms);
-			mcu_data->sensors_time[sensor_id] = 0;
-			cw_send_event(mcu_data, sensor_id, data_buff, 0);
-			mcu_data->power_key_pressed = 0;
+		if (data[0] == HTC_GESTURE_MOTION_TYPE_DOUBLE_TAP) {
+			if (tap2wake == 1) {
+				D("[CWMCU] Tap to wake - waking device\n");
+				vib_trigger_event(vib_trigger, mcu_data->vibrate_ms);
+				mcu_data->sensors_time[sensor_id] = 0;
+				cw_send_event(mcu_data, sensor_id, data_buff, 0);
+				mcu_data->power_key_pressed = 0;
+			} else {
+				D("[CWMCU] Tap to wake disabled, ignoring\n");
+			}
 		} else {
 			E("%s: no gesture motion type = %d\n", __func__, data[0]);
 		}
@@ -5186,6 +5185,26 @@ static ssize_t crash_count_show(struct device *dev,
     return snprintf(buf, PAGE_SIZE, "%d\n", mcu_data->crash_count);
 }
 
+static int tap2wake_set(struct device *dev, struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	int val;
+	sscanf(buf, "%du", &val);
+
+	if (val > 1 || val < 0) {
+		pr_err("[CWMCU] %s: tap2wake value %d is invalid!\n", __func__, val);
+	} else {
+		tap2wake = val;
+	}
+
+	return count;
+}
+
+static int tap2wake_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", tap2wake);
+}
+
 #ifdef SHUB_LOGGING_SUPPORT
 static ssize_t log_mask_show(struct device *dev, struct device_attribute *attr,char *buf);
 static ssize_t log_mask_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
@@ -5238,6 +5257,7 @@ static struct device_attribute attributes[] = {
 	__ATTR(sensor_placement, 0660, NULL, sensor_placement_store),
 	__ATTR(vibrate_ms, 0220, NULL, set_vibrate_ms),
 	__ATTR(crash_count, 0440, crash_count_show, NULL),
+	__ATTR(tap2wake, 0666, tap2wake_show, tap2wake_set),
 };
 
 
