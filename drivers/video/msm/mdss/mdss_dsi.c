@@ -21,6 +21,7 @@
 #include <linux/gpio.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
+#include <linux/debug_display.h>
 #include <linux/leds-qpnp-wled.h>
 #include <linux/clk.h>
 
@@ -31,6 +32,7 @@
 
 #define XO_CLK_RATE	19200000
 
+struct mdss_dsi_pwrctrl pwrctrl_pdata;
 static struct dsi_drv_cm_data shared_ctrl_data;
 
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
@@ -135,6 +137,11 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	if (pwrctrl_pdata.dsi_regulator_init)
+		pwrctrl_pdata.dsi_regulator_init(pdev);
+	else
+		PR_DISP_INFO("%s: not use HTC pwrctrl hook\n", __func__);
+
 	for (i = 0; !rc && (i < DSI_MAX_PM); i++) {
 		rc = msm_dss_config_vreg(&pdev->dev,
 			ctrl_pdata->power_data[i].vreg_config,
@@ -168,6 +175,12 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 	if (ret) {
 		pr_warn("%s: Panel reset failed. rc=%d\n", __func__, ret);
 		ret = 0;
+	}
+
+	if (pwrctrl_pdata.dsi_power_off) {
+		ret = pwrctrl_pdata.dsi_power_off(pdata);
+		if (ret)
+			PR_DISP_ERR("power off sequence with Error");
 	}
 
 	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
@@ -258,6 +271,13 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 			pr_err("%s: Panel reset failed. rc=%d\n",
 					__func__, ret);
 	}
+
+	if (pwrctrl_pdata.dsi_power_on) {
+		rc = pwrctrl_pdata.dsi_power_on(pdata);
+		if (rc)
+			PR_DISP_ERR("turn on power sequence with Error\n")
+	} else
+		PR_DISP_INFO("%s: not use HTC pwrctrl hook\n", __func__);
 
 error:
 	if (ret) {
@@ -2096,6 +2116,24 @@ static struct platform_driver mdss_dsi_ctrl_driver = {
 	},
 };
 
+static int mdss_dsi_pwrctrl_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	if (pdev->dev.platform_data)
+		memcpy(&pwrctrl_pdata, pdev->dev.platform_data, sizeof(pwrctrl_pdata));
+	PR_DISP_INFO("== %s: %p ( Done ) ==\n", __func__, pdev->dev.platform_data);
+
+	return rc;
+}
+
+static struct platform_driver mdss_dsi_pwrctrl_driver = {
+	.probe = mdss_dsi_pwrctrl_probe,
+	.driver = {
+		.name = "mdss_dsi_pwrctrl",
+	},
+};
+
 static int mdss_dsi_register_driver(void)
 {
 	return platform_driver_register(&mdss_dsi_ctrl_driver);
@@ -2104,6 +2142,12 @@ static int mdss_dsi_register_driver(void)
 static int __init mdss_dsi_driver_init(void)
 {
 	int ret;
+
+	ret = platform_driver_register(&mdss_dsi_pwrctrl_driver);
+	if (ret) {
+		PR_DISP_ERR("register mdss_dsi_pwrctrl failed!\n");
+		return ret;
+	}
 
 	ret = mdss_dsi_register_driver();
 	if (ret) {
