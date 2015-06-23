@@ -225,9 +225,9 @@
 #define HDCP_KSV_LSB                     (0x000060D8)
 #define HDCP_KSV_MSB                     (0x000060DC)
 
-#define TOP_AND_BOTTOM		0x10
-#define FRAME_PACKING		0x20
-#define SIDE_BY_SIDE_HALF	0x40
+#define TOP_AND_BOTTOM		(1 << HDMI_S3D_TOP_AND_BOTTOM)
+#define FRAME_PACKING		(1 << HDMI_S3D_FRAME_PACKING)
+#define SIDE_BY_SIDE_HALF	(1 << HDMI_S3D_SIDE_BY_SIDE)
 
 #define LPASS_LPAIF_RDDMA_CTL0           (0xFE152000)
 #define LPASS_LPAIF_RDDMA_PER_CNT0       (0x00000014)
@@ -255,8 +255,17 @@ struct hdmi_tx_ddc_data {
 	int retry;
 };
 
+struct hdmi_util_ds_data {
+	bool ds_registered;
+	u32 ds_max_clk;
+};
+
 /* video timing related utility routines */
 void hdmi_setup_video_mode_lut(void);
+int hdmi_get_video_id_code(struct msm_hdmi_mode_timing_info *timing_in,
+	struct hdmi_util_ds_data *ds_data);
+int hdmi_get_supported_mode(struct msm_hdmi_mode_timing_info *info,
+	struct hdmi_util_ds_data *ds_data, u32 mode);
 int hdmi_get_video_id_code(struct msm_hdmi_mode_timing_info *timing_in);
 const struct msm_hdmi_mode_timing_info *hdmi_get_supported_mode(u32 mode);
 void hdmi_del_supported_mode(u32 mode);
