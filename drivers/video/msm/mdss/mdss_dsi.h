@@ -422,6 +422,19 @@ struct mdss_dsi_ctrl_pdata {
 	int horizontal_idle_cnt;
 	struct panel_horizontal_idle *line_idle;
 	struct mdss_util_intf *mdss_util;
+
+	void *dsi_pwrctrl_data;			
+	struct dsi_panel_cmds cabc_off_cmds;
+	struct dsi_panel_cmds cabc_ui_cmds;
+	struct dsi_panel_cmds cabc_video_cmds;
+	struct dsi_panel_cmds dimming_on_cmds;
+
+	int brt_dim;	
+	int brt_min;
+	int brt_def;
+	int brt_high;
+	int brt_extra;
+	int brt_max;
 };
 
 struct dsi_status_data {
