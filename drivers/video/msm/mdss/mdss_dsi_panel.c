@@ -192,7 +192,7 @@ static unsigned int bl_to_brightness(int val, int brt_dim, int brt_min, int brt_
 	} else if (val > BRI_SETTING_MAX)
 		brt_val = brt_max;
 
-	PR_DISP_INFO("%s:level=%d, brightness=%d", __func__, val, brt_val);
+	//PR_DISP_INFO("%s:level=%d, brightness=%d", __func__, val, brt_val);
 	return brt_val;
 }
 
@@ -616,7 +616,7 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 			}
 		}
 
-		PR_DISP_INFO("%s:bl_level=%d\n", __func__, bl_level);
+		//PR_DISP_INFO("%s:bl_level=%d\n", __func__, bl_level);
 		led_trigger_event(bl_led_trigger, bl_level);
 		break;
 	case BL_PWM:
