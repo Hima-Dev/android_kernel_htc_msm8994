@@ -910,17 +910,21 @@ static int venus_hfi_vote_active_buses(void *dev,
 					aggregate_load_table[j].bus->
 						sessions_supported,
 					data[i].session);
+			/*
+			* Check for ocmem specifically as there is no
+			* separate low-power ocmem table available for
+			* aggregating ocmem load during low power mode.
+			*/
+			 if (!strnstr(aggregate_load_table[j].bus->pdata->name,
+				"ocmem", strlen(aggregate_load_table[j].
+				bus->pdata->name))) {
+				 matches &= aggregate_load_table[j].
+					bus->low_power == data[i].low_power;
+			 }
 
-			
-			  matches &= aggregate_load_table[j].bus->low_power ==
-				 data[i].low_power;
 			if (matches) {
 				aggregate_load_table[j].load +=
 					data[i].load;
-				if (data[i].low_power) {
-					aggregate_load_table[3].load +=
-					data[i].load;
-				}
 			}
 		}
 	}
@@ -1444,11 +1448,17 @@ static int venus_hfi_suspend(void *dev)
 	}
 	dprintk(VIDC_INFO, "%s\n", __func__);
 
+	mutex_lock(&device->write_lock);
 	if (device->power_enabled) {
-		rc = flush_delayed_work(&venus_hfi_pm_work);
-		dprintk(VIDC_INFO, "%s flush delayed work %d\n", __func__, rc);
+		dprintk(VIDC_DBG, "Venus is busy\n");
+		rc = -EBUSY;
+	} else {
+		dprintk(VIDC_DBG, "Venus is power suspended\n");
+		rc = 0;
 	}
-	return 0;
+	mutex_unlock(&device->write_lock);
+
+	return rc;
 }
 
 static int venus_hfi_halt_axi(struct venus_hfi_device *device)
@@ -2974,13 +2984,13 @@ static int venus_hfi_check_core_registered(
 	return -EINVAL;
 }
 
-static void venus_hfi_process_sys_watchdog_timeout(
+static void __process_fatal_error(
 				struct venus_hfi_device *device)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
 	cmd_done.device_id = device->device_id;
-	device->callback(SYS_WATCHDOG_TIMEOUT, &cmd_done);
+	device->callback(SYS_ERROR, &cmd_done);
 }
 
 static int venus_hfi_core_pc_prep(void *device)
@@ -3066,6 +3076,8 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 	rc = venus_hfi_prepare_pc(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to prepare for PC, rc : %d\n", rc);
+		venus_hfi_set_state(device, VENUS_STATE_DEINIT);
+		__process_fatal_error(device);
 		return;
 	}
 
@@ -3204,7 +3216,7 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 				dprintk(VIDC_ERR,
 					"SFR Message from FW : %s\n",
 						vsfr->rg_data);
-			venus_hfi_process_sys_watchdog_timeout(device);
+			__process_fatal_error(device);
 		}
 
 		while (!venus_hfi_iface_msgq_read(device, packet)) {
@@ -3224,6 +3236,10 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 				dprintk(VIDC_DBG,
 					"Received HFI_MSG_SYS_RELEASE_RESOURCE\n");
 				complete(&release_resources_done);
+			} else if (rc == HFI_MSG_SYS_PC_PREP_DONE) {
+				dprintk(VIDC_DBG,
+					"Received HFI_MSG_SYS_PC_PREP_DONE\n");
+				complete(&pc_prep_done);
 			} else if (rc == HFI_MSG_SYS_INIT_DONE) {
 				int ret = 0;
 				dprintk(VIDC_DBG,
@@ -3235,13 +3251,6 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 			}
 		}
 		venus_hfi_flush_debug_queue(device, packet);
-		switch (rc) {
-		case HFI_MSG_SYS_PC_PREP_DONE:
-			dprintk(VIDC_DBG,
-					"Received HFI_MSG_SYS_PC_PREP_DONE\n");
-			complete(&pc_prep_done);
-			break;
-		}
 	} else {
 		dprintk(VIDC_ERR, "SPURIOUS_INTERRUPT\n");
 	}
@@ -3975,7 +3984,8 @@ static void venus_hfi_unload_fw(void *dev)
 	}
 	if (device->resources.fw.cookie) {
 		cancel_delayed_work(&venus_hfi_pm_work);
-		flush_workqueue(device->venus_pm_workq);
+		if (device->state != VENUS_STATE_DEINIT)
+			flush_workqueue(device->venus_pm_workq);
 		subsystem_put(device->resources.fw.cookie);
 		venus_hfi_interface_queues_release(dev);
 		if (venus_hfi_halt_axi(device))

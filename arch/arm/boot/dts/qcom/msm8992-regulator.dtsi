@@ -37,9 +37,13 @@
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8994_s1_corner_ao";
 			qcom,set = <1>;
-			regulator-min-microvolt = <1>;
+			regulator-min-microvolt = <4>;
 			regulator-max-microvolt = <7>;
+			regulator-always-on;
+			qcom,init-voltage-corner = <6>;
 			qcom,use-voltage-corner;
+			proxy-supply = <&pm8994_s1_corner_ao>;
+			qcom,proxy-consumer-voltage = <7 7>;
 		};
 	};
 
@@ -707,6 +711,18 @@
 				<0 (-80) (-30) 230>,
 				<0 (-30) 0 210>,
 				<0 (-30) 0 100>;
+		qcom,cpr-fuse-min-quot-diff = <0 0 0 0>;
+		qcom,cpr-min-quot-diff-adjustment =
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>;
 		qcom,cpr-init-voltage-adjustment =
 				<0 0 0 0>,
 				<0 (-15000) (-35000) 35000>,
@@ -854,6 +870,13 @@
 				<0 0 42 (-63)>,
 				<0 0 (-96) 60>,
 				<0 0 (-96) 60>;
+		qcom,cpr-fuse-min-quot-diff = <0 0 0 0>;
+		qcom,cpr-min-quot-diff-adjustment =
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>;
 		qcom,cpr-init-voltage-adjustment =
 				<0 0 0 0>,
 				<0 0 (-25000) (-25000)>,

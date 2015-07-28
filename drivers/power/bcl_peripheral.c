@@ -342,8 +342,8 @@ static int bcl_access_monitor_enable(bool enable)
 		} else {
 			switch (perph_data->state) {
 			case BCL_PARAM_MONITOR:
-				disable_irq(perph_data->irq_num);
-				
+				disable_irq_nosync(perph_data->irq_num);
+				/* Fall through to clear the poll work */
 			case BCL_PARAM_INACTIVE:
 			case BCL_PARAM_POLLING:
 				cancel_delayed_work_sync(
@@ -662,7 +662,7 @@ static irqreturn_t bcl_handle_ibat(int irq, void *data)
 			pr_err("Error clearing max/min reg. err:%d\n", ret);
 		thresh_value = perph_data->high_trip;
 		convert_adc_to_ibat_val(&thresh_value);
-		
+		/* Account threshold trip from PBS threshold for dead time */
 		thresh_value -= perph_data->inhibit_derating_ua;
 		if (perph_data->trip_val < thresh_value) {
 			pr_debug("False Ibat high trip. ibat:%d ibat_thresh_val:%d\n",

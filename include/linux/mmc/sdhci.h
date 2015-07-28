@@ -92,6 +92,8 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR             (1<<12)
 
 #define SDHCI_QUIRK2_ADMA_SKIP_DATA_ALIGNMENT             (1<<13)
+/* Use reset workaround in case sdhci reset timeouts */
+#define SDHCI_QUIRK2_USE_RESET_WORKAROUND (1 << 15)
 
 	int irq;		
 	void __iomem *ioaddr;	
@@ -199,6 +201,10 @@ struct sdhci_host {
 	bool disable_sdio_irq_deferred; 
 	u32 auto_cmd_err_sts;
 	struct ratelimit_state dbg_dump_rs;
+	int reset_wa_applied; /* reset workaround status */
+	ktime_t reset_wa_t; /* time when the reset workaround is applied */
+	int reset_wa_cnt; /* total number of times workaround is used */
+
 	unsigned long private[0] ____cacheline_aligned;
 };
 #endif 

@@ -183,6 +183,35 @@ struct kgsl_memobj_node {
 	unsigned long priv;
 };
 
+/**
+ * struct kgsl_cmdbatch - KGSl command descriptor
+ * @device: KGSL GPU device that the command was created for
+ * @context: KGSL context that created the command
+ * @timestamp: Timestamp assigned to the command
+ * @flags: flags
+ * @priv: Internal flags
+ * @fault_policy: Internal policy describing how to handle this command in case
+ * of a fault
+ * @fault_recovery: recovery actions actually tried for this batch
+ * @expires: Point in time when the cmdbatch is considered to be hung
+ * @refcount: kref structure to maintain the reference count
+ * @cmdlist: List of IBs to issue
+ * @memlist: List of all memory used in this command batch
+ * @synclist: List of context/timestamp tuples to wait for before issuing
+ * @timer: a timer used to track possible sync timeouts for this cmdbatch
+ * @marker_timestamp: For markers, the timestamp of the last "real" command that
+ * was queued
+ * @profiling_buf_entry: Mem entry containing the profiling buffer
+ * @profiling_buffer_gpuaddr: GPU virt address of the profile buffer added here
+ * for easy access
+ * @profile_index: Index to store the start/stop ticks in the kernel profiling
+ * buffer
+ * @submit_ticks: Variable to hold ticks at the time of cmdbatch submit.
+ * This structure defines an atomic batch of command buffers issued from
+ * userspace.
+ * @timeout_jiffies: For a syncpoint cmdbatch the jiffies at which the
+ * timer will expire
+ */
 struct kgsl_cmdbatch {
 	struct kgsl_device *device;
 	struct kgsl_context *context;

@@ -123,6 +123,10 @@ switch_mm(struct mm_struct *prev, struct mm_struct *next,
 {
 	unsigned int cpu = smp_processor_id();
 
+	/*
+	 * init_mm.pgd does not contain any user mappings and it is always
+	 * active for kernel addresses in TTBR1. Just set the reserved TTBR0.
+	 */
 	if (next == &init_mm) {
 		cpu_set_reserved_ttbr0();
 		return;

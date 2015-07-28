@@ -381,7 +381,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
 			bits_per_sample = 24;
 
-		
+		/* ULL mode is not supported in capture path */
 		if (pdata->perf_mode == LEGACY_PCM_MODE)
 			prtd->audio_client->perf_mode = LEGACY_PCM_MODE;
 		else

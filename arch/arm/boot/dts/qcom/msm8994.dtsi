@@ -1276,6 +1276,8 @@
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <72 0>;
 		interrupt-names = "cdc-int";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcd_intr_default>;
 	};
 
 	tspp: msm_tspp@f99d8000 {
@@ -1442,6 +1444,7 @@
 		interrupt-names = "hs_phy_irq", "pwr_event_irq", "pmic_id_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
+		vdda33-supply = <&pm8994_l24>;
 		vbus_dwc3-supply = <&pmi8994_otg_supply>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
@@ -1472,6 +1475,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <0 131 0>;
 			tx-fifo-resize;
+			snps,usb3-u1u2-disable;
 			usb-phy = <&hsphy0>, <&ssphy0>;
 		};
 	};
@@ -1483,6 +1487,7 @@
 			<0xf9b3a000 0x110>;
 		reg-names = "core", "phy_csr";
 		vdd-supply = <&pm8994_s2_corner>;
+		vddcx-supply = <&pm8994_s1_corner>;
 		vdda18-supply = <&pm8994_l6>;
 		vdda33-supply = <&pm8994_l24>;
 		qcom,vdd-voltage-level = <1 5 7>;
@@ -2316,6 +2321,25 @@
 			};
 
 			qcom,msm-bus-client@8 {
+				qcom,msm-bus,name = "venc-ddr-lp";
+				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 66800 0>,
+					<63 512 201100 0>,
+					<63 512 201100 0>,
+					<63 512 458300 0>,
+					<63 512 458300 0>,
+					<63 512 889200 0>,
+					<63 512 1218000 0>,
+					<63 512 1218000 0>,
+					<63 512 1218000 0>;
+				qcom,bus-low-power;
+				qcom,bus-configs = <0x0000004>;
+			};
+
+			qcom,msm-bus-client@9 {
 				qcom,msm-bus,name = "venus-arm9-ddr";
 				qcom,msm-bus,num-cases = <2>;
 				qcom,msm-bus,num-paths = <1>;
@@ -2953,6 +2977,7 @@
 		qcom,bam-pipe-pair = <2>;
 		qcom,ce-hw-instance = <1>;
 		qcom,ce-device = <0>;
+		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -2980,6 +3005,7 @@
 		qcom,bam-pipe-pair = <2>;
 		qcom,ce-hw-instance = <2>;
 		qcom,ce-device = <0>;
+		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -3007,6 +3033,7 @@
 		qcom,bam-pipe-pair = <0>;
 		qcom,ce-hw-instance = <1>;
 		qcom,ce-device = <1>;
+		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -3034,6 +3061,7 @@
 		qcom,bam-pipe-pair = <0>;
 		qcom,ce-hw-instance = <2>;
 		qcom,ce-device = <1>;
+		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -3232,6 +3260,11 @@
 		sensor_information22: qcom,sensor-information@22 {
 			qcom,sensor-type =  "llm";
 			qcom,sensor-name = "LLM_IA57";
+		};
+
+		sensor_information23: qcom,sensor-information-23 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "battery";
 		};
 	};
 

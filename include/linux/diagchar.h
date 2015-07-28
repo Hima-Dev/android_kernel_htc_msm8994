@@ -389,13 +389,13 @@ static const uint32_t msg_bld_masks_5[] = {
 };
 
 static const uint32_t msg_bld_masks_6[] = {
-	MSG_LVL_MED,
-	MSG_LVL_MED,
-	MSG_LVL_MED,
-	MSG_LVL_MED,
-	MSG_LVL_MED,
-	MSG_LVL_MED,
-	MSG_LVL_MED,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
@@ -785,22 +785,22 @@ static const uint32_t msg_bld_masks_23[] = {
 };
 
 static const uint32_t log_code_last_tbl[] = {
-	0x0,	
-	0x18C1,	
-	0x0,	
-	0x0,	
-	0x4910,	
-	0x5420,	
-	0x0,	
-	0x74FF,	
-	0x0,	
-	0x0,	
-	0xA38A,	
-	0xB201,	
-	0x0,	
-	0x0,	
-	0x0,	
-	0x0,	
+	0x0,	/* EQUIP ID 0 */
+	0x18C1,	/* EQUIP ID 1 */
+	0x0,	/* EQUIP ID 2 */
+	0x0,	/* EQUIP ID 3 */
+	0x4910,	/* EQUIP ID 4 */
+	0x5420,	/* EQUIP ID 5 */
+	0x0,	/* EQUIP ID 6 */
+	0x74FF,	/* EQUIP ID 7 */
+	0x0,	/* EQUIP ID 8 */
+	0x0,	/* EQUIP ID 9 */
+	0xA38A,	/* EQUIP ID 10 */
+	0xB201,	/* EQUIP ID 11 */
+	0x0,	/* EQUIP ID 12 */
+	0x0,	/* EQUIP ID 13 */
+	0x0,	/* EQUIP ID 14 */
+	0x0,	/* EQUIP ID 15 */
 };
 
 #define LOG_GET_ITEM_NUM(xx_code)	(xx_code & 0x0FFF)

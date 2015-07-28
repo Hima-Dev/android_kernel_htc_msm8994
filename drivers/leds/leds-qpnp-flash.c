@@ -551,7 +551,7 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 		if (led->battery_psy) {
 			psy_prop.intval = false;
 			rc = led->battery_psy->set_property(led->battery_psy,
-						POWER_SUPPLY_PROP_OTG_PULSE_SKIP_ENABLE,	
+						POWER_SUPPLY_PROP_FLASH_ACTIVE,
 								&psy_prop);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
@@ -1076,7 +1076,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 
 		psy_prop.intval = true;
 		rc = led->battery_psy->set_property(led->battery_psy,
-						POWER_SUPPLY_PROP_OTG_PULSE_SKIP_ENABLE,	
+						POWER_SUPPLY_PROP_FLASH_ACTIVE,
 								&psy_prop);
 		if (rc) {
 			dev_err(&led->spmi_dev->dev,

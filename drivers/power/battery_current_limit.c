@@ -653,6 +653,11 @@ static void bcl_periph_mode_set(enum bcl_device_mode mode)
 	int ret = 0;
 
 	if (mode == BCL_DEVICE_ENABLED) {
+		/*
+		 * Power supply monitor wont send a callback till the
+		 * power state changes. Make sure we read the current SoC
+		 * and mitigate.
+		 */
 		power_supply_callback(&bcl_psy);
 		ret = power_supply_register(gbcl->dev, &bcl_psy);
 		if (ret < 0) {

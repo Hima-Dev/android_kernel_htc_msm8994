@@ -257,6 +257,10 @@ static struct kgsl_cmdbatch *_get_cmdbatch(struct adreno_context *drawctxt)
 	spin_unlock_bh(&cmdbatch->lock);
 
 	if (pending) {
+		/*
+		 * If syncpoints are pending start the canary timer if
+		 * it hasn't already been started
+		 */
 		if (!cmdbatch->timeout_jiffies) {
 			cmdbatch->timeout_jiffies = jiffies + 5 * HZ;
 			mod_timer(&cmdbatch->timer, cmdbatch->timeout_jiffies);
@@ -362,6 +366,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 		ret = kgsl_active_count_get(device);
 		if (ret) {
 			dispatcher->inflight--;
+			dispatch_q->inflight--;
 			mutex_unlock(&device->mutex);
 			return ret;
 		}

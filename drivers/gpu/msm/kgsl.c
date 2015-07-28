@@ -1366,7 +1366,7 @@ static void _kgsl_cmdbatch_timer(unsigned long data)
 	clear_bit(CMDBATCH_FLAG_FENCE_LOG, &cmdbatch->priv);
 
 	spin_lock(&cmdbatch->lock);
-	
+	/* Print all the fences */
 	list_for_each_entry(event, &cmdbatch->synclist, node) {
 		if (KGSL_CMD_SYNCPOINT_TYPE_FENCE == event->type &&
 			event->handle && event->handle->fence)
@@ -1375,6 +1375,13 @@ static void _kgsl_cmdbatch_timer(unsigned long data)
 	spin_unlock(&cmdbatch->lock);
 	dev_err(device->dev, "--gpu syncpoint deadlock print end--\n");
 }
+/**
+ * kgsl_cmdbatch_sync_event_destroy() - Destroy a sync event object
+ * @kref: Pointer to the kref structure for this object
+ *
+ * Actually destroy a sync event object.  Called from
+ * kgsl_cmdbatch_sync_event_put.
+ */
 static void kgsl_cmdbatch_sync_event_destroy(struct kref *kref)
 {
 	struct kgsl_cmdbatch_sync_event *event = container_of(kref,
@@ -3772,7 +3779,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 
 put:
 	if (IS_ERR_VALUE(ret))
-		KGSL_MEM_ERR(device,
+		KGSL_MEM_ERR_RATELIMITED(device,
 				"pid %d pgoff %lx len %ld failed error %ld\n",
 				private->pid, pgoff, len, ret);
 	kgsl_mem_entry_put(entry);

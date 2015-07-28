@@ -62,7 +62,7 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum command_response cmd, void *data);
 
-static inline bool is_turbo_session(struct msm_vidc_inst *inst)
+bool msm_comm_turbo_session(struct msm_vidc_inst *inst)
 {
 	return !!(inst->flags & VIDC_TURBO);
 }
@@ -116,7 +116,7 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 			load = 0;
 	}
 
-	if (is_turbo_session(inst)) {
+	if (msm_comm_turbo_session(inst)) {
 		if (!(quirks & LOAD_CALC_IGNORE_TURBO_LOAD))
 			load = inst->core->resources.max_load;
 	}
@@ -698,9 +698,7 @@ static void handle_event_change(enum command_response cmd, void *data)
 				"RELEASE REFERENCE EVENT FROM F/W - fd = %d offset = %d\n",
 				ptr[0], ptr[1]);
 
-			mutex_lock(&inst->sync_lock);
-
-			
+			/* Decrement buffer reference count*/
 			mutex_lock(&inst->registeredbufs.lock);
 			list_for_each_entry(temp, &inst->registeredbufs.list,
 					list) {
@@ -709,14 +707,12 @@ static void handle_event_change(enum command_response cmd, void *data)
 					break;
 				}
 			}
-			mutex_unlock(&inst->registeredbufs.lock);
 
 			if (unmap_and_deregister_buf(inst, binfo))
 				dprintk(VIDC_ERR,
 				"%s: buffer unmap failed\n", __func__);
-			mutex_unlock(&inst->sync_lock);
-
-			
+			mutex_unlock(&inst->registeredbufs.lock);
+			/*send event to client*/
 			v4l2_event_queue_fh(&inst->event_handler, &buf_event);
 			wake_up(&inst->kernel_event_queue);
 			return;
@@ -1625,8 +1621,6 @@ void handle_cmd_response(enum command_response cmd, void *data)
 		handle_seq_hdr_done(cmd, data);
 		break;
 	case SYS_WATCHDOG_TIMEOUT:
-		handle_sys_error(cmd, data);
-		break;
 	case SYS_ERROR:
 		handle_sys_error(cmd, data);
 		break;
@@ -2165,7 +2159,7 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 			if (is_thumbnail_session(temp))
 				strlcat(properties, "N", sizeof(properties));
 
-			if (is_turbo_session(temp))
+			if (msm_comm_turbo_session(temp))
 				strlcat(properties, "T", sizeof(properties));
 
 			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d|%4s\n",
@@ -2390,9 +2384,11 @@ int msm_comm_suspend(int core_id)
 		return -EINVAL;
 	}
 
+	mutex_lock(&core->lock);
 	rc = call_hfi_op(hdev, suspend, hdev->hfi_device_data);
 	if (rc)
 		dprintk(VIDC_WARN, "Failed to suspend\n");
+	mutex_unlock(&core->lock);
 
 	return rc;
 }

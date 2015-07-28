@@ -523,6 +523,7 @@ struct tomtom_priv {
 	s32 dmic_5_6_clk_cnt;
 	s32 ldo_h_users;
 	s32 micb_2_users;
+	s32 micb_3_users;
 
 	u32 anc_slot;
 	bool anc_func;
@@ -2937,13 +2938,6 @@ static int tomtom_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	if (mutex_is_locked(&tomtom->resmgr.codec_bg_clk_lock)) {
-		dev_err(codec->dev, "%s: BG_CLK already acquired\n",
-			__func__);
-		ret = -EINVAL;
-		goto done;
-	}
-
 	if (!tomtom->codec_ext_clk_en_cb) {
 		dev_err(codec->dev,
 			"%s: Invalid ext_clk_callback\n",
@@ -3529,6 +3523,11 @@ static int tomtom_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			}
 			pr_debug("%s: micb_2_users %d\n", __func__,
 				 tomtom->micb_2_users);
+		} else if (micb_ctl_reg == TOMTOM_A_MICB_3_CTL) {
+			if (++tomtom->micb_3_users == 1)
+				snd_soc_update_bits(codec, micb_ctl_reg,
+						    1 << w->shift,
+						    1 << w->shift);
 		} else {
 			snd_soc_update_bits(codec, micb_ctl_reg, 1 << w->shift,
 					    1 << w->shift);
@@ -3536,7 +3535,7 @@ static int tomtom_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(5000, 5100);
-		
+		/* Let MBHC module know so micbias is on */
 		wcd9xxx_resmgr_notifier_call(&tomtom->resmgr, e_post_on);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -3558,6 +3557,15 @@ static int tomtom_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			WARN(tomtom->micb_2_users < 0,
 			     "Unexpected micbias users %d\n",
 			     tomtom->micb_2_users);
+		} else if (micb_ctl_reg == TOMTOM_A_MICB_3_CTL) {
+			if (--tomtom->micb_3_users == 0)
+				snd_soc_update_bits(codec, micb_ctl_reg,
+						    1 << w->shift, 0);
+			pr_debug("%s: micb_3_users %d\n", __func__,
+				 tomtom->micb_3_users);
+			WARN(tomtom->micb_3_users < 0,
+			     "Unexpected micbias-3 users %d\n",
+			     tomtom->micb_3_users);
 		} else {
 			snd_soc_update_bits(codec, micb_ctl_reg, 1 << w->shift,
 					    0);
@@ -4609,6 +4617,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"ANC1 MUX", "ADC2", "ADC2"},
 	{"ANC1 MUX", "ADC3", "ADC3"},
 	{"ANC1 MUX", "ADC4", "ADC4"},
+	{"ANC1 MUX", "ADC5", "ADC5"},
+	{"ANC1 MUX", "ADC6", "ADC6"},
 	{"ANC1 MUX", "DMIC1", "DMIC1"},
 	{"ANC1 MUX", "DMIC2", "DMIC2"},
 	{"ANC1 MUX", "DMIC3", "DMIC3"},
@@ -4619,6 +4629,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"ANC2 MUX", "ADC2", "ADC2"},
 	{"ANC2 MUX", "ADC3", "ADC3"},
 	{"ANC2 MUX", "ADC4", "ADC4"},
+	{"ANC2 MUX", "ADC5", "ADC5"},
+	{"ANC2 MUX", "ADC6", "ADC6"},
 	{"ANC2 MUX", "DMIC1", "DMIC1"},
 	{"ANC2 MUX", "DMIC2", "DMIC2"},
 	{"ANC2 MUX", "DMIC3", "DMIC3"},
@@ -6207,6 +6219,9 @@ static int tomtom_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 						dai->grph);
 		if (!dai->bus_down_in_recovery)
 			ret = tomtom_codec_enable_slim_chmask(dai, false);
+		else
+			pr_debug("%s: bus in recovery skip enable slim_chmask",
+				__func__);
 		if (ret < 0) {
 			ret = wcd9xxx_disconnect_port(core,
 						      &dai->wcd9xxx_ch_list,
@@ -6214,8 +6229,6 @@ static int tomtom_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 			pr_debug("%s: Disconnect RX port, ret = %d\n",
 				 __func__, ret);
 		}
-
-		dai->bus_down_in_recovery = false;
 		break;
 	}
 	return ret;
@@ -6314,7 +6327,6 @@ static int tomtom_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				TOMTOM_A_SPKR2_PROT_EN, 0x88, 0x00);
 		}
-		dai->bus_down_in_recovery = false;
 		break;
 	}
 out_vi:
@@ -6353,8 +6365,6 @@ static int __tomtom_codec_enable_slimtx(struct snd_soc_codec *codec,
 				"%s: Disconnect TX port, ret = %d\n",
 				 __func__, ret);
 		}
-
-		dai_data->bus_down_in_recovery = false;
 		break;
 	}
 
@@ -7405,8 +7415,8 @@ static const struct wcd9xxx_reg_mask_val tomtom_reg_defaults[] = {
 	TOMTOM_REG_VAL(TOMTOM_A_CDC_CLK_OTHR_CTL, 0x00),
 	TOMTOM_REG_VAL(TOMTOM_A_CDC_MAD_INP_SEL, 0x01),
 
-	
-	TOMTOM_REG_VAL(TOMTOM_A_RX_HPH_BIAS_PA, 0x55),
+	/* Set HPH Path to low power mode */
+	TOMTOM_REG_VAL(TOMTOM_A_RX_HPH_BIAS_PA, 0x57),
 
 	
 	TOMTOM_REG_VAL(TOMTOM_A_BUCK_CTRL_CCL_4, 0x51),
@@ -7765,6 +7775,7 @@ static void tomtom_init_slim_slave_cfg(struct snd_soc_codec *codec)
 
 static int tomtom_device_down(struct wcd9xxx *wcd9xxx)
 {
+	int count;
 	struct snd_soc_codec *codec;
 	struct tomtom_priv *priv;
 
@@ -7774,6 +7785,8 @@ static int tomtom_device_down(struct wcd9xxx *wcd9xxx)
 	snd_soc_card_change_online_state(codec->card, 0);
 	set_bit(BUS_DOWN, &priv->status_mask);
 
+	for (count = 0; count < NUM_CODEC_DAIS; count++)
+		priv->dai[count].bus_down_in_recovery = true;
 	return 0;
 }
 
@@ -8252,7 +8265,6 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 #ifdef USE_CODEC_MBHC
 	int rco_clk_rate;
 #endif
-	int count;
 
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	tomtom = snd_soc_codec_get_drvdata(codec);
@@ -8307,9 +8319,11 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	if (ret)
 		pr_err("%s: Failed to setup irq: %d\n", __func__, ret);
 
-	for (count = 0; count < NUM_CODEC_DAIS; count++)
-		tomtom->dai[count].bus_down_in_recovery = true;
-
+	/*
+	 * After SSR, the qfuse sensing is lost.
+	 * Perform qfuse sensing again after SSR
+	 * handling is finished.
+	 */
 	tomtom_enable_qfuse_sensing(codec);
 	mutex_unlock(&codec->mutex);
 	return ret;
@@ -8604,6 +8618,7 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	tomtom->aux_r_gain = 0x1F;
 	tomtom->ldo_h_users = 0;
 	tomtom->micb_2_users = 0;
+	tomtom->micb_3_users = 0;
 	tomtom_update_reg_defaults(codec);
 	pr_debug("%s: MCLK Rate = %x\n", __func__, wcd9xxx->mclk_rate);
 	if (wcd9xxx->mclk_rate == TOMTOM_MCLK_CLK_12P288MHZ)
