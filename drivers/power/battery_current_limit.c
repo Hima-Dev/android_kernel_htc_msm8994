@@ -31,13 +31,7 @@
 
 #define BCL_DEV_NAME "battery_current_limit"
 #define BCL_NAME_LENGTH 20
-/*
- * Default BCL poll interval 1000 msec
- */
 #define BCL_POLL_INTERVAL 1000
-/*
- * Mininum BCL poll interval 10 msec
- */
 #define MIN_BCL_POLL_INTERVAL 10
 #define BATTERY_VOLTAGE_MIN 3400
 #define BTM_8084_FREQ_MITIG_LIMIT 1958400
@@ -49,25 +43,16 @@
 			goto _exit; \
 	} while (0)
 
-/*
- * Battery Current Limit Enable or Not
- */
 enum bcl_device_mode {
 	BCL_DEVICE_DISABLED = 0,
 	BCL_DEVICE_ENABLED,
 };
 
-/*
- * Battery Current Limit Iavail Threshold Mode set
- */
 enum bcl_iavail_threshold_mode {
 	BCL_IAVAIL_THRESHOLD_DISABLED = 0,
 	BCL_IAVAIL_THRESHOLD_ENABLED,
 };
 
-/*
- * Battery Current Limit Iavail Threshold Mode
- */
 enum bcl_iavail_threshold_type {
 	BCL_LOW_THRESHOLD_TYPE = 0,
 	BCL_HIGH_THRESHOLD_TYPE,
@@ -110,68 +95,64 @@ int adc_timer_val_usec[] = {
 	[ADC_MEAS1_INTERVAL_16S] = 16000000,
 };
 
-/**
- * BCL control block
- *
- */
 struct bcl_context {
-	/* BCL device */
+	
 	struct device *dev;
 
-	/* BCL related config parameter */
-	/* BCL mode enable or not */
+	
+	
 	enum bcl_device_mode bcl_mode;
-	/* BCL monitoring Iavail or Ibat */
+	
 	enum bcl_monitor_type bcl_monitor_type;
-	/* BCL Iavail Threshold Activate or Not */
+	
 	enum bcl_iavail_threshold_mode
 				bcl_threshold_mode[BCL_THRESHOLD_TYPE_MAX];
-	/* BCL Iavail Threshold value in milli Amp */
+	
 	int bcl_threshold_value_ma[BCL_THRESHOLD_TYPE_MAX];
-	/* BCL Type */
+	
 	char bcl_type[BCL_NAME_LENGTH];
-	/* BCL poll in msec */
+	
 	int bcl_poll_interval_msec;
 
-	/* BCL realtime value based on poll */
-	/* BCL realtime vbat in mV*/
+	
+	
 	int bcl_vbat_mv;
-	/* BCL realtime rbat in mOhms*/
+	
 	int bcl_rbat_mohm;
-	/*BCL realtime iavail in milli Amp*/
+	
 	int bcl_iavail;
-	/*BCL vbatt min in mV*/
+	
 	int bcl_vbat_min;
-	/* BCL period poll delay work structure  */
+	
 	struct delayed_work bcl_iavail_work;
-	/* For non-bms target */
+	
 	bool bcl_no_bms;
-	/* The max CPU frequency the BTM restricts during high load */
+	
 	uint32_t btm_freq_max;
-	/* Indicates whether there is a high load */
+	
 	enum bcl_adc_monitor_mode btm_mode;
-	/* battery current high load clr threshold */
+	
 	int btm_low_threshold_uv;
-	/* battery current high load threshold */
+	
 	int btm_high_threshold_uv;
-	/* ADC battery current polling timer interval */
+	
 	enum qpnp_adc_meas_timer_1 btm_adc_interval;
-	/* Ibat ADC config parameters */
+	
 	struct qpnp_adc_tm_chip *btm_adc_tm_dev;
 	struct qpnp_vadc_chip *btm_vadc_dev;
 	int btm_ibat_chan;
 	struct qpnp_adc_tm_btm_param btm_ibat_adc_param;
 	uint32_t btm_uv_to_ua_numerator;
 	uint32_t btm_uv_to_ua_denominator;
-	/* Vph ADC config parameters */
+	
 	int btm_vph_chan;
 	uint32_t btm_vph_high_thresh;
 	uint32_t btm_vph_low_thresh;
 	struct qpnp_adc_tm_btm_param btm_vph_adc_param;
-	/* Low temp min freq limit requested by thermal */
+	
 	uint32_t thermal_freq_limit;
 
-	/* BCL Peripheral monitor parameters */
+	
 	struct bcl_threshold ibat_high_thresh;
 	struct bcl_threshold ibat_low_thresh;
 	struct bcl_threshold vbat_high_thresh;
@@ -187,7 +168,8 @@ enum bcl_threshold_state {
 
 static struct bcl_context *gbcl;
 static enum bcl_threshold_state bcl_vph_state = BCL_THRESHOLD_DISABLED,
-		bcl_ibat_state = BCL_THRESHOLD_DISABLED;
+		bcl_ibat_state = BCL_THRESHOLD_DISABLED,
+		bcl_soc_state = BCL_THRESHOLD_DISABLED;
 static DEFINE_MUTEX(bcl_notify_mutex);
 static uint32_t bcl_hotplug_request, bcl_hotplug_mask, bcl_soc_hotplug_mask;
 static uint32_t bcl_frequency_mask;
@@ -213,23 +195,18 @@ static void bcl_update_online_mask(void)
 static void __ref bcl_handle_hotplug(struct work_struct *work)
 {
 	int ret = 0, _cpu = 0;
-	uint32_t prev_hotplug_request = 0;
 
 	mutex_lock(&bcl_hotplug_mutex);
 	if (cpumask_empty(bcl_cpu_online_mask))
 		bcl_update_online_mask();
-	prev_hotplug_request = bcl_hotplug_request;
 
-	if  (battery_soc_val <= soc_low_threshold
+	if  (bcl_soc_state == BCL_LOW_THRESHOLD
 		|| bcl_vph_state == BCL_LOW_THRESHOLD)
 		bcl_hotplug_request = bcl_soc_hotplug_mask;
 	else if (bcl_ibat_state == BCL_HIGH_THRESHOLD)
 		bcl_hotplug_request = bcl_hotplug_mask;
 	else
 		bcl_hotplug_request = 0;
-
-	if (bcl_hotplug_request == prev_hotplug_request)
-		goto handle_hotplug_exit;
 
 	for_each_possible_cpu(_cpu) {
 		if ((!(bcl_hotplug_mask & BIT(_cpu))
@@ -247,8 +224,7 @@ static void __ref bcl_handle_hotplug(struct work_struct *work)
 			else
 				pr_info("Set Offline CPU:%d\n", _cpu);
 		} else {
-			if (cpu_online(_cpu)
-				|| !(prev_hotplug_request & BIT(_cpu)))
+			if (cpu_online(_cpu))
 				continue;
 			ret = cpu_up(_cpu);
 			if (ret)
@@ -259,7 +235,6 @@ static void __ref bcl_handle_hotplug(struct work_struct *work)
 		}
 	}
 
-handle_hotplug_exit:
 	mutex_unlock(&bcl_hotplug_mutex);
 	return;
 }
@@ -307,7 +282,7 @@ static int bcl_cpufreq_callback(struct notifier_block *nfb,
 	case CPUFREQ_INCOMPATIBLE:
 		if (bcl_vph_state == BCL_LOW_THRESHOLD
 			|| bcl_ibat_state == BCL_HIGH_THRESHOLD
-			|| battery_soc_val <= soc_low_threshold) {
+			|| bcl_soc_state == BCL_LOW_THRESHOLD) {
 			max_freq = (gbcl->bcl_monitor_type
 				== BCL_IBAT_MONITOR_TYPE) ? gbcl->btm_freq_max
 				: gbcl->bcl_p_freq_max;
@@ -348,6 +323,12 @@ static void power_supply_callback(struct power_supply *psy)
 	static struct power_supply *bms_psy;
 	union power_supply_propval ret = {0,};
 	int battery_percentage;
+	enum bcl_threshold_state prev_soc_state;
+
+	if (gbcl->bcl_mode != BCL_DEVICE_ENABLED) {
+		pr_debug("BCL is not enabled\n");
+		return;
+	}
 
 	if (!bms_psy)
 		bms_psy = power_supply_get_by_name("bms");
@@ -357,6 +338,11 @@ static void power_supply_callback(struct power_supply *psy)
 		battery_percentage = ret.intval;
 		battery_soc_val = battery_percentage;
 		pr_debug("Battery SOC reported:%d", battery_soc_val);
+		prev_soc_state = bcl_soc_state;
+		bcl_soc_state = (battery_soc_val <= soc_low_threshold) ?
+					BCL_LOW_THRESHOLD : BCL_HIGH_THRESHOLD;
+		if (bcl_soc_state == prev_soc_state)
+			return;
 		if (bcl_hotplug_enabled)
 			schedule_work(&bcl_hotplug_work);
 		update_cpu_freq();
@@ -412,10 +398,6 @@ static int bcl_get_resistance(int *rbatt_mohm)
 	return 0;
 }
 
-/*
- * BCL iavail calculation and trigger notification to user space
- * if iavail cross threshold
- */
 static void bcl_calculate_iavail_trigger(void)
 {
 	int iavail_ma = 0;
@@ -458,9 +440,6 @@ static void bcl_calculate_iavail_trigger(void)
 		sysfs_notify(&gbcl->dev->kobj, NULL, "type");
 }
 
-/*
- * BCL iavail work
- */
 static void bcl_iavail_work(struct work_struct *work)
 {
 	struct bcl_context *bcl = container_of(work,
@@ -468,7 +447,7 @@ static void bcl_iavail_work(struct work_struct *work)
 
 	if (gbcl->bcl_mode == BCL_DEVICE_ENABLED) {
 		bcl_calculate_iavail_trigger();
-		/* restart the delay work for caculating imax */
+		
 		schedule_delayed_work(&bcl->bcl_iavail_work,
 			msecs_to_jiffies(bcl->bcl_poll_interval_msec));
 	}
@@ -603,7 +582,7 @@ static int uSec_to_adc_time(struct bcl_context *bcl, int us)
 		i >= 0 && adc_timer_val_usec[i] > us; i--)
 		;
 
-	/* disallow continous mode */
+	
 	if (i <= 0)
 		return -EINVAL;
 
@@ -674,6 +653,12 @@ static void bcl_periph_mode_set(enum bcl_device_mode mode)
 	int ret = 0;
 
 	if (mode == BCL_DEVICE_ENABLED) {
+		power_supply_callback(&bcl_psy);
+		ret = power_supply_register(gbcl->dev, &bcl_psy);
+		if (ret < 0) {
+			pr_err("Unable to register bcl_psy rc = %d\n", ret);
+			return;
+		}
 		ret = msm_bcl_set_threshold(BCL_PARAM_CURRENT, BCL_HIGH_TRIP,
 			&gbcl->ibat_high_thresh);
 		if (ret) {
@@ -709,14 +694,17 @@ static void bcl_periph_mode_set(enum bcl_device_mode mode)
 		}
 		gbcl->btm_mode = BCL_VPH_MONITOR_MODE;
 	} else {
+		power_supply_unregister(&bcl_psy);
 		ret = msm_bcl_disable();
 		if (ret) {
 			pr_err("Error disabling BCL\n");
 			return;
 		}
 		gbcl->btm_mode = BCL_MONITOR_DISABLED;
+		bcl_soc_state = BCL_THRESHOLD_DISABLED;
 		bcl_vph_notify(BCL_HIGH_THRESHOLD);
 		bcl_ibat_notify(BCL_LOW_THRESHOLD);
+		bcl_handle_hotplug(NULL);
 	}
 }
 
@@ -813,9 +801,6 @@ set_thresh:
 	return;
 }
 
-/*
- * Set BCL mode
- */
 static void bcl_mode_set(enum bcl_device_mode mode)
 {
 	if (!gbcl)
@@ -901,8 +886,8 @@ mode_store(struct device *dev, struct device_attribute *attr,
 		return -EPERM;
 
 	if (!strcmp(buf, "enable")) {
-		bcl_mode_set(BCL_DEVICE_ENABLED);
 		bcl_update_online_mask();
+		bcl_mode_set(BCL_DEVICE_ENABLED);
 		pr_info("bcl enabled\n");
 	} else if (!strcmp(buf, "disable")) {
 		bcl_mode_set(BCL_DEVICE_DISABLED);
@@ -1237,9 +1222,6 @@ static ssize_t hotplug_soc_mask_store(struct device *dev,
 
 	return count;
 }
-/*
- * BCL device attributes
- */
 static struct device_attribute bcl_dev_attr[] = {
 	__ATTR(type, 0444, type_show, NULL),
 	__ATTR(iavail, 0444, iavail_show, NULL),
@@ -1688,8 +1670,8 @@ static int bcl_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	/* For BCL */
-	/* Init default BCL params */
+	
+	
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,bcl-enable"))
 		bcl_mode = BCL_DEVICE_ENABLED;
 	else
@@ -1746,11 +1728,6 @@ static int bcl_probe(struct platform_device *pdev)
 	bcl_psy.set_property     = bcl_battery_set_property;
 	bcl_psy.num_properties = 0;
 	bcl_psy.external_power_changed = power_supply_callback;
-	ret = power_supply_register(&pdev->dev, &bcl_psy);
-	if (ret < 0) {
-		pr_err("Unable to register bcl_psy rc = %d\n", ret);
-		return ret;
-	}
 
 	gbcl = bcl;
 	platform_set_drvdata(pdev, bcl);
@@ -1762,6 +1739,17 @@ static int bcl_probe(struct platform_device *pdev)
 		bcl_mode_set(bcl_mode);
 
 	return 0;
+}
+
+void set_bcl_freq_limit(uint32_t freq_limit)
+{
+	uint32_t *freq_lim = NULL;
+
+	freq_lim = (gbcl->bcl_monitor_type == BCL_IBAT_MONITOR_TYPE) ?
+			&gbcl->btm_freq_max : &gbcl->bcl_p_freq_max;
+
+	if (freq_lim)
+		*freq_lim = freq_limit;
 }
 
 static int bcl_remove(struct platform_device *pdev)

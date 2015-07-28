@@ -21,7 +21,7 @@
 static struct qseecom_handle *sdmx_qseecom_handles[SDMX_MAX_SESSIONS];
 static struct mutex sdmx_lock[SDMX_MAX_SESSIONS];
 
-#define QSEECOM_SBUFF_SIZE	SZ_16K
+#define QSEECOM_SBUFF_SIZE	SZ_128K
 #define QSEECOM_ALIGN_SIZE	0x40
 #define QSEECOM_ALIGN_MASK	(QSEECOM_ALIGN_SIZE - 1)
 #define QSEECOM_ALIGN(x)	\
@@ -47,18 +47,18 @@ enum sdmx_cmd_id {
 #pragma pack(push, sdmx, 1)
 
 struct __sdmx_buff_descr {
-	/* 32bit Physical address where buffer starts */
+	
 	u32 base_addr;
 
-	/* Size of buffer */
+	
 	u32 size;
 };
 
 struct __sdmx_data_buff_descr {
-	/* 32bit Physical chunks of the buffer */
+	
 	struct __sdmx_buff_descr buff_chunks[SDMX_MAX_PHYSICAL_CHUNKS];
 
-	/* Length of buffer */
+	
 	u32 length;
 };
 
@@ -240,12 +240,6 @@ static int get_cmd_rsp_buffers(int handle_index,
 	return SDMX_SUCCESS;
 }
 
-/*
- * Returns version of secure-demux app.
- *
- * @session_handle: Returned instance handle. Must not be NULL.
- * Return error code
- */
 int sdmx_get_version(int session_handle, int32_t *version)
 {
 	int res, cmd_len, rsp_len;
@@ -260,19 +254,19 @@ int sdmx_get_version(int session_handle, int32_t *version)
 	cmd_len = sizeof(struct sdmx_get_version_req);
 	rsp_len = sizeof(struct sdmx_get_version_rsp);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_GET_VERSION_CMD;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -291,12 +285,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_get_version);
 
-/*
- * Initializes a new secure demux instance and returns a handle of the instance.
- *
- * @session_handle: handle of a secure demux instance to get its version.
- * Return the version if successfull or an error code.
- */
 int sdmx_open_session(int *session_handle)
 {
 	int res, cmd_len, rsp_len;
@@ -306,11 +294,11 @@ int sdmx_open_session(int *session_handle)
 	struct qseecom_handle *qseecom_handle = NULL;
 	int32_t version;
 
-	/* Input validation */
+	
 	if (session_handle == NULL)
 		return SDMX_STATUS_GENERAL_FAILURE;
 
-	/* Start the TZ app */
+	
 	res = qseecom_start_app(&qseecom_handle, "securemm",
 		QSEECOM_SBUFF_SIZE);
 
@@ -320,7 +308,7 @@ int sdmx_open_session(int *session_handle)
 	cmd_len = sizeof(struct sdmx_open_ses_req);
 	rsp_len = sizeof(struct sdmx_open_ses_rsp);
 
-	/* Get command and response buffers */
+	
 	cmd = (struct sdmx_open_ses_req *)qseecom_handle->sbuf;
 
 	if (cmd_len & QSEECOM_ALIGN_MASK)
@@ -331,13 +319,13 @@ int sdmx_open_session(int *session_handle)
 	if (rsp_len & QSEECOM_ALIGN_MASK)
 		rsp_len = QSEECOM_ALIGN(rsp_len);
 
-	/* Will be later overridden by SDMX response */
+	
 	*session_handle = SDMX_INVALID_SESSION_HANDLE;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_OPEN_SESSION_CMD;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(qseecom_handle, (void *)cmd, cmd_len,
 		(void *)rsp, rsp_len);
 
@@ -346,15 +334,15 @@ int sdmx_open_session(int *session_handle)
 		return SDMX_STATUS_GENERAL_FAILURE;
 	}
 
-	/* Parse response struct */
+	
 	*session_handle = rsp->session_handle;
 
-	/* Initialize handle and mutex */
+	
 	sdmx_qseecom_handles[*session_handle] = qseecom_handle;
 	mutex_init(&sdmx_lock[*session_handle]);
 	ret = rsp->ret;
 
-	/* Get and print the app version */
+	
 	version_ret = sdmx_get_version(*session_handle, &version);
 	if (SDMX_SUCCESS == version_ret)
 		pr_info("TZ SDMX version is %x.%x\n", version >> 8,
@@ -366,12 +354,6 @@ int sdmx_open_session(int *session_handle)
 }
 EXPORT_SYMBOL(sdmx_open_session);
 
-/*
- * Closes a secure demux instance.
- *
- * @session_handle: handle of a secure demux instance to close.
- * Return error code
- */
 int sdmx_close_session(int session_handle)
 {
 	int res, cmd_len, rsp_len;
@@ -385,20 +367,20 @@ int sdmx_close_session(int session_handle)
 	cmd_len = sizeof(struct sdmx_close_ses_req);
 	rsp_len = sizeof(struct sdmx_close_ses_rsp);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_CLOSE_SESSION_CMD;
 	cmd->session_handle = session_handle;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -409,7 +391,7 @@ int sdmx_close_session(int session_handle)
 
 	ret = rsp->ret;
 
-	/* Shutdown the TZ app (or at least free the current handle) */
+	
 	res = qseecom_shutdown_app(&sdmx_qseecom_handles[session_handle]);
 	if (res < 0) {
 		mutex_unlock(&sdmx_lock[session_handle]);
@@ -424,18 +406,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_close_session);
 
-/*
- * Configures an open secure demux instance.
- *
- * @session_handle: secure demux instance
- * @proc_mode: Defines secure demux's behavior in case of output
- *             buffer overflow.
- * @inp_mode: Defines the input encryption settings.
- * @pkt_format: TS packet length in input buffer.
- * @odd_scramble_bits: Value of the scramble bits indicating the ODD key.
- * @even_scramble_bits: Value of the scramble bits indicating the EVEN key.
- * Return error code
- */
 int sdmx_set_session_cfg(int session_handle,
 	enum sdmx_proc_mode proc_mode,
 	enum sdmx_inp_mode inp_mode,
@@ -454,16 +424,16 @@ int sdmx_set_session_cfg(int session_handle,
 	cmd_len = sizeof(struct sdmx_ses_cfg_req);
 	rsp_len = sizeof(struct sdmx_ses_cfg_rsp);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_SET_SESSION_CFG_CMD;
 	cmd->session_handle = session_handle;
 	cmd->process_mode = proc_mode;
@@ -472,7 +442,7 @@ int sdmx_set_session_cfg(int session_handle,
 	cmd->odd_scramble_bits = odd_scramble_bits;
 	cmd->even_scramble_bits = even_scramble_bits;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -489,23 +459,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_set_session_cfg);
 
-/*
- * Creates a new secure demux filter and returns a filter handle
- *
- * @session_handle: secure demux instance
- * @pid: pid to filter
- * @filter_type: type of filtering
- * @meta_data_buf: meta data buffer descriptor
- * @data_buf_mode: data buffer mode (ring/linear)
- * @num_data_bufs: number of data buffers (use 1 for a ring buffer)
- * @data_bufs: data buffers descriptors array
- * @filter_handle: returned filter handle
- * @ts_out_format: output format for raw filters
- * @flags: optional flags for filter
- *	   (currently only clear section CRC verification is supported)
- *
- * Return error code
- */
 int sdmx_add_filter(int session_handle,
 	u16 pid,
 	enum sdmx_filter filterype,
@@ -530,19 +483,19 @@ int sdmx_add_filter(int session_handle,
 		+ num_data_bufs * sizeof(struct __sdmx_data_buff_descr);
 	rsp_len = sizeof(struct sdmx_add_filt_rsp);
 
-	/* Will be later overridden by SDMX response */
+	
 	*filter_handle = SDMX_INVALID_FILTER_HANDLE;
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_ADD_FILTER_CMD;
 	cmd->session_handle = session_handle;
 	cmd->pid = (u32)pid;
@@ -568,7 +521,7 @@ int sdmx_add_filter(int session_handle,
 		cmd->data_bufs[i].length = data_bufs[i].length;
 	}
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -577,7 +530,7 @@ int sdmx_add_filter(int session_handle,
 		return SDMX_STATUS_GENERAL_FAILURE;
 	}
 
-	/* Parse response struct */
+	
 	*filter_handle = rsp->filter_handle;
 	ret = rsp->ret;
 out:
@@ -587,14 +540,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_add_filter);
 
-/*
- * Removes a secure demux filter
- *
- * @session_handle: secure demux instance
- * @filter_handle: filter handle to remove
- *
- * Return error code
- */
 int sdmx_remove_filter(int session_handle, int filter_handle)
 {
 	int res, cmd_len, rsp_len;
@@ -608,21 +553,21 @@ int sdmx_remove_filter(int session_handle, int filter_handle)
 	cmd_len = sizeof(struct sdmx_rem_filt_req);
 	rsp_len = sizeof(struct sdmx_rem_filt_rsp);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_REMOVE_FILTER_CMD;
 	cmd->session_handle = session_handle;
 	cmd->filter_handle = filter_handle;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -639,18 +584,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_remove_filter);
 
-/*
- * Associates a key ladder index for the specified pid
- *
- * @session_handle: secure demux instance
- * @pid: pid
- * @key_ladder_index: key ladder index to associate to the pid
- *
- * Return error code
- *
- * Note: if pid already has some key ladder index associated, it will be
- * overridden.
- */
 int sdmx_set_kl_ind(int session_handle, u16 pid, u32 key_ladder_index)
 {
 	int res, cmd_len, rsp_len;
@@ -664,22 +597,22 @@ int sdmx_set_kl_ind(int session_handle, u16 pid, u32 key_ladder_index)
 	cmd_len = sizeof(struct sdmx_set_kl_ind_req);
 	rsp_len = sizeof(struct sdmx_set_kl_ind_rsp);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_SET_KL_IDX_CMD;
 	cmd->session_handle = session_handle;
 	cmd->pid = (u32)pid;
 	cmd->kl_index = key_ladder_index;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -696,15 +629,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_set_kl_ind);
 
-/*
- * Adds the specified pid to an existing raw (recording) filter
- *
- * @session_handle: secure demux instance
- * @filter_handle: raw filter handle
- * @pid: pid
- *
- * Return error code
- */
 int sdmx_add_raw_pid(int session_handle, int filter_handle, u16 pid)
 {
 	int res, cmd_len, rsp_len;
@@ -718,22 +642,22 @@ int sdmx_add_raw_pid(int session_handle, int filter_handle, u16 pid)
 	cmd_len = sizeof(struct sdmx_add_raw_req);
 	rsp_len = sizeof(struct sdmx_add_raw_rsp);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_ADD_RAW_PID_CMD;
 	cmd->session_handle = session_handle;
 	cmd->filter_handle = filter_handle;
 	cmd->pid = (u32)pid;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -750,15 +674,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_add_raw_pid);
 
-/*
- * Removes the specified pid from a raw (recording) filter
- *
- * @session_handle: secure demux instance
- * @filter_handle: raw filter handle
- * @pid: pid
- *
- * Return error code
- */
 int sdmx_remove_raw_pid(int session_handle, int filter_handle, u16 pid)
 {
 	int res, cmd_len, rsp_len;
@@ -772,22 +687,22 @@ int sdmx_remove_raw_pid(int session_handle, int filter_handle, u16 pid)
 	cmd_len = sizeof(struct sdmx_rem_raw_req);
 	rsp_len = sizeof(struct sdmx_rem_raw_rsp);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_REMOVE_RAW_PID_CMD;
 	cmd->session_handle = session_handle;
 	cmd->filter_handle = filter_handle;
 	cmd->pid = (u32)pid;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -804,21 +719,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_remove_raw_pid);
 
-/*
- * Call secure demux to perform processing on the specified input buffer
- *
- * @session_handle: secure demux instance
- * @flags: input flags. Currently only EOS marking is supported.
- * @input_buf_desc: input buffer descriptor
- * @input_fill_count: number of bytes available in input buffer
- * @input_read_offset: offset inside input buffer where data starts
- * @error_indicators: returned general error indicators
- * @status_indicators: returned general status indicators
- * @num_filters: number of filters in filter status array
- * @filter_status: filter status descriptor array
- *
- * Return error code
- */
 int sdmx_process(int session_handle, u8 flags,
 	struct sdmx_buff_descr *input_buf_desc,
 	u32 *input_fill_count,
@@ -844,16 +744,16 @@ int sdmx_process(int session_handle, u8 flags,
 		+ num_filters * sizeof(struct sdmx_filter_status);
 	rsp_len = sizeof(struct sdmx_proc_rsp);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_PROCESS_CMD;
 	cmd->session_handle = session_handle;
 	cmd->flags = flags;
@@ -865,7 +765,7 @@ int sdmx_process(int session_handle, u8 flags,
 	memcpy(cmd->filters_status, filter_status,
 		num_filters * sizeof(struct sdmx_filter_status));
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -874,7 +774,7 @@ int sdmx_process(int session_handle, u8 flags,
 		return SDMX_STATUS_GENERAL_FAILURE;
 	}
 
-	/* Parse response struct */
+	
 	*input_fill_count = rsp->inp_fill_cnt;
 	*input_read_offset = rsp->in_rd_offset;
 	*error_indicators = rsp->err_indicators;
@@ -889,16 +789,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_process);
 
-/*
- * Returns session-level & filter-level debug counters
- *
- * @session_handle: secure demux instance
- * @session_counters: returned session-level debug counters
- * @num_filters: returned number of filters reported in filter_counters
- * @filter_counters: returned filter-level debug counters array
- *
- * Return error code
- */
 int sdmx_get_dbg_counters(int session_handle,
 	struct sdmx_session_dbg_counters *session_counters,
 	u32 *num_filters,
@@ -918,21 +808,21 @@ int sdmx_get_dbg_counters(int session_handle,
 	rsp_len = sizeof(struct sdmx_get_counters_rsp)
 		+ *num_filters * sizeof(struct sdmx_filter_dbg_counters);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_GET_DBG_COUNTERS_CMD;
 	cmd->session_handle = session_handle;
 	cmd->num_filters = *num_filters;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -941,7 +831,7 @@ int sdmx_get_dbg_counters(int session_handle,
 		return SDMX_STATUS_GENERAL_FAILURE;
 	}
 
-	/* Parse response struct */
+	
 	*session_counters = rsp->session_counters;
 	*num_filters = rsp->num_filters;
 	memcpy(filter_counters, rsp->filter_counters,
@@ -954,13 +844,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_get_dbg_counters);
 
-/*
- * Reset debug counters
- *
- * @session_handle: secure demux instance
- *
- * Return error code
- */
 int sdmx_reset_dbg_counters(int session_handle)
 {
 	int res, cmd_len, rsp_len;
@@ -974,20 +857,20 @@ int sdmx_reset_dbg_counters(int session_handle)
 	cmd_len = sizeof(struct sdmx_rst_counters_req);
 	rsp_len = sizeof(struct sdmx_rst_counters_rsp);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_RESET_DBG_COUNTERS_CMD;
 	cmd->session_handle = session_handle;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 
@@ -1004,14 +887,6 @@ out:
 }
 EXPORT_SYMBOL(sdmx_reset_dbg_counters);
 
-/*
- * Set debug log verbosity level
- *
- * @session_handle: secure demux instance
- * @level: requested log level
- *
- * Return error code
- */
 int sdmx_set_log_level(int session_handle, enum sdmx_log_level level)
 {
 	int res, cmd_len, rsp_len;
@@ -1022,21 +897,21 @@ int sdmx_set_log_level(int session_handle, enum sdmx_log_level level)
 	cmd_len = sizeof(struct sdmx_set_log_level_req);
 	rsp_len = sizeof(struct sdmx_set_log_level_rsp);
 
-	/* Lock shared memory */
+	
 	mutex_lock(&sdmx_lock[session_handle]);
 
-	/* Get command and response buffers */
+	
 	ret = get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
 		(void **)&rsp, &rsp_len);
 	if (ret)
 		goto out;
 
-	/* Populate command struct */
+	
 	cmd->cmd_id = SDMX_SET_LOG_LEVEL_CMD;
 	cmd->session_handle = session_handle;
 	cmd->level = level;
 
-	/* Issue QSEECom command */
+	
 	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
 		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
 	if (res < 0) {
@@ -1045,7 +920,7 @@ int sdmx_set_log_level(int session_handle, enum sdmx_log_level level)
 	}
 	ret = rsp->ret;
 out:
-	/* Unlock */
+	
 	mutex_unlock(&sdmx_lock[session_handle]);
 	return ret;
 }

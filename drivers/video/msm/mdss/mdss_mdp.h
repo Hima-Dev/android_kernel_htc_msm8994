@@ -48,12 +48,11 @@
 #define MAX_FREE_LIST_SIZE	12
 #define OVERLAY_MAX		10
 
-#define C3_ALPHA	3	/* alpha */
-#define C2_R_Cr		2	/* R/Cr */
-#define C1_B_Cb		1	/* B/Cb */
-#define C0_G_Y		0	/* G/luma */
+#define C3_ALPHA	3	
+#define C2_R_Cr		2	
+#define C1_B_Cb		1	
+#define C0_G_Y		0	
 
-/* wait for at most 2 vsync for lowest refresh rate (24hz) */
 #define KOFF_TIMEOUT msecs_to_jiffies(84)
 
 #define OVERFETCH_DISABLE_TOP		BIT(0)
@@ -119,8 +118,10 @@ enum mdss_mdp_block_type {
 
 enum mdss_mdp_csc_type {
 	MDSS_MDP_CSC_RGB2RGB,
-	MDSS_MDP_CSC_YUV2RGB,
-	MDSS_MDP_CSC_RGB2YUV,
+	MDSS_MDP_CSC_YUV2RGB_601,
+	MDSS_MDP_CSC_YUV2RGB_601_FR,
+	MDSS_MDP_CSC_RGB2YUV_601,
+	MDSS_MDP_CSC_RGB2YUV_601_FR,
 	MDSS_MDP_CSC_YUV2YUV,
 	MDSS_MDP_MAX_CSC
 };
@@ -143,14 +144,6 @@ enum mdss_mdp_panic_signal_type {
 	MDSS_MDP_PANIC_PER_PIPE_CFG,
 };
 
-/**
- * enum mdp_commit_stage_type - Indicate different commit stages
- *
- * @MDP_COMMIT_STATE_WAIT_FOR_PINGPONG:	At the stage of being ready to
-*			wait for pingpong buffer.
- * @MDP_COMMIT_STATE_PINGPONG_DONE:		At the stage that pingpong
- *			buffer is ready.
- */
 enum mdp_commit_stage_type {
 	MDP_COMMIT_STAGE_SETUP_DONE,
 	MDP_COMMIT_STAGE_READY_FOR_KICKOFF,
@@ -177,19 +170,6 @@ enum mdss_mdp_bw_vote_mode {
 	MDSS_MDP_BW_MODE_MAX
 };
 
-/**
- * enum perf_calc_vote_mode - enum to describe the kind of object that the
- *		mdss_mdp_get_bw_vote_mode function needs to analyze in order to
- *		decide if an extra efficiency factor is needed.
- *		Depending in the properties of each specific object (determined
- *		by this enum), driver decides if the mode to vote needs an
- *		extra factor.
- *
- * @PERF_CALC_VOTE_MODE_PER_PIPE: used to check if efficiency factor is needed
- *		based in the pipe properties.
- * @PERF_CALC_VOTE_MODE_CTL: used to check if efficiency factor is needed based
- *		in the controller properties.
- */
 enum perf_calc_vote_mode {
 	PERF_CALC_VOTE_MODE_PER_PIPE,
 	PERF_CALC_VOTE_MODE_CTL,
@@ -230,7 +210,7 @@ struct mdss_mdp_ctl {
 	int power_state;
 
 	u32 intf_num;
-	u32 slave_intf_num; /* ping-pong split */
+	u32 slave_intf_num; 
 	u32 intf_type;
 
 	u32 opmode;
@@ -312,14 +292,6 @@ struct mdss_mdp_mixer {
 	u16 cursor_hoty;
 	u8 rotator_mode;
 
-	/*
-	 * src_split_req is valid only for right layer mixer.
-	 *
-	 * VIDEO mode panels: Always true if source split is enabled.
-	 * CMD mode panels: Only true if source split is enabled and
-	 *                  for a given commit left and right both ROIs
-	 *                  are valid.
-	 */
 	bool src_split_req;
 	bool is_right_mixer;
 	struct mdss_mdp_ctl *ctl;
@@ -334,11 +306,11 @@ struct mdss_mdp_format_params {
 	u8 chroma_sample;
 	u8 solid_fill;
 	u8 fetch_planes;
-	u8 unpack_align_msb;	/* 0 to LSB, 1 to MSB */
-	u8 unpack_tight;	/* 0 for loose, 1 for tight */
-	u8 unpack_count;	/* 0 = 1 component, 1 = 2 component ... */
+	u8 unpack_align_msb;	
+	u8 unpack_tight;	
+	u8 unpack_count;	
 	u8 bpp;
-	u8 alpha_enable;	/*  source has alpha */
+	u8 alpha_enable;	
 	u8 tile;
 	u8 bits[MAX_PLANES];
 	u8 element[MAX_PLANES];
@@ -485,7 +457,7 @@ struct mdss_mdp_pipe {
 	u32 flags;
 	u32 bwc_mode;
 
-	/* valid only when pipe's output is crossing both layer mixers */
+	
 	bool src_split_req;
 	bool is_right_blend;
 
@@ -525,6 +497,7 @@ struct mdss_mdp_pipe {
 	struct mdp_scale_data scale;
 	u8 chroma_sample_h;
 	u8 chroma_sample_v;
+	uint8_t color_space;
 };
 
 struct mdss_mdp_writeback_arg {
@@ -552,11 +525,11 @@ struct mdss_overlay_private {
 	struct list_head rot_proc_list;
 	bool mixer_swap;
 
-	/* list of buffers that can be reused */
+	
 	struct list_head bufs_chunks;
 	struct list_head bufs_pool;
 	struct list_head bufs_used;
-	/* list of buffers which should be freed during cleanup stage */
+	
 	struct list_head bufs_freelist;
 
 	int ad_state;
@@ -573,7 +546,7 @@ struct mdss_overlay_private {
 	int retire_cnt;
 	bool kickoff_released;
 	u32 cursor_ndx[2];
-	bool dyn_mode_switch; /* Used in prepare, bw calc for new mode */
+	bool dyn_mode_switch; 
 };
 
 struct mdss_mdp_set_ot_params {
@@ -595,12 +568,6 @@ struct mdss_mdp_commit_cb {
 		void *data);
 };
 
-/**
- * enum mdss_screen_state - Screen states that MDP can be forced into
- *
- * @MDSS_SCREEN_DEFAULT:	Do not force MDP into any screen state.
- * @MDSS_SCREEN_FORCE_BLANK:	Force MDP to generate blank color fill screen.
- */
 enum mdss_screen_state {
 	MDSS_SCREEN_DEFAULT,
 	MDSS_SCREEN_FORCE_BLANK,
@@ -789,11 +756,6 @@ static inline void mdss_update_sd_client(struct mdss_data_type *mdata,
 static inline int mdss_mdp_get_wb_ctl_support(struct mdss_data_type *mdata,
 							bool rotator_session)
 {
-	/*
-	 * Initial control paths are used for primary and external
-	 * interfaces and remaining control paths are used for WB
-	 * interfaces.
-	 */
 	return rotator_session ? (mdata->nctl - mdata->nmixers_wb) :
 				(mdata->nctl - mdata->nwb);
 }
@@ -1115,4 +1077,4 @@ int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *ctl,
 int mdss_mdp_ctl_cmd_autorefresh_enable(struct mdss_mdp_ctl *ctl,
 		int frame_cnt);
 
-#endif /* MDSS_MDP_H */
+#endif 

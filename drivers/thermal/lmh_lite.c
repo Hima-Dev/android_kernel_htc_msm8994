@@ -111,7 +111,10 @@ static int lmh_read(struct lmh_sensor_ops *ops, long *val)
 	struct lmh_sensor_data *lmh_sensor = container_of(ops,
 		       struct lmh_sensor_data, ops);
 
+	mutex_lock(&lmh_sensor_read);
 	*val = lmh_sensor->last_read_value;
+	mutex_unlock(&lmh_sensor_read);
+
 	return 0;
 }
 
@@ -183,6 +186,7 @@ enable_exit:
 static int lmh_reset(struct lmh_sensor_ops *ops)
 {
 	int ret = 0;
+	struct lmh_sensor_data *lmh_iter_sensor = NULL;
 	struct lmh_sensor_data *lmh_sensor = container_of(ops,
 		       struct lmh_sensor_data, ops);
 
@@ -202,14 +206,27 @@ static int lmh_reset(struct lmh_sensor_ops *ops)
 		goto reset_exit;
 	}
 
-	if (!lmh_data->intr_status_val)
-		lmh_data->intr_state = LMH_ISR_MONITOR;
+	if (!lmh_data->intr_status_val) {
+		list_for_each_entry(lmh_iter_sensor, &lmh_sensor_list,
+			list_ptr) {
+			if (lmh_iter_sensor->last_read_value) {
+				pr_debug("Sensor:[%s] retrigger interrupt\n",
+					lmh_iter_sensor->sensor_name);
+				lmh_data->intr_status_val
+					|= BIT(lmh_iter_sensor->sensor_sw_id);
+				lmh_iter_sensor->state = LMH_ISR_POLLING;
+				lmh_iter_sensor->ops.interrupt_notify(
+					&lmh_iter_sensor->ops,
+					lmh_iter_sensor->last_read_value);
+			}
+		}
+		if (!lmh_data->intr_status_val)
+			lmh_data->intr_state = LMH_ISR_MONITOR;
+	}
 
 reset_exit:
 	up_write(&lmh_sensor_access);
 	if (!lmh_data->intr_status_val) {
-		/* cancel the poll work after releasing the lock to avoid
-		** deadlock situation */
 		pr_debug("Zero throttling. Re-enabling interrupt\n");
 		cancel_delayed_work_sync(&lmh_data->poll_work);
 		trace_lmh_event_call("Lmh Interrupt Clear");
@@ -225,13 +242,15 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 	static struct lmh_sensor_packet payload;
 	struct scm_desc desc_arg;
 	struct {
-		/* TZ is 32-bit right now */
+		
 		uint32_t addr;
 		uint32_t size;
 	} cmd_buf;
 
 
 	mutex_lock(&lmh_sensor_read);
+	list_for_each_entry(lmh_sensor, &lmh_sensor_list, list_ptr)
+		lmh_sensor->last_read_value = 0;
 	payload.count = 0;
 	desc_arg.args[0] = cmd_buf.addr = SCM_BUFFER_PHYS(&payload);
 	desc_arg.args[1] = cmd_buf.size
@@ -245,7 +264,7 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 	else
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH,
 			LMH_GET_INTENSITY), &desc_arg);
-	/* Have memory barrier before we access the TZ data */
+	
 	mb();
 	trace_lmh_event_call("GET_INTENSITY exit");
 	if (ret) {
@@ -254,8 +273,6 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 		goto read_exit;
 	}
 
-	list_for_each_entry(lmh_sensor, &lmh_sensor_list, list_ptr)
-		lmh_sensor->last_read_value = 0;
 	for (idx = 0; idx < payload.count; idx++) {
 		list_for_each_entry(lmh_sensor, &lmh_sensor_list, list_ptr) {
 
@@ -558,7 +575,7 @@ static int lmh_get_sensor_list(void)
 		else
 			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH,
 				LMH_GET_SENSORS), &desc_arg);
-		/* Have memory barrier before we access the TZ data */
+		
 		mb();
 		trace_lmh_event_call("GET_SENSORS exit");
 		if (ret < 0) {
@@ -697,7 +714,7 @@ static int lmh_get_dev_info(void)
 				LMH_GET_PROFILES), &desc_arg);
 			size = desc_arg.ret[0];
 		}
-		/* Have memory barrier before we access the TZ data */
+		
 		mb();
 		trace_lmh_event_call("GET_PROFILE exit");
 		if (ret) {

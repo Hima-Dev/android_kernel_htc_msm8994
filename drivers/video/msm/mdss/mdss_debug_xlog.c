@@ -16,6 +16,7 @@
 #include <linux/ktime.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <linux/dma-buf.h>
 
 #include "mdss.h"
 #include "mdss_mdp.h"
@@ -28,7 +29,7 @@
 #endif
 
 #define XLOG_DEFAULT_PANIC 1
-#define XLOG_DEFAULT_REGDUMP 0x2 /* dump in RAM */
+#define XLOG_DEFAULT_REGDUMP 0x2 
 
 #define MDSS_XLOG_ENTRY	256
 #define MDSS_XLOG_MAX_DATA 6
@@ -102,7 +103,6 @@ void mdss_xlog(const char *name, int line, int flag, ...)
 	spin_unlock_irqrestore(&xlock, flags);
 }
 
-/* always dump the last entries which are not dumped yet */
 static bool __mdss_xlog_dump_calc_range(void)
 {
 	static u32 next;
@@ -205,8 +205,10 @@ u32 get_dump_range(struct dump_offset *range_node, size_t max_offset)
 static void mdss_dump_reg(u32 reg_dump_flag,
 	char *addr, int len, u32 *dump_mem)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool in_log, in_mem;
 	u32 *dump_addr = NULL;
+	phys_addr_t phys = 0;
 	int i;
 
 	in_log = (reg_dump_flag & MDSS_REG_DUMP_IN_LOG);
@@ -221,7 +223,8 @@ static void mdss_dump_reg(u32 reg_dump_flag,
 
 	if (in_mem) {
 		if (!dump_mem)
-			dump_mem = kzalloc(len * 16, GFP_KERNEL);
+			dump_mem = dma_alloc_coherent(&mdata->pdev->dev,
+				len * 16, &phys, GFP_KERNEL);
 
 		if (dump_mem) {
 			dump_addr = dump_mem;
@@ -273,7 +276,7 @@ static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
 
 	pr_info("%s:=========%s DUMP=========\n", __func__, dbg->name);
 
-	/* If there is a list to dump the registers by ranges, use the ranges */
+	
 	if (!list_empty(&dbg->dump_list)) {
 		list_for_each_entry_safe(xlog_node, xlog_tmp,
 			&dbg->dump_list, head) {
@@ -288,7 +291,7 @@ static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
 				xlog_node->reg_dump);
 		}
 	} else {
-		/* If there is no list to dump ranges, dump all registers */
+		
 		pr_info("Ranges not found, will dump full registers");
 		pr_info("base:0x%p len:0x%zu\n", dbg->base, dbg->max_offset);
 		addr = dbg->base;
@@ -369,6 +372,8 @@ static void mdss_xlog_dump_array(struct mdss_debug_base *blk_arr[],
 				mdss_dbg_xlog.enable_reg_dump);
 	}
 
+	mdss_dump_debug_bus();
+
 	mdss_xlog_dump_all();
 
 	if (dead && mdss_dbg_xlog.panic_on_err)
@@ -422,9 +427,10 @@ void mdss_xlog_tout_handler_default(bool queue, const char *name, ...)
 	va_end(args);
 
 	if (queue) {
-		/* schedule work to dump later */
+		
 		mdss_dbg_xlog.work_panic = dead;
 		schedule_work(&mdss_dbg_xlog.xlog_dump_work);
+		flush_work(&mdss_dbg_xlog.xlog_dump_work);
 	} else {
 		mdss_xlog_dump_array(blk_arr, blk_len, dead, name);
 	}
@@ -446,7 +452,7 @@ int mdss_xlog_tout_handler_iommu(struct iommu_domain *domain,
 
 static int mdss_xlog_dump_open(struct inode *inode, struct file *file)
 {
-	/* non-seekable */
+	
 	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
 	file->private_data = inode->i_private;
 	return 0;
