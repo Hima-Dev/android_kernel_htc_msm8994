@@ -44,6 +44,7 @@ struct msm_camera_slave_info {
 	uint16_t sensor_slave_addr;
 	uint16_t sensor_id_reg_addr;
 	uint16_t sensor_id;
+	uint16_t sensor_id_mask;
 };
 
 struct msm_cam_clk_info {
@@ -146,9 +147,9 @@ struct msm_eeprom_memory_map_t {
 
 struct msm_eeprom_memory_block_t {
 	struct msm_eeprom_memory_map_t *map;
-	uint32_t num_map;	
+	uint32_t num_map;	/* number of map blocks */
 	uint8_t *mapdata;
-	uint32_t num_data;	
+	uint32_t num_data;	/* size of total mapdata */
 };
 
 struct msm_eeprom_cmm_t {
