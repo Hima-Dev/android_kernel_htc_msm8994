@@ -118,7 +118,7 @@ struct kvp {
 
 struct msm_rpm_kvp_data {
 	uint32_t key;
-	uint32_t nbytes; 
+	uint32_t nbytes; /* number of bytes */
 	uint8_t *value;
 	bool valid;
 };
@@ -335,7 +335,7 @@ int msm_rpm_smd_buffer_request(char *buf, uint32_t size, gfp_t flag)
 			pr_err("%s(): Error updating sleep request\n",
 					__func__);
 	} else {
-		
+		/* handle unsent requests */
 		tr_update(slp, buf);
 	}
 
@@ -898,7 +898,7 @@ static void msm_rpm_log_request(struct msm_rpm_request *cdata)
 
 	if ((msm_rpm_debug_mask & MSM_RPM_LOG_REQUEST_PRETTY)
 	    && (msm_rpm_debug_mask & MSM_RPM_LOG_REQUEST_RAW)) {
-		
+		/* Both pretty and raw formatting */
 		memcpy(name, &cdata->msg_hdr.resource_type, sizeof(uint32_t));
 		pos += scnprintf(buf + pos, buflen - pos,
 			", rsc_type=0x%08X (%s), rsc_id=%u; ",
@@ -942,7 +942,7 @@ static void msm_rpm_log_request(struct msm_rpm_request *cdata)
 			prev_valid++;
 		}
 	} else if (msm_rpm_debug_mask & MSM_RPM_LOG_REQUEST_PRETTY) {
-		
+		/* Pretty formatting only */
 		memcpy(name, &cdata->msg_hdr.resource_type, sizeof(uint32_t));
 		pos += scnprintf(buf + pos, buflen - pos, " %s %u; ", name,
 				cdata->msg_hdr.resource_id);
@@ -972,7 +972,7 @@ static void msm_rpm_log_request(struct msm_rpm_request *cdata)
 			prev_valid++;
 		}
 	} else {
-		
+		/* Raw formatting only */
 		pos += scnprintf(buf + pos, buflen - pos,
 			", rsc_type=0x%08X, rsc_id=%u; ",
 			cdata->msg_hdr.resource_type,
@@ -1058,7 +1058,7 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 	cdata->req_hdr.request_len = cdata->msg_hdr.data_len + msg_hdr_sz;
 	msg_size = cdata->req_hdr.request_len + req_hdr_sz;
 
-	
+	/* populate data_len */
 	if (msg_size > cdata->numbytes) {
 		kfree(cdata->buf);
 		cdata->numbytes = msg_size;
@@ -1075,7 +1075,7 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 	tmpbuff += req_hdr_sz + msg_hdr_sz;
 
 	for (i = 0; (i < cdata->write_idx); i++) {
-		
+		/* Sanity check */
 		BUG_ON((tmpbuff - cdata->buf) > cdata->numbytes);
 
 		if (!cdata->kvp[i].valid)

@@ -149,7 +149,7 @@ static int remove_migration_pte(struct page *new, struct vm_area_struct *vma,
 	else
 		page_add_file_rmap(new);
 
-	
+	/* No need to invalidate - it was non-present before */
 	update_mmu_cache(vma, addr, ptep);
 unlock:
 	pte_unmap_unlock(ptep, ptl);
@@ -257,7 +257,7 @@ static int migrate_page_move_mapping(struct address_space *mapping,
 	void **pslot;
 
 	if (!mapping) {
-		
+		/* Anonymous page without mapping */
 		if (page_count(page) != 1)
 			return -EAGAIN;
 		return MIGRATEPAGE_SUCCESS;
@@ -607,7 +607,7 @@ static int __unmap_and_move(struct page *page, struct page *newpage,
 		goto skip_unmap;
 	}
 
-	
+	/* Establish migration ptes or remove ptes */
 	try_to_unmap(page, TTU_MIGRATION|TTU_IGNORE_MLOCK|TTU_IGNORE_ACCESS);
 
 skip_unmap:
@@ -617,7 +617,7 @@ skip_unmap:
 	if (rc && remap_swapcache)
 		remove_migration_ptes(page, page);
 
-	
+	/* Drop an anon_vma reference if we took one */
 	if (anon_vma)
 		put_anon_vma(anon_vma);
 
@@ -641,7 +641,7 @@ static int unmap_and_move(new_page_t get_new_page, unsigned long private,
 		return -ENOMEM;
 
 	if (page_count(page) == 1) {
-		
+		/* page was freed from under us. So we are done. */
 		goto out;
 	}
 
@@ -762,7 +762,7 @@ int migrate_pages(struct list_head *from, new_page_t get_new_page,
 				nr_succeeded++;
 				break;
 			default:
-				
+				/* Permanent failure */
 				nr_failed++;
 				break;
 			}
@@ -795,7 +795,7 @@ int migrate_huge_page(struct page *hpage, new_page_t get_new_page,
 		case -ENOMEM:
 			goto out;
 		case -EAGAIN:
-			
+			/* try again */
 			cond_resched();
 			break;
 		case MIGRATEPAGE_SUCCESS:
@@ -863,7 +863,7 @@ static int do_move_page_to_node_array(struct mm_struct *mm,
 		if (!page)
 			goto set_status;
 
-		
+		/* Use PageReserved to check for zero page */
 		if (PageReserved(page))
 			goto put_and_set;
 
@@ -930,7 +930,7 @@ static int do_pages_move(struct mm_struct *mm, nodemask_t task_nodes,
 		if (chunk_start + chunk_nr_pages > nr_pages)
 			chunk_nr_pages = nr_pages - chunk_start;
 
-		
+		/* fill the chunk pm with addrs and nodes from user-space */
 		for (j = 0; j < chunk_nr_pages; j++) {
 			const void __user *p;
 			int node;
@@ -957,16 +957,16 @@ static int do_pages_move(struct mm_struct *mm, nodemask_t task_nodes,
 			pm[j].node = node;
 		}
 
-		
+		/* End marker for this chunk */
 		pm[chunk_nr_pages].node = MAX_NUMNODES;
 
-		
+		/* Migrate this chunk */
 		err = do_move_page_to_node_array(mm, pm,
 						 flags & MPOL_MF_MOVE_ALL);
 		if (err < 0)
 			goto out_pm;
 
-		
+		/* Return status information */
 		for (j = 0; j < chunk_nr_pages; j++)
 			if (put_user(pm[j].status, status + j + chunk_start)) {
 				err = -EFAULT;
@@ -1005,7 +1005,7 @@ static void do_pages_stat_array(struct mm_struct *mm, unsigned long nr_pages,
 			goto set_status;
 
 		err = -ENOENT;
-		
+		/* Use PageReserved to check for zero page */
 		if (!page || PageReserved(page))
 			goto set_status;
 
@@ -1061,14 +1061,14 @@ SYSCALL_DEFINE6(move_pages, pid_t, pid, unsigned long, nr_pages,
 	int err;
 	nodemask_t task_nodes;
 
-	
+	/* Check flags */
 	if (flags & ~(MPOL_MF_MOVE|MPOL_MF_MOVE_ALL))
 		return -EINVAL;
 
 	if ((flags & MPOL_MF_MOVE_ALL) && !capable(CAP_SYS_NICE))
 		return -EPERM;
 
-	
+	/* Find the mm_struct */
 	rcu_read_lock();
 	task = pid ? find_task_by_vpid(pid) : current;
 	if (!task) {
@@ -1142,7 +1142,7 @@ static bool migrate_balanced_pgdat(struct pglist_data *pgdat,
 		if (!zone_reclaimable(zone))
 			continue;
 
-		
+		/* Avoid waking kswapd by allocating pages_to_migrate pages. */
 		if (!zone_watermark_ok(zone, 0,
 				       high_wmark_pages(zone) +
 				       nr_migrate_pages,
@@ -1301,22 +1301,22 @@ int migrate_misplaced_transhuge_page(struct mm_struct *mm,
 		goto out_fail;
 	}
 
-	
+	/* Prepare a page as a migration target */
 	__set_page_locked(new_page);
 	SetPageSwapBacked(new_page);
 
-	
+	/* anon mapping, we can simply copy page->mapping to the new page: */
 	new_page->mapping = page->mapping;
 	new_page->index = page->index;
 	migrate_page_copy(new_page, page);
 	WARN_ON(PageLRU(new_page));
 
-	
+	/* Recheck the target PMD */
 	spin_lock(&mm->page_table_lock);
 	if (unlikely(!pmd_same(*pmd, entry))) {
 		spin_unlock(&mm->page_table_lock);
 
-		
+		/* Reverse changes made by migrate_page_copy() */
 		if (TestClearPageActive(new_page))
 			SetPageActive(page);
 		if (TestClearPageUnevictable(new_page))
@@ -1324,9 +1324,9 @@ int migrate_misplaced_transhuge_page(struct mm_struct *mm,
 		mlock_migrate_page(page, new_page);
 
 		unlock_page(new_page);
-		put_page(new_page);		
+		put_page(new_page);		/* Free it */
 
-		
+		/* Retake the callers reference and putback on LRU */
 		get_page(page);
 		putback_lru_page(page);
 		mod_zone_page_state(page_zone(page),
@@ -1375,6 +1375,6 @@ out_unlock:
 	put_page(page);
 	return 0;
 }
-#endif 
+#endif /* CONFIG_NUMA_BALANCING */
 
-#endif 
+#endif /* CONFIG_NUMA */

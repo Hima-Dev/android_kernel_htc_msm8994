@@ -191,7 +191,7 @@ static void rwlock_bug(rwlock_t *lock, const char *msg)
 
 #define RWLOCK_BUG_ON(cond, lock, msg) if (unlikely(cond)) rwlock_bug(lock, msg)
 
-#if 0		
+#if 0		/* __write_lock_debug() can lock up - maybe this can too? */
 static void __read_lock_debug(rwlock_t *lock)
 {
 	u64 i;
@@ -204,7 +204,7 @@ static void __read_lock_debug(rwlock_t *lock)
 				return;
 			__delay(1);
 		}
-		
+		/* lockup suspected: */
 		if (print_once) {
 			print_once = 0;
 			printk(KERN_EMERG "BUG: read-lock lockup on CPU#%d, "
@@ -263,7 +263,7 @@ static inline void debug_write_unlock(rwlock_t *lock)
 	lock->owner_cpu = -1;
 }
 
-#if 0		
+#if 0		/* This can cause lockups */
 static void __write_lock_debug(rwlock_t *lock)
 {
 	u64 i;
@@ -276,7 +276,7 @@ static void __write_lock_debug(rwlock_t *lock)
 				return;
 			__delay(1);
 		}
-		
+		/* lockup suspected: */
 		if (print_once) {
 			print_once = 0;
 			printk(KERN_EMERG "BUG: write-lock lockup on CPU#%d, "

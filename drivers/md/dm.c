@@ -101,7 +101,7 @@ struct mapped_device {
 
 	struct request_queue *queue;
 	unsigned type;
-	
+	/* Protect queue and type against concurrent access. */
 	struct mutex type_lock;
 
 	struct target_type *immutable_target_type;
@@ -157,7 +157,7 @@ static int __init local_init(void)
 {
 	int r = -ENOMEM;
 
-	
+	/* allocate a slab for the dm_ios */
 	_io_cache = KMEM_CACHE(dm_io, 0);
 	if (!_io_cache)
 		return r;
@@ -336,7 +336,7 @@ retry:
 	if (!map || !dm_table_get_size(map))
 		goto out;
 
-	
+	/* We only support devices that have a single target */
 	if (dm_table_get_num_targets(map) != 1)
 		goto out;
 
@@ -488,7 +488,7 @@ static void dec_pending(struct dm_io *io, int error)
 	struct bio *bio;
 	struct mapped_device *md = io->md;
 
-	
+	/* Push-back supersedes any I/O errors */
 	if (unlikely(error)) {
 		spin_lock_irqsave(&io->endio_lock, flags);
 		if (!(io->error > 0 && __noflush_suspending(md)))
@@ -691,13 +691,13 @@ static void dm_done(struct request *clone, int error, bool mapped)
 	}
 
 	if (r <= 0)
-		
+		/* The target wants to complete the I/O */
 		dm_end_request(clone, r);
 	else if (r == DM_ENDIO_INCOMPLETE)
-		
+		/* The target will handle the I/O */
 		return;
 	else if (r == DM_ENDIO_REQUEUE)
-		
+		/* The target wants to requeue the I/O */
 		dm_requeue_unmapped_request(clone);
 	else {
 		DMWARN("unimplemented target endio return value: %d", r);
@@ -1148,7 +1148,7 @@ static void __split_and_process_bio(struct mapped_device *md, struct bio *bio)
 		ci.bio = &ci.md->flush_bio;
 		ci.sector_count = 0;
 		error = __send_empty_flush(&ci);
-		
+		/* dec_pending submits any data associated with flush */
 	} else {
 		ci.bio = bio;
 		ci.sector_count = bio_sectors(bio);
@@ -1213,7 +1213,7 @@ static void _dm_request(struct request_queue *q, struct bio *bio)
 	part_stat_add(cpu, &dm_disk(md)->part0, sectors[rw], bio_sectors(bio));
 	part_stat_unlock();
 
-	
+	/* if we're suspended, we have to queue this io for later */
 	if (unlikely(test_bit(DMF_BLOCK_IO_FOR_SUSPEND, &md->flags))) {
 		up_read(&md->io_lock);
 
@@ -1311,7 +1311,7 @@ static struct request *clone_rq(struct request *rq, struct mapped_device *md,
 
 	clone = &tio->clone;
 	if (setup_clone(clone, rq, tio)) {
-		
+		/* -ENOMEM */
 		free_rq_tio(tio);
 		return NULL;
 	}
@@ -1349,16 +1349,16 @@ static int map_request(struct dm_target *ti, struct request *clone,
 	r = ti->type->map_rq(ti, clone, &tio->info);
 	switch (r) {
 	case DM_MAPIO_SUBMITTED:
-		
+		/* The target has taken the I/O to submit by itself later */
 		break;
 	case DM_MAPIO_REMAPPED:
-		
+		/* The target has remapped the I/O so dispatch it */
 		trace_block_rq_remap(clone->q, clone, disk_devt(dm_disk(md)),
 				     blk_rq_pos(tio->orig));
 		dm_dispatch_request(clone);
 		break;
 	case DM_MAPIO_REQUEUE:
-		
+		/* The target wants to requeue the I/O */
 		dm_requeue_unmapped_request(clone);
 		requeued = 1;
 		break;
@@ -1368,7 +1368,7 @@ static int map_request(struct dm_target *ti, struct request *clone,
 			BUG();
 		}
 
-		
+		/* The target wants to complete the I/O */
 		dm_kill_unmapped_request(clone, r);
 		break;
 	}
@@ -1557,7 +1557,7 @@ static struct mapped_device *alloc_dev(int minor)
 	if (!try_module_get(THIS_MODULE))
 		goto bad_module_get;
 
-	
+	/* get a minor number for the dev */
 	if (minor == DM_ANY_MINOR)
 		r = next_free_minor(&minor);
 	else
@@ -1617,7 +1617,7 @@ static struct mapped_device *alloc_dev(int minor)
 	md->flush_bio.bi_bdev = md->bdev;
 	md->flush_bio.bi_rw = WRITE_FLUSH;
 
-	
+	/* Populate the mapping, nobody knows we exist yet */
 	spin_lock(&_minor_lock);
 	old_md = idr_replace(&_minor_idr, md, minor);
 	spin_unlock(&_minor_lock);
@@ -1870,7 +1870,7 @@ static int dm_init_request_based_queue(struct mapped_device *md)
 	if (md->queue->elevator)
 		return 1;
 
-	
+	/* Fully initialize the queue */
 	q = blk_init_allocated_queue(md->queue, dm_request_fn, NULL);
 	if (!q)
 		return 0;
@@ -2171,7 +2171,7 @@ int dm_suspend(struct mapped_device *md, unsigned suspend_flags)
 		clear_bit(DMF_NOFLUSH_SUSPENDING, &md->flags);
 	up_write(&md->io_lock);
 
-	
+	/* were we interrupted ? */
 	if (r < 0) {
 		dm_queue_flush(md);
 
@@ -2329,7 +2329,7 @@ struct dm_md_mempools *dm_alloc_md_mempools(unsigned type, unsigned integrity, u
 		cachep = _rq_tio_cache;
 		pool_size = MIN_IOS;
 		front_pad = offsetof(struct dm_rq_clone_bio_info, clone);
-		
+		/* per_bio_data_size is not used. See __bind_mempools(). */
 		WARN_ON(per_bio_data_size != 0);
 	} else
 		goto out;

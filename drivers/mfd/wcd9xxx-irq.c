@@ -144,7 +144,7 @@ static void wcd9xxx_irq_ack(struct irq_data *data)
 
 static void wcd9xxx_irq_mask(struct irq_data *d)
 {
-	
+	/* do nothing but required as linux calls irq_mask without NULL check */
 }
 
 static struct irq_chip wcd9xxx_irq_chip = {
@@ -368,7 +368,7 @@ static int wcd9xxx_irq_setup_downstream_irq(
 	pr_debug("%s: enter\n", __func__);
 
 	for (irq = 0; irq < wcd9xxx_res->num_irqs; irq++) {
-		
+		/* Map OF irq */
 		virq = wcd9xxx_map_irq(wcd9xxx_res, irq);
 		pr_debug("%s: irq %d -> %d\n", __func__, irq, virq);
 		if (virq == NO_IRQ) {
@@ -416,7 +416,7 @@ int wcd9xxx_irq_init(struct wcd9xxx_core_resource *wcd9xxx_res)
 	}
 	pr_debug("%s: probed irq %d\n", __func__, wcd9xxx_res->irq);
 
-	
+	/* Setup downstream IRQs */
 	ret = wcd9xxx_irq_setup_downstream_irq(wcd9xxx_res);
 	if (ret) {
 		pr_err("%s: Failed to setup downstream IRQ\n", __func__);
@@ -426,10 +426,10 @@ int wcd9xxx_irq_init(struct wcd9xxx_core_resource *wcd9xxx_res)
 		return ret;
 	}
 
-	
+	/* All other wcd9xxx interrupts are edge triggered */
 	wcd9xxx_res->irq_level_high[0] = true;
 
-	
+	/* mask all the interrupts */
 	memset(irq_level, 0, wcd9xxx_res->num_irq_regs);
 	for (i = 0; i < wcd9xxx_res->num_irqs; i++) {
 		wcd9xxx_res->irq_masks_cur[BIT_BYTE(i)] |= BYTE_BIT_MASK(i);
@@ -447,7 +447,7 @@ int wcd9xxx_irq_init(struct wcd9xxx_core_resource *wcd9xxx_res)
 	}
 
 	for (i = 0; i < wcd9xxx_res->num_irq_regs; i++) {
-		
+		/* Initialize interrupt mask and level registers */
 		wcd9xxx_res->codec_reg_write(wcd9xxx_res,
 					WCD9XXX_A_INTR_LEVEL0 + i,
 					irq_level[i]);
@@ -512,7 +512,7 @@ void wcd9xxx_irq_exit(struct wcd9xxx_core_resource *wcd9xxx_res)
 	if (wcd9xxx_res->irq) {
 		disable_irq_wake(wcd9xxx_res->irq);
 		free_irq(wcd9xxx_res->irq, wcd9xxx_res);
-		
+		/* Release parent's of node */
 		wcd9xxx_irq_put_upstream_irq(wcd9xxx_res);
 	}
 	mutex_destroy(&wcd9xxx_res->irq_lock);
@@ -543,7 +543,7 @@ static unsigned int wcd9xxx_irq_get_upstream_irq(
 static void wcd9xxx_irq_put_upstream_irq(
 	struct wcd9xxx_core_resource *wcd9xxx_res)
 {
-	
+	/* Do nothing */
 }
 
 static int wcd9xxx_map_irq(
@@ -581,7 +581,7 @@ wcd9xxx_get_irq_drv_d(const struct wcd9xxx_core_resource *wcd9xxx_res)
 	struct irq_domain *domain;
 
 	pnode = of_irq_find_parent(wcd9xxx_res->dev->of_node);
-	
+	/* Shouldn't happen */
 	if (unlikely(!pnode))
 		return NULL;
 
@@ -620,7 +620,7 @@ static unsigned int wcd9xxx_irq_get_upstream_irq(
 {
 	struct wcd9xxx_irq_drv_data *data;
 
-	
+	/* Hold parent's of node */
 	if (!of_node_get(of_irq_find_parent(wcd9xxx_res->dev->of_node)))
 		return -EINVAL;
 
@@ -637,7 +637,7 @@ static unsigned int wcd9xxx_irq_get_upstream_irq(
 static void wcd9xxx_irq_put_upstream_irq(
 			struct wcd9xxx_core_resource *wcd9xxx_res)
 {
-	
+	/* Hold parent's of node */
 	of_node_put(of_irq_find_parent(wcd9xxx_res->dev->of_node));
 }
 
@@ -717,4 +717,4 @@ static void wcd9xxx_irq_drv_exit(void)
 	platform_driver_unregister(&wcd9xxx_irq_driver);
 }
 module_exit(wcd9xxx_irq_drv_exit);
-#endif 
+#endif /* CONFIG_OF */

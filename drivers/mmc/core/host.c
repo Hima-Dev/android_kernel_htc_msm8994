@@ -211,7 +211,7 @@ static void mmc_host_clk_gate_delayed(struct mmc_host *host)
 	spin_lock_irqsave(&host->clk_lock, flags);
 	if (!host->clk_requests) {
 		spin_unlock_irqrestore(&host->clk_lock, flags);
-		
+		/* This will set host->ios.clock to 0 */
 		mmc_gate_clock(host);
 		spin_lock_irqsave(&host->clk_lock, flags);
 		pr_debug("%s: gated MCI clock\n", mmc_hostname(host));
@@ -240,7 +240,7 @@ void mmc_host_clk_hold(struct mmc_host *host)
 		spin_unlock_irqrestore(&host->clk_lock, flags);
 		mmc_ungate_clock(host);
 
-		
+		/* Reset clock scaling stats as host is out of idle */
 		mmc_reset_clk_scale_stats(host);
 		spin_lock_irqsave(&host->clk_lock, flags);
 		pr_debug("%s: ungated MCI clock\n", mmc_hostname(host));
@@ -351,7 +351,7 @@ void mmc_of_parse(struct mmc_host *host)
 
 	np = host->parent->of_node;
 
-	
+	/* "bus-width" is translated to MMC_CAP_*_BIT_DATA flags */
 	if (of_property_read_u32(np, "bus-width", &bus_width) < 0) {
 		dev_dbg(host->parent,
 			"\"bus-width\" property is missing, assuming 1 bit.\n");
@@ -361,7 +361,7 @@ void mmc_of_parse(struct mmc_host *host)
 	switch (bus_width) {
 	case 8:
 		host->caps |= MMC_CAP_8_BIT_DATA;
-		
+		/* Hosts capable of 8-bit transfers can also do 4 bits */
 	case 4:
 		host->caps |= MMC_CAP_4_BIT_DATA;
 		break;
@@ -406,7 +406,7 @@ void mmc_of_parse(struct mmc_host *host)
 			host->caps2 |= MMC_CAP2_CD_ACTIVE_HIGH;
 	}
 
-	
+	/* Parse Write Protection */
 	explicit_inv_wp = of_property_read_bool(np, "wp-inverted");
 
 	gpio = of_get_named_gpio_flags(np, "wp-gpios", 0, &flags);
@@ -447,7 +447,7 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	if (!host)
 		return NULL;
 
-	
+	/* scanning will be enabled when we're ready */
 	host->rescan_disable = 1;
 	idr_preload(GFP_KERNEL);
 	spin_lock(&mmc_host_lock);
@@ -521,7 +521,7 @@ static ssize_t store_enable(struct device *dev,
 	if (!host)
 		goto out;
 
-	
+	/* Not safe against removal of the card */
 	if (host->card)
 		mmc_rpm_hold(host, &host->card->dev);
 
@@ -541,7 +541,7 @@ static ssize_t store_enable(struct device *dev,
 		host->caps2 &= ~MMC_CAP2_CLK_SCALE;
 		mmc_disable_clk_scaling(host);
 
-		
+		/* Set to max. frequency, since we are disabling */
 		if (host->bus_ops && host->bus_ops->change_bus_speed &&
 				host->clk_scaling.state == MMC_LOAD_LOW) {
 			freq = mmc_get_max_frequency(host);
@@ -558,7 +558,7 @@ static ssize_t store_enable(struct device *dev,
 err:
 	mmc_release_host(host);
 
-	
+	/* Not safe against removal of the card */
 	if (host->card)
 		mmc_rpm_release(host, &host->card->dev);
 out:

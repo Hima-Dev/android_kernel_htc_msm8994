@@ -308,55 +308,56 @@ struct snd_pcm_runtime {
 	unsigned int no_period_wakeup: 1;
 	unsigned int render_flag;
 
-	
-	int tstamp_mode;		
+	/* -- SW params -- */
+	int tstamp_mode;		/* mmap timestamp is updated */
   	unsigned int period_step;
 	snd_pcm_uframes_t start_threshold;
 	snd_pcm_uframes_t stop_threshold;
-	snd_pcm_uframes_t silence_threshold; 
-	snd_pcm_uframes_t silence_size;	
-	snd_pcm_uframes_t boundary;	
+	snd_pcm_uframes_t silence_threshold; /* Silence filling happens when
+						noise is nearest than this */
+	snd_pcm_uframes_t silence_size;	/* Silence filling size */
+	snd_pcm_uframes_t boundary;	/* pointers wrap point */
 
-	snd_pcm_uframes_t silence_start; 
-	snd_pcm_uframes_t silence_filled; 
+	snd_pcm_uframes_t silence_start; /* starting pointer to silence area */
+	snd_pcm_uframes_t silence_filled; /* size filled with silence */
 
-	union snd_pcm_sync_id sync;	
+	union snd_pcm_sync_id sync;	/* hardware synchronization ID */
 
-	
+	/* -- mmap -- */
 	struct snd_pcm_mmap_status *status;
 	struct snd_pcm_mmap_control *control;
 
-	
-	snd_pcm_uframes_t twake; 	
-	wait_queue_head_t sleep;	
-	wait_queue_head_t tsleep;	
+	/* -- locking / scheduling -- */
+	snd_pcm_uframes_t twake; 	/* do transfer (!poll) wakeup if non-zero */
+	wait_queue_head_t sleep;	/* poll sleep */
+	wait_queue_head_t tsleep;	/* transfer sleep */
 	struct fasync_struct *fasync;
 
-	
+	/* -- private section -- */
 	void *private_data;
 	void (*private_free)(struct snd_pcm_runtime *runtime);
 
-	
+	/* -- hardware description -- */
 	struct snd_pcm_hardware hw;
 	struct snd_pcm_hw_constraints hw_constraints;
 
-	
+	/* -- interrupt callbacks -- */
 	void (*transfer_ack_begin)(struct snd_pcm_substream *substream);
 	void (*transfer_ack_end)(struct snd_pcm_substream *substream);
 
-	
-	unsigned int timer_resolution;	
-	int tstamp_type;		
+	/* -- timer -- */
+	unsigned int timer_resolution;	/* timer resolution */
+	int tstamp_type;		/* timestamp type */
 
-	           
-	unsigned char *dma_area;	
-	dma_addr_t dma_addr;		
-	size_t dma_bytes;		
+	/* -- DMA -- */           
+	unsigned char *dma_area;	/* DMA area */
+	dma_addr_t dma_addr;		/* physical bus address (not accessible from main CPU) */
+	size_t dma_bytes;		/* size of DMA area */
 
-	struct snd_dma_buffer *dma_buffer_p;	
+	struct snd_dma_buffer *dma_buffer_p;	/* allocated buffer */
 
 #if defined(CONFIG_SND_PCM_OSS) || defined(CONFIG_SND_PCM_OSS_MODULE)
-	
+	/* -- OSS things -- */
 	struct snd_pcm_oss_runtime oss;
 #endif
 
@@ -365,7 +366,7 @@ struct snd_pcm_runtime {
 #endif
 };
 
-struct snd_pcm_group {		
+struct snd_pcm_group {		/* keep linked substreams */
 	spinlock_t lock;
 	struct list_head substreams;
 	int count;
@@ -376,29 +377,29 @@ struct pid;
 struct snd_pcm_substream {
 	struct snd_pcm *pcm;
 	struct snd_pcm_str *pstr;
-	void *private_data;		
+	void *private_data;		/* copied from pcm->private_data */
 	int number;
-	char name[32];			
-	int stream;			
-	struct pm_qos_request latency_pm_qos_req; 
-	size_t buffer_bytes_max;	
+	char name[32];			/* substream name */
+	int stream;			/* stream (direction) */
+	struct pm_qos_request latency_pm_qos_req; /* pm_qos request */
+	size_t buffer_bytes_max;	/* limit ring buffer size */
 	struct snd_dma_buffer dma_buffer;
 	unsigned int dma_buf_id;
 	size_t dma_max;
-	
+	/* -- hardware operations -- */
 	struct snd_pcm_ops *ops;
-	
+	/* -- runtime information -- */
 	struct snd_pcm_runtime *runtime;
-        
-	struct snd_timer *timer;		
-	unsigned timer_running: 1;	
-	
+        /* -- timer section -- */
+	struct snd_timer *timer;		/* timer */
+	unsigned timer_running: 1;	/* time is running */
+	/* -- next substream -- */
 	struct snd_pcm_substream *next;
-	
-	struct list_head link_list;	
-	struct snd_pcm_group self_group;	
-	struct snd_pcm_group *group;		
-	
+	/* -- linked substreams -- */
+	struct list_head link_list;	/* linked list member */
+	struct snd_pcm_group self_group;	/* fake group for non linked substream (with substream lock inside) */
+	struct snd_pcm_group *group;		/* pointer to current group */
+	/* -- assigned files -- */
 	void *file;
 	int ref_count;
 	atomic_t mmap_count;
@@ -406,7 +407,7 @@ struct snd_pcm_substream {
 	void (*pcm_release)(struct snd_pcm_substream *);
 	struct pid *pid;
 #if defined(CONFIG_SND_PCM_OSS) || defined(CONFIG_SND_PCM_OSS_MODULE)
-	
+	/* -- OSS things -- */
 	struct snd_pcm_oss_substream oss;
 #endif
 #ifdef CONFIG_SND_VERBOSE_PROCFS
@@ -418,42 +419,42 @@ struct snd_pcm_substream {
 	struct snd_info_entry *proc_prealloc_entry;
 	struct snd_info_entry *proc_prealloc_max_entry;
 #endif
-	
+	/* misc flags */
 	unsigned int hw_opened: 1;
-	unsigned int hw_no_buffer: 1; 
+	unsigned int hw_no_buffer: 1; /* substream may not have a buffer */
 };
 
 #define SUBSTREAM_BUSY(substream) ((substream)->ref_count > 0)
 
 
 struct snd_pcm_str {
-	int stream;				
+	int stream;				/* stream (direction) */
 	struct snd_pcm *pcm;
-	
+	/* -- substreams -- */
 	unsigned int substream_count;
 	unsigned int substream_opened;
 	struct snd_pcm_substream *substream;
 #if defined(CONFIG_SND_PCM_OSS) || defined(CONFIG_SND_PCM_OSS_MODULE)
-	
+	/* -- OSS things -- */
 	struct snd_pcm_oss_stream oss;
 #endif
 #ifdef CONFIG_SND_VERBOSE_PROCFS
 	struct snd_info_entry *proc_root;
 	struct snd_info_entry *proc_info_entry;
 #ifdef CONFIG_SND_PCM_XRUN_DEBUG
-	unsigned int xrun_debug;	
+	unsigned int xrun_debug;	/* 0 = disabled, 1 = verbose, 2 = stacktrace */
 	struct snd_info_entry *proc_xrun_debug_entry;
 #endif
 #endif
-	struct snd_kcontrol *chmap_kctl; 
-	struct snd_kcontrol *vol_kctl; 
-	struct snd_kcontrol *usr_kctl; 
+	struct snd_kcontrol *chmap_kctl; /* channel-mapping controls */
+	struct snd_kcontrol *vol_kctl; /* volume controls */
+	struct snd_kcontrol *usr_kctl; /* user controls */
 };
 
 struct snd_pcm {
 	struct snd_card *card;
 	struct list_head list;
-	int device; 
+	int device; /* device number */
 	unsigned int info_flags;
 	unsigned short dev_class;
 	unsigned short dev_subclass;
@@ -464,8 +465,8 @@ struct snd_pcm {
 	wait_queue_head_t open_wait;
 	void *private_data;
 	void (*private_free) (struct snd_pcm *pcm);
-	struct device *dev; 
-	bool internal; 
+	struct device *dev; /* actual hw device this belongs to */
+	bool internal; /* pcm is for internal use only */
 #if defined(CONFIG_SND_PCM_OSS) || defined(CONFIG_SND_PCM_OSS_MODULE)
 	struct snd_pcm_oss oss;
 #endif
@@ -1063,4 +1064,4 @@ int snd_pcm_add_usr_ctls(struct snd_pcm *pcm, int stream,
 			 unsigned long private_value,
 			 struct snd_pcm_usr **info_ret);
 
-#endif 
+#endif /* __SOUND_PCM_H */

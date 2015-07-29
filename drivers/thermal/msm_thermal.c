@@ -1337,7 +1337,7 @@ static int update_cpu_min_freq_all(uint32_t min)
 			return ret;
 		}
 	}
-	
+	/* If min is larger than allowed max */
 	if (core_ptr) {
 		for (; _cluster < core_ptr->entity_count; _cluster++) {
 			cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
@@ -1379,7 +1379,7 @@ static int vdd_restriction_apply_freq(struct rail *r, int level)
 	if (level == r->curr_level)
 		return ret;
 
-	
+	/* level = -1: disable, level = 0,1,2..n: enable */
 	if (level == -1) {
 		ret = update_cpu_min_freq_all(r->min_level);
 		if (ret)
@@ -1412,7 +1412,7 @@ static int vdd_restriction_apply_voltage(struct rail *r, int level)
 	if (level == r->curr_level)
 		return ret;
 
-	
+	/* level = -1: disable, level = 0,1,2..n: enable */
 	if (level == -1) {
 		ret = regulator_set_voltage(r->reg, r->min_level,
 			r->levels[r->num_levels - 1]);
@@ -1505,7 +1505,7 @@ static ssize_t vdd_rstr_en_store(struct kobject *kobj,
 				dis_cnt++;
 		}
 	}
-	
+	/* As long as one rail is enabled, vdd rstr is enabled */
 	if (val && en_cnt)
 		en->enabled = 1;
 	else if (!val && (dis_cnt == rails_cnt))
@@ -1642,7 +1642,7 @@ static ssize_t vdd_rstr_reg_value_show(
 {
 	int val = 0;
 	struct rail *reg = VDD_RSTR_REG_VALUE_FROM_ATTRIBS(attr);
-	
+	/* -1:disabled, -2:fail to get regualtor handle */
 	if (reg->curr_level < 0)
 		val = reg->curr_level;
 	else
@@ -1720,7 +1720,7 @@ static int request_optimum_current(struct psm_rail *rail, enum ocr_request req)
 		pr_err("Optimum current request failed. err:%d\n", ret);
 		goto request_ocr_exit;
 	}
-	ret = 0; 
+	ret = 0; /*regulator_set_optimum_mode returns the mode on success*/
 	pr_debug("Requested optimum current mode: %d\n", req);
 
 request_ocr_exit:
@@ -1918,7 +1918,7 @@ static int create_sensor_id_map(void)
 
 	for (i = 0; i < max_tsens_num; i++) {
 		ret = tsens_get_hw_id_mapping(i, &tsens_id_map[i]);
-		
+		/* If return -ENXIO, hw_id is default in sequence */
 		if (ret) {
 			if (ret == -ENXIO) {
 				tsens_id_map[i] = i;
@@ -2535,7 +2535,7 @@ static __ref int do_hotplug(void *data)
 {
 	return 0;
 }
-
+/* Call with core_control_mutex locked */
 static int __ref update_offline_cores(int val)
 {
 	return 0;
@@ -2879,7 +2879,7 @@ static void do_freq_control(long temp)
 	if (max_freq == cpus[cpu].limited_max_freq)
 		return;
 
-	
+	/* Update new limits */
 	get_online_cpus();
 	for_each_possible_cpu(cpu) {
 		if (!(msm_thermal_info.bootup_freq_control_mask & BIT(cpu)))
@@ -4404,7 +4404,7 @@ static int devmgr_devices_init(struct platform_device *pdev)
 		goto device_exit;
 	}
 	if (num_possible_cpus() > 1) {
-		
+		/* Add hotplug device */
 		dev_mgr = devm_kzalloc(&pdev->dev,
 		sizeof(struct device_manager_data),
 			GFP_KERNEL);
@@ -4424,7 +4424,7 @@ static int devmgr_devices_init(struct platform_device *pdev)
 		list_add_tail(&dev_mgr->dev_ptr, &devices_list);
 		devices->hotplug_dev = dev_mgr;
 	}
-	
+	/*  Add cpu devices */
 	for_each_possible_cpu(cpu) {
 		dev_mgr = devm_kzalloc(&pdev->dev,
 		sizeof(struct device_manager_data),
@@ -4608,7 +4608,7 @@ static int psm_reg_init(struct platform_device *pdev)
 					psm_rails[i].name);
 			return ret;
 		}
-		
+		/* Apps default vote for PWM mode */
 		psm_rails[i].init = PMIC_PWM_MODE;
 		ret = rpm_regulator_set_mode(psm_rails[i].reg,
 				psm_rails[i].init);

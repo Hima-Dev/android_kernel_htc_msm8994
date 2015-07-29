@@ -38,7 +38,7 @@ static int vfat_revalidate(struct dentry *dentry, unsigned int flags)
 	if (flags & LOOKUP_RCU)
 		return -ECHILD;
 
-	
+	/* This is not negative dentry. Always valid. */
 	if (dentry->d_inode)
 		return 1;
 	return vfat_revalidate_shortname(dentry);
@@ -106,7 +106,7 @@ static int vfat_cmpi(const struct dentry *parent, const struct inode *pinode,
 	struct nls_table *t = MSDOS_SB(parent->d_sb)->nls_io;
 	unsigned int alen, blen;
 
-	
+	/* A filename cannot end in '.' or we treat it like it has none */
 	alen = vfat_striptail_len(name);
 	blen = __vfat_striptail_len(len, str);
 	if (alen == blen) {
@@ -260,10 +260,10 @@ static int vfat_create_shortname(struct inode *dir, struct nls_table *nls,
 	INIT_SHORTNAME_INFO(&base_info);
 	INIT_SHORTNAME_INFO(&ext_info);
 
-	
+	/* Now, we need to create a shortname from the long name */
 	ext_start = end = &uname[ulen];
 	while (--ext_start >= uname) {
-		if (*ext_start == 0x002E) {	
+		if (*ext_start == 0x002E) {	/* is `.' */
 			if (ext_start == end - 1) {
 				sz = ulen;
 				ext_start = NULL;
@@ -539,7 +539,7 @@ static int vfat_build_slots(struct inode *dir, const unsigned char *name,
 		goto shortname;
 	}
 
-	
+	/* build the entry of long file name */
 	cksum = fat_checksum(msdos_name);
 
 	*nr_slots = usize / 13;
@@ -558,7 +558,7 @@ static int vfat_build_slots(struct inode *dir, const unsigned char *name,
 	de = (struct msdos_dir_entry *)ps;
 
 shortname:
-	
+	/* build the entry of 8.3 alias name */
 	(*nr_slots)++;
 	memcpy(de->name, msdos_name, MSDOS_NAME);
 	de->attr = is_dir ? ATTR_DIR : ATTR_ARCH;
@@ -599,7 +599,7 @@ static int vfat_add_entry(struct inode *dir, struct qstr *qname, int is_dir,
 	if (err)
 		goto cleanup;
 
-	
+	/* update timestamp */
 	dir->i_ctime = dir->i_mtime = dir->i_atime = *ts;
 	if (IS_DIRSYNC(dir))
 		(void)fat_sync_inode(dir);
@@ -725,7 +725,7 @@ static int vfat_rmdir(struct inode *dir, struct dentry *dentry)
 	if (err)
 		goto out;
 
-	err = fat_remove_entries(dir, &sinfo);	
+	err = fat_remove_entries(dir, &sinfo);	/* and releases bh */
 	if (err)
 		goto out;
 	drop_nlink(dir);
@@ -752,7 +752,7 @@ static int vfat_unlink(struct inode *dir, struct dentry *dentry)
 	if (err)
 		goto out;
 
-	err = fat_remove_entries(dir, &sinfo);	
+	err = fat_remove_entries(dir, &sinfo);	/* and releases bh */
 	if (err)
 		goto out;
 	clear_nlink(inode);
@@ -880,7 +880,7 @@ static int vfat_rename(struct inode *old_dir, struct dentry *old_dentry,
  			inc_nlink(new_dir);
 	}
 
-	err = fat_remove_entries(old_dir, &old_sinfo);	
+	err = fat_remove_entries(old_dir, &old_sinfo);	/* and releases bh */
 	old_sinfo.bh = NULL;
 	if (err)
 		goto error_dotdot;
@@ -906,7 +906,7 @@ out:
 	return err;
 
 error_dotdot:
-	
+	/* data cluster is shared, serious corruption */
 	corrupt = 1;
 
 	if (update_dotdot) {

@@ -902,7 +902,7 @@ static int uio_init(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	
+	/* Setup device */
 	info->name = clnt_res->name;
 	info->version = "1.0";
 	info->mem[0].addr = ea_mem_pyhsical;

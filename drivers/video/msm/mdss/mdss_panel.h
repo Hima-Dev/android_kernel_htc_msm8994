@@ -198,28 +198,28 @@ enum dynamic_mode_switch {
 };
 
 struct mipi_panel_info {
-	char boot_mode;	
-	char mode;		
+	char boot_mode;	/* identify if mode switched from starting mode */
+	char mode;		/* video/cmd */
 	char interleave_mode;
 	char crc_check;
 	char ecc_check;
-	char dst_format;	
+	char dst_format;	/* shared by video and command */
 	char data_lane0;
 	char data_lane1;
 	char data_lane2;
 	char data_lane3;
-	char dlane_swap;	
+	char dlane_swap;	/* data lane swap */
 	char rgb_swap;
 	char b_sel;
 	char g_sel;
 	char r_sel;
 	char rx_eot_ignore;
 	char tx_eot_append;
-	char t_clk_post; 
-	char t_clk_pre;  
-	char vc;	
+	char t_clk_post; /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
+	char t_clk_pre;  /* 0xc0, DSI_CLKOUT_TIMING_CTRL */
+	char vc;	/* virtual channel */
 	struct mdss_dsi_phy_ctrl dsi_phy_db;
-	
+	/* video mode */
 	char pulse_mode_hsa_he;
 	char hfp_power_stop;
 	char hbp_power_stop;
@@ -229,23 +229,23 @@ struct mipi_panel_info {
 	char bllp_power_stop;
 	char traffic_mode;
 	char frame_rate;
-	
+	/* command mode */
 	char interleave_max;
 	char insert_dcs_cmd;
 	char wr_mem_continue;
 	char wr_mem_start;
 	char te_sel;
-	char stream;	
+	char stream;	/* 0 or 1 */
 	char mdp_trigger;
 	char dma_trigger;
-	
+	/* Dynamic Switch Support */
 	enum dynamic_mode_switch dms_mode;
 
 	u32 pixel_packing;
 	u32 dsi_pclk_rate;
-	
+	/* The packet-size should not bet changed */
 	char no_max_pkt_size;
-	
+	/* Clock required during LP commands */
 	bool force_clk_lane_hs;
 
 	char vsync_enable;
@@ -256,7 +256,7 @@ struct mipi_panel_info {
 };
 
 struct edp_panel_info {
-	char frame_rate;	
+	char frame_rate;	/* fps */
 };
 
 enum dynamic_fps_update {
@@ -274,7 +274,7 @@ enum lvds_mode {
 
 struct lvds_panel_info {
 	enum lvds_mode channel_mode;
-	
+	/* Channel swap in dual mode */
 	char channel_swap;
 };
 
@@ -335,7 +335,7 @@ struct mdss_panel_info {
 	u32 out_format;
 	u32 rst_seq[MDSS_DSI_RST_SEQ_LEN];
 	u32 rst_seq_len;
-	u32 vic; 
+	u32 vic; /* video identification code */
 	struct mdss_rect roi;
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
@@ -361,8 +361,8 @@ struct mdss_panel_info {
 
 	u32 cont_splash_enabled;
 	bool esd_rdy;
-	bool partial_update_supported; 
-	bool partial_update_enabled; 
+	bool partial_update_supported; /* value from dts if pu is supported */
+	bool partial_update_enabled; /* is pu currently allowed */
 	u32 dcs_cmd_by_left;
 	u32 partial_update_roi_merge;
 	struct ion_handle *splash_ihdl;
@@ -405,7 +405,7 @@ struct mdss_panel_info {
 	bool even_roi;
 	bool skip_first_pinctl;
 
-	
+	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;
 };
 
@@ -538,4 +538,4 @@ static inline void mdss_panel_debugfs_cleanup(
 static inline void mdss_panel_debugfsinfo_to_panelinfo(
 			struct mdss_panel_info *panel_info) { };
 #endif
-#endif 
+#endif /* MDSS_PANEL_H */

@@ -156,9 +156,9 @@ static struct usb_ss_ep_comp_descriptor ss_bulk_in_comp_desc = {
 	.bLength =		sizeof ss_bulk_in_comp_desc,
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
-	
-	
-	
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
 };
 
 static struct usb_endpoint_descriptor ss_bulk_out_desc = {
@@ -173,9 +173,9 @@ static struct usb_ss_ep_comp_descriptor ss_bulk_out_comp_desc = {
 	.bLength =		sizeof ss_bulk_out_comp_desc,
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
-	
-	
-	
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
 };
 
 static struct usb_descriptor_header *fs_diag_desc[] = {
@@ -337,7 +337,7 @@ static void diag_write_complete(struct usb_ep *ep,
 			req->length = 0;
 			d_req->actual = req->actual;
 			d_req->status = req->status;
-			
+			/* Queue zero length packet */
 			if (!usb_ep_queue(ctxt->in, req, GFP_ATOMIC))
 				return;
 		} else {
@@ -425,7 +425,7 @@ struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 	pr_info("[USB] %s: name: %s\n", __func__, name);
 
 	spin_lock_irqsave(&ch_lock, flags);
-	
+	/* Check if we already have a channel with this name */
 	list_for_each_entry(ch, &usb_diag_ch_list, list) {
 		if (!strcmp(name, ch->name)) {
 			found = 1;
@@ -460,7 +460,7 @@ void usb_diag_close(struct usb_diag_ch *ch)
 	spin_lock_irqsave(&ch_lock, flags);
 	ch->priv = NULL;
 	ch->notify = NULL;
-	
+	/* Free-up the resources if channel is no more active */
 	list_del(&ch->list);
 	list_for_each_entry(dev, &diag_dev_list, list_item)
 		if (dev->ch == ch)
@@ -500,7 +500,7 @@ int usb_diag_alloc_req(struct usb_diag_ch *ch, int n_write, int n_read)
 		return -ENODEV;
 
 	spin_lock_irqsave(&ctxt->lock, flags);
-	
+	/* Free previous session's stale requests */
 	free_reqs(ctxt);
 	for (i = 0; i < n_write; i++) {
 		req = usb_ep_alloc_request(ctxt->in, GFP_ATOMIC);
@@ -557,14 +557,14 @@ int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req)
 
 	req = list_first_entry(&ctxt->read_pool, struct usb_request, list);
 	list_del(&req->list);
-	kref_get(&ctxt->kref); 
+	kref_get(&ctxt->kref); /* put called in complete callback */
 	spin_unlock_irqrestore(&ctxt->lock, flags);
 
 	req->buf = d_req->buf;
 	req->length = d_req->length;
 	req->context = d_req;
 
-	
+	/* make sure context is still valid after releasing lock */
 	if (ctxt != ch->priv_usb) {
 		usb_ep_free_request(out, req);
 		kref_put_spinlock_irqsave(&ctxt->kref, diag_context_release,
@@ -573,16 +573,16 @@ int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req)
 	}
 
 	if (usb_ep_queue(out, req, GFP_ATOMIC)) {
-		
+		/* If error add the link to linked list again*/
 		spin_lock_irqsave(&ctxt->lock, flags);
 		list_add_tail(&req->list, &ctxt->read_pool);
-		
+		/* 1 error message for every 10 sec */
 		if (__ratelimit(&rl))
 			ERROR(ctxt->cdev, "%s: cannot queue"
 				" read request\n", __func__);
 
 		if (kref_put(&ctxt->kref, diag_context_release))
-			
+			/* diag_context_release called spin_unlock already */
 			local_irq_restore(flags);
 		else
 			spin_unlock_irqrestore(&ctxt->lock, flags);
@@ -621,14 +621,14 @@ int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
 
 	req = list_first_entry(&ctxt->write_pool, struct usb_request, list);
 	list_del(&req->list);
-	kref_get(&ctxt->kref); 
+	kref_get(&ctxt->kref); /* put called in complete callback */
 	spin_unlock_irqrestore(&ctxt->lock, flags);
 
 	req->buf = d_req->buf;
 	req->length = d_req->length;
 	req->context = d_req;
 
-	
+	/* make sure context is still valid after releasing lock */
 	if (ctxt != ch->priv_usb) {
 		usb_ep_free_request(in, req);
 		kref_put_spinlock_irqsave(&ctxt->kref, diag_context_release,
@@ -803,7 +803,7 @@ static int diag_function_bind(struct usb_configuration *c,
 	ep->driver_data = ctxt;
 
 	status = -ENOMEM;
-	
+	/* copy descriptors, and track endpoint copies */
 	f->fs_descriptors = usb_copy_descriptors(fs_diag_desc);
 	if (!f->fs_descriptors)
 		goto fail;
@@ -814,7 +814,7 @@ static int diag_function_bind(struct usb_configuration *c,
 		hs_bulk_out_desc.bEndpointAddress =
 				fs_bulk_out_desc.bEndpointAddress;
 
-		
+		/* copy descriptors, and track endpoint copies */
 		f->hs_descriptors = usb_copy_descriptors(hs_diag_desc);
 		if (!f->hs_descriptors)
 			goto fail;
@@ -826,7 +826,7 @@ static int diag_function_bind(struct usb_configuration *c,
 		ss_bulk_out_desc.bEndpointAddress =
 				fs_bulk_out_desc.bEndpointAddress;
 
-		
+		/* copy descriptors, and track endpoint copies */
 		f->ss_descriptors = usb_copy_descriptors(ss_diag_desc);
 		if (!f->ss_descriptors)
 			goto fail;
@@ -1057,7 +1057,7 @@ static void diag_cleanup(void)
 		_ch = list_entry(act, struct usb_diag_ch, list);
 
 		spin_lock_irqsave(&ch_lock, flags);
-		
+		/* Free if diagchar is not using the channel anymore */
 		if (!_ch->priv) {
 			list_del(&_ch->list);
 			kfree(_ch);

@@ -41,8 +41,8 @@
 
 #ifdef CONFIG_GPIO_MSM_V3
 enum msm_tlmm_register {
-	SDC4_HDRV_PULL_CTL = 0x0, 
-	SDC3_HDRV_PULL_CTL = 0x0, 
+	SDC4_HDRV_PULL_CTL = 0x0, /* NOT USED */
+	SDC3_HDRV_PULL_CTL = 0x0, /* NOT USED */
 	SDC2_HDRV_PULL_CTL = 0x2048,
 	SDC1_HDRV_PULL_CTL = 0x2044,
 };
@@ -50,7 +50,7 @@ enum msm_tlmm_register {
 enum msm_tlmm_register {
 	SDC4_HDRV_PULL_CTL = 0x20a0,
 	SDC3_HDRV_PULL_CTL = 0x20a4,
-	SDC2_HDRV_PULL_CTL = 0x0, 
+	SDC2_HDRV_PULL_CTL = 0x0, /* NOT USED */
 	SDC1_HDRV_PULL_CTL = 0x20a0,
 };
 #endif
@@ -412,7 +412,7 @@ static struct syscore_ops msm_gpio_syscore_ops = {
 	.suspend = msm_gpio_suspend,
 	.resume = msm_gpio_resume,
 };
-#endif 
+#endif /* CONFIG_USE_PINCTRL_IRQ */
 
 static void msm_tlmm_set_field(const struct tlmm_field_cfg *configs,
 			       unsigned id, unsigned width, unsigned val)
@@ -810,10 +810,10 @@ static int msm_gpio_irq_domain_xlate(struct irq_domain *d,
 	if (intsize != 2)
 		return -EINVAL;
 
-	
+	/* hwirq value */
 	*out_hwirq = intspec[0];
 
-	
+	/* irq flags */
 	*out_type = intspec[1] & IRQ_TYPE_SENSE_MASK;
 	return 0;
 }

@@ -16,10 +16,10 @@ struct notifier_block;
 
 struct bio;
 
-#define SWAP_FLAG_PREFER	0x8000	
+#define SWAP_FLAG_PREFER	0x8000	/* set if swap priority specified */
 #define SWAP_FLAG_PRIO_MASK	0x7fff
 #define SWAP_FLAG_PRIO_SHIFT	0
-#define SWAP_FLAG_DISCARD	0x10000 
+#define SWAP_FLAG_DISCARD	0x10000 /* discard swap cluster after use */
 
 #define SWAP_FLAGS_VALID	(SWAP_FLAG_PRIO_MASK | SWAP_FLAG_PREFER | \
 				 SWAP_FLAG_DISCARD)
@@ -322,7 +322,7 @@ mem_cgroup_uncharge_swapcache(struct page *page, swp_entry_t ent, bool swapout)
 }
 #endif
 
-#else 
+#else /* CONFIG_SWAP */
 
 #define get_nr_swap_pages()			0L
 #define total_swap_pages			0L
@@ -424,6 +424,6 @@ mem_cgroup_uncharge_swapcache(struct page *page, swp_entry_t ent)
 {
 }
 
-#endif 
-#endif 
-#endif 
+#endif /* CONFIG_SWAP */
+#endif /* __KERNEL__*/
+#endif /* _LINUX_SWAP_H */

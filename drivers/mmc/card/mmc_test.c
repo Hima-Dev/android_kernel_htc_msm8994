@@ -16,7 +16,7 @@
 #include <linux/slab.h>
 
 #include <linux/scatterlist.h>
-#include <linux/swap.h>		
+#include <linux/swap.h>		/* For nr_free_buffer_pages() */
 #include <linux/list.h>
 
 #include <linux/debugfs.h>
@@ -455,7 +455,7 @@ static void mmc_test_print_rate(struct mmc_test_card *test, uint64_t bytes,
 	ts = timespec_sub(*ts2, *ts1);
 
 	rate = mmc_test_rate(bytes, &ts);
-	iops = mmc_test_rate(100, &ts); 
+	iops = mmc_test_rate(100, &ts); /* I/O ops per sec x 100 */
 
 	pr_info("%s: Transfer of %u sectors (%u%s KiB) took %lu.%09lu "
 			 "seconds (%u kB/s, %u KiB/s, %u.%02u IOPS)\n",
@@ -478,7 +478,7 @@ static void mmc_test_print_avg_rate(struct mmc_test_card *test, uint64_t bytes,
 	ts = timespec_sub(*ts2, *ts1);
 
 	rate = mmc_test_rate(tot, &ts);
-	iops = mmc_test_rate(count * 100, &ts); 
+	iops = mmc_test_rate(count * 100, &ts); /* I/O ops per sec x 100 */
 
 	pr_info("%s: Transfer of %u x %u sectors (%u x %u%s KiB) took "
 			 "%lu.%09lu seconds (%u kB/s, %u KiB/s, "
@@ -1404,7 +1404,7 @@ static int mmc_test_area_init(struct mmc_test_card *test, int erase, int fill)
 	if (ret)
 		return ret;
 
-	
+	/* Make the test area size about 4MiB */
 	sz = (unsigned long)test->card->pref_erase << 9;
 	t->max_sz = sz;
 	while (t->max_sz < 4 * 1024 * 1024)
@@ -1800,7 +1800,7 @@ static int mmc_test_seq_perf(struct mmc_test_card *test, int write,
 	if (tot_sz > dev_addr << 9)
 		tot_sz = dev_addr << 9;
 	cnt = tot_sz / sz;
-	dev_addr &= 0xffff0000; 
+	dev_addr &= 0xffff0000; /* Round to 64MiB boundary */
 
 	getnstimeofday(&ts1);
 	for (i = 0; i < cnt; i++) {
@@ -1859,23 +1859,23 @@ static int mmc_test_rw_multiple(struct mmc_test_card *test,
 	struct mmc_test_area *t = &test->area;
 	int ret = 0;
 
-	
+	/* Set up test area */
 	if (size > mmc_test_capacity(test->card) / 2 * 512)
 		size = mmc_test_capacity(test->card) / 2 * 512;
 	if (reqsize > t->max_tfr)
 		reqsize = t->max_tfr;
 	dev_addr = mmc_test_capacity(test->card) / 4;
 	if ((dev_addr & 0xffff0000))
-		dev_addr &= 0xffff0000; 
+		dev_addr &= 0xffff0000; /* Round to 64MiB boundary */
 	else
-		dev_addr &= 0xfffff800; 
+		dev_addr &= 0xfffff800; /* Round to 1MiB boundary */
 	if (!dev_addr)
 		goto err;
 
 	if (reqsize > size)
 		return 0;
 
-	
+	/* prepare test area */
 	if (mmc_can_erase(test->card) &&
 	    tdata->prepare & MMC_TEST_PREP_ERASE) {
 #if 0       
@@ -1889,7 +1889,7 @@ static int mmc_test_rw_multiple(struct mmc_test_card *test,
 			goto err;
 	}
 
-	
+	/* Run test */
 	ret = mmc_test_area_io_seq(test, reqsize, dev_addr,
 				   tdata->do_write, 0, 1, size / reqsize,
 				   tdata->do_nonblock_req, min_sg_len);
@@ -2256,7 +2256,7 @@ static const struct mmc_test_case mmc_test_cases[] = {
 		.run = mmc_test_no_highmem,
 	},
 
-#endif 
+#endif /* CONFIG_HIGHMEM */
 
 	{
 		.name = "Best-case read performance",
@@ -2493,7 +2493,7 @@ static void mmc_test_run(struct mmc_test_card *test, int testcase)
 				mmc_hostname(test->card->host), ret);
 		}
 
-		
+		/* Save the result */
 		if (gr)
 			gr->result = ret;
 
@@ -2769,7 +2769,7 @@ static int __init mmc_test_init(void)
 
 static void __exit mmc_test_exit(void)
 {
-	
+	/* Clear stalled data if card is still plugged */
 	mmc_test_free_result(NULL);
 	mmc_test_free_dbgfs_file(NULL);
 

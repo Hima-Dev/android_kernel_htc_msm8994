@@ -14,7 +14,7 @@ static inline int printk_get_level(const char *buffer)
 	if (buffer[0] == KERN_SOH_ASCII && buffer[1]) {
 		switch (buffer[1]) {
 		case '0' ... '7':
-		case 'd':	
+		case 'd':	/* KERN_DEFAULT */
 			return buffer[1];
 		}
 	}
@@ -26,7 +26,7 @@ static inline const char *printk_skip_level(const char *buffer)
 	if (printk_get_level(buffer)) {
 		switch (buffer[1]) {
 		case '0' ... '7':
-		case 'd':	
+		case 'd':	/* KERN_DEFAULT */
 			return buffer + 2;
 		}
 	}
@@ -206,7 +206,10 @@ extern void dump_stack(void) __cold;
 	no_printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
 #endif
 
-
+/*
+ * ratelimited messages with local ratelimit_state,
+ * no local ratelimit_state used in the !PRINTK case
+ */
 #ifdef CONFIG_PRINTK
 #define printk_once(fmt, ...)			\
 ({						\
@@ -332,7 +335,7 @@ extern void print_hex_dump(const char *level, const char *prefix_str,
 #else
 extern void print_hex_dump_bytes(const char *prefix_str, int prefix_type,
 				 const void *buf, size_t len);
-#endif 
+#endif /* defined(CONFIG_DYNAMIC_DEBUG) */
 #else
 static inline void print_hex_dump(const char *level, const char *prefix_str,
 				  int prefix_type, int rowsize, int groupsize,
@@ -356,7 +359,7 @@ static inline void print_hex_dump_bytes(const char *prefix_str, int prefix_type,
 			     groupsize, buf, len, ascii)		\
 	print_hex_dump(KERN_DEBUG, prefix_str, prefix_type, rowsize,	\
 		       groupsize, buf, len, ascii)
-#endif 
+#endif /* defined(CONFIG_DYNAMIC_DEBUG) */
 
 #if defined(CONFIG_OOPS_LOG_BUFFER)
 extern void oops_printk_start(void);

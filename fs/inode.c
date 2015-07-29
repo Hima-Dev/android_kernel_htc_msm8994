@@ -125,7 +125,7 @@ int inode_init_always(struct super_block *sb, struct inode *inode)
 	}
 	inode->i_private = NULL;
 	inode->i_mapping = mapping;
-	INIT_HLIST_HEAD(&inode->i_dentry);	
+	INIT_HLIST_HEAD(&inode->i_dentry);	/* buggered by rcu freeing */
 #ifdef CONFIG_FS_POSIX_ACL
 	inode->i_acl = inode->i_default_acl = ACL_NOT_CACHED;
 #endif
@@ -539,7 +539,7 @@ void prune_icache_sb(struct super_block *sb, int nr_to_scan)
 			continue;
 		}
 
-		
+		/* recently referenced inodes get one more pass */
 		if (inode->i_state & I_REFERENCED) {
 			inode->i_state &= ~I_REFERENCED;
 			list_move(&inode->i_lru, &sb->s_inode_lru);
@@ -558,8 +558,8 @@ void prune_icache_sb(struct super_block *sb, int nr_to_scan)
 
 			if (inode != list_entry(sb->s_inode_lru.next,
 						struct inode, i_lru))
-				continue;	
-			
+				continue;	/* wrong inode or list_empty */
+			/* avoid lock inversions with trylock */
 			if (!spin_trylock(&inode->i_lock))
 				continue;
 			if (!can_unuse(inode)) {
@@ -743,7 +743,7 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 		struct inode *old;
 
 		spin_lock(&inode_hash_lock);
-		
+		/* We released the lock, so.. */
 		old = find_inode(sb, head, test, data);
 		if (!old) {
 			if (set(inode, data))
@@ -791,7 +791,7 @@ struct inode *iget_locked(struct super_block *sb, unsigned long ino)
 		struct inode *old;
 
 		spin_lock(&inode_hash_lock);
-		
+		/* We released the lock, so.. */
 		old = find_inode_fast(sb, head, ino);
 		if (!old) {
 			inode->i_ino = ino;
@@ -1158,7 +1158,7 @@ int file_remove_suid(struct file *file)
 	int killpriv;
 	int error = 0;
 
-	
+	/* Fast path for nothing security related */
 	if (IS_NOSEC(inode))
 		return 0;
 
@@ -1186,7 +1186,7 @@ int file_update_time(struct file *file)
 	int sync_it = 0;
 	int ret;
 
-	
+	/* First try to exhaust all avenues to not sync */
 	if (IS_NOCMTIME(inode))
 		return 0;
 
@@ -1203,7 +1203,7 @@ int file_update_time(struct file *file)
 	if (!sync_it)
 		return 0;
 
-	
+	/* Finally allowed to write? Takes lock. */
 	if (__mnt_want_write_file(file))
 		return 0;
 
@@ -1280,7 +1280,7 @@ void __init inode_init(void)
 {
 	unsigned int loop;
 
-	
+	/* inode slab cache */
 	inode_cachep = kmem_cache_create("inode_cache",
 					 sizeof(struct inode),
 					 0,
@@ -1288,7 +1288,7 @@ void __init inode_init(void)
 					 SLAB_MEM_SPREAD),
 					 init_once);
 
-	
+	/* Hash may have been set up in inode_init_early */
 	if (!hashdist)
 		return;
 

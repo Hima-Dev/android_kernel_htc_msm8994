@@ -291,12 +291,12 @@ static void wdog_disable(struct msm_watchdog_data *wdog_dd)
 	} else
 		devm_free_irq(wdog_dd->dev, wdog_dd->bark_irq, wdog_dd);
 	enable = 0;
-	
+	/*Ensure all cpus see update to enable*/
 	smp_mb();
 	atomic_notifier_chain_unregister(&panic_notifier_list,
 						&wdog_dd->panic_blk);
 	cancel_delayed_work_sync(&wdog_dd->dogwork_struct);
-	
+	/* may be suspended after the first write above */
 	__raw_writel(0, wdog_dd->base + WDT0_EN);
 #ifdef CONFIG_HTC_DEBUG_FOOTPRINT
 	set_msm_watchdog_en_footprint(0);
@@ -524,7 +524,7 @@ void msm_trigger_wdog_bite(void)
 	set_msm_watchdog_pet_footprint(mpm_clock_base);
 #endif
 	mb();
-	
+	/* Delay to make sure bite occurs */
 	mdelay(1);
 	pr_err("Wdog - STS: 0x%x, CTL: 0x%x, BARK TIME: 0x%x, BITE TIME: 0x%x",
 		__raw_readl(wdog_data->base + WDT0_STS),

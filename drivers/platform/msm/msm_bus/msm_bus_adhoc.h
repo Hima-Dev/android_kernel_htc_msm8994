@@ -161,5 +161,5 @@ static inline int msm_bus_floor_init(struct device *dev)
 {
 	return 0;
 }
-#endif 
-#endif 
+#endif /* CONFIG_DBG_BUS_VOTER */
+#endif /* _ARCH_ARM_MACH_MSM_BUS_ADHOC_H */

@@ -863,12 +863,12 @@ void msm_fd_hw_remove_buffers_from_queue(struct msm_fd_device *fd,
 	}
 	spin_unlock(&fd->slock);
 
-	
+	/* We need to wait active buffer to finish */
 	if (active_buffer) {
 		time = wait_for_completion_timeout(&active_buffer->completion,
 			msecs_to_jiffies(MSM_FD_PROCESSING_TIMEOUT_MS));
 		if (!time) {
-			
+			/* Schedule if other buffers are present in device */
 			msm_fd_hw_schedule_next_buffer(fd);
 		}
 	}
@@ -931,7 +931,7 @@ int msm_fd_hw_schedule_next_buffer(struct msm_fd_device *fd)
 
 	spin_lock(&fd->slock);
 
-	
+	/* We can schedule next buffer only in running state */
 	if (fd->state != MSM_FD_DEVICE_RUNNING) {
 		dev_err(fd->dev, "Can not schedule next buffer\n");
 		spin_unlock(&fd->slock);

@@ -95,21 +95,21 @@ struct msm_jpeg_hw_cmd32 {
 
 	uint32_t type:4;
 
-	
-	
-	
-	
+	/* n microseconds of timeout for WAIT */
+	/* n microseconds of time for DELAY */
+	/* repeat n times for READ/WRITE */
+	/* max is 0xFFF, 4095 */
 	uint32_t n:12;
 	uint32_t offset:16;
 	uint32_t mask;
 	union {
-		uint32_t data;   
-		compat_uptr_t pdata;   
+		uint32_t data;   /* for single READ/WRITE/WAIT, n = 1 */
+		compat_uptr_t pdata;   /* for multiple READ/WRITE/WAIT, n > 1 */
 	};
 };
 
 struct msm_jpeg_hw_cmds32 {
-	uint32_t m; 
+	uint32_t m; /* number of elements in the hw_cmd array */
 	struct msm_jpeg_hw_cmd32 hw_cmd[1];
 };
 #endif
@@ -193,7 +193,7 @@ inline int msm_jpeg_q_in_buf(struct msm_jpeg_q *q_p,
 
 inline int msm_jpeg_q_wait(struct msm_jpeg_q *q_p)
 {
-	long tm = MAX_SCHEDULE_TIMEOUT; 
+	long tm = MAX_SCHEDULE_TIMEOUT; /* 500ms */
 	int rc;
 
 	JPEG_DBG("%s:%d] %s wait\n", __func__, __LINE__, q_p->name);
@@ -710,7 +710,7 @@ int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 	irqreturn_t (*core_irq)(int, void *);
 	mutex_lock(&pgmn_dev->lock);
 	if (pgmn_dev->open_count) {
-		
+		/* only open once */
 		JPEG_PR_ERR("%s:%d] busy\n", __func__, __LINE__);
 		mutex_unlock(&pgmn_dev->lock);
 		return -EBUSY;
@@ -1530,7 +1530,7 @@ int __msm_jpeg_init(struct msm_jpeg_device *pgmn_dev)
 
 #ifdef CONFIG_MSM_IOMMU
 	j = (pgmn_dev->iommu_cnt <= 1) ? idx : 0;
-	
+	/*get device context for IOMMU*/
 	for (i = 0; i < pgmn_dev->iommu_cnt; i++) {
 		pgmn_dev->iommu_ctx_arr[i] = msm_iommu_get_ctx(iommu_name[j]);
 		JPEG_DBG("%s:%d] name %s", __func__, __LINE__, iommu_name[j]);

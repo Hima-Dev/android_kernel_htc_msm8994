@@ -25,19 +25,19 @@
 #include "ocmem_priv.h"
 
 enum request_states {
-	R_FREE = 0x0,   
-	R_PENDING,      
-	R_ALLOCATED,    
-	R_ENQUEUED,     
-	R_MUST_GROW,    
-	R_MUST_SHRINK,  
-	R_WF_SHRINK,    
-	R_SHRUNK,       
-	R_MUST_MAP,     
-	R_MUST_UNMAP,   
-	R_MAPPED,       
-	R_UNMAPPED,     
-	R_EVICTED,      
+	R_FREE = 0x0,   /* request is not allocated */
+	R_PENDING,      /* request has a pending operation */
+	R_ALLOCATED,    /* request has been allocated */
+	R_ENQUEUED,     /* request has been enqueued for future retry */
+	R_MUST_GROW,    /* request must grow as a part of pending operation */
+	R_MUST_SHRINK,  /* request must shrink */
+	R_WF_SHRINK,    /* shrink must be ack'ed by a client */
+	R_SHRUNK,       /* request was shrunk */
+	R_MUST_MAP,     /* request must be mapped before being used */
+	R_MUST_UNMAP,   /* request must be unmapped when not being used */
+	R_MAPPED,       /* request is mapped and actively used by client */
+	R_UNMAPPED,     /* request is not mapped, so it's not in active use */
+	R_EVICTED,      /* request is evicted and must be restored */
 };
 
 #define SET_STATE(x, val) (set_bit((val), &(x)->state))
@@ -525,7 +525,7 @@ static int __sched_unmap(struct ocmem_req *req)
 		goto invalid_op_error;
 	}
 
-	
+	/* Update the request state */
 	CLEAR_STATE(req, R_MAPPED);
 	SET_STATE(req, R_MUST_MAP);
 
@@ -553,7 +553,7 @@ static int __sched_map(struct ocmem_req *req)
 		goto invalid_op_error;
 	}
 
-	
+	/* Update the request state */
 	CLEAR_STATE(req, R_MUST_MAP);
 	SET_STATE(req, R_MAPPED);
 
@@ -724,7 +724,7 @@ retry_next_step:
 				zone->z_head + growth_sz);
 
 	if (overlap_r == NULL) {
-		
+		/* no conflicting regions, schedule this region */
 		zone->z_ops->free(zone, curr_start, curr_sz);
 		rc = zone->z_ops->allocate(zone, curr_sz + growth_sz,
 								&alloc_addr);
@@ -749,24 +749,24 @@ retry_next_step:
 			}
 		}
 
-		
+		/* update the request */
 		req->req_start = alloc_addr;
-		
+		/* increment the size to reflect new length */
 		req->req_sz = curr_sz;
 		req->req_end = alloc_addr + req->req_sz - 1;
 
-		
+		/* update request state */
 		CLEAR_STATE(req, R_MUST_GROW);
 		SET_STATE(req, R_ALLOCATED);
 		SET_STATE(req, R_MUST_MAP);
 		req->op = SCHED_MAP;
 
-		
+		/* update the region with new req */
 		attach_req(region, req);
 		populate_region(region, req);
 		update_region_prio(region);
 
-		
+		/* update the tree with new region */
 		if (insert_region(region)) {
 			pr_err("ocmem: Failed to insert the region\n");
 			goto region_error;
@@ -809,7 +809,7 @@ retry_next_step:
 			pr_err("ocmem: grow: New Region %p Existing %p\n",
 				matched_region, overlap_r);
 			pr_err("ocmem: Undetermined behavior\n");
-			
+			/* This is serious enough to fail */
 			BUG();
 		}
 	} else if (spanned_r == NULL && overlap_r != NULL) {
@@ -865,7 +865,7 @@ static int __sched_free(struct ocmem_req *req)
 		destroy_region(matched_region);
 	}
 
-	
+	/* Update the request */
 	req->req_start = 0x0;
 	req->req_sz = 0x0;
 	req->req_end = 0x0;
@@ -893,7 +893,7 @@ static int __sched_shrink(struct ocmem_req *req, unsigned long new_sz)
 
 	BUG_ON(!zone);
 
-	
+	/* The shrink should not be called for zero size */
 	BUG_ON(new_sz == 0);
 
 	matched_region = find_region_match(req->req_start, req->req_end);
@@ -932,7 +932,7 @@ static int __sched_shrink(struct ocmem_req *req, unsigned long new_sz)
 			goto internal_error;
 		}
 	}
-	
+	/* update the request */
 	req->req_start = alloc_addr;
 	req->req_sz = new_sz;
 	req->req_end = alloc_addr + req->req_sz;
@@ -942,23 +942,23 @@ static int __sched_shrink(struct ocmem_req *req, unsigned long new_sz)
 		destroy_region(matched_region);
 	}
 
-	
+	/* update request state */
 	SET_STATE(req, R_MUST_GROW);
 	SET_STATE(req, R_MUST_MAP);
 	req->op = SCHED_MAP;
 
-	
+	/* attach the request to the region */
 	attach_req(region, req);
 	populate_region(region, req);
 	update_region_prio(region);
 
-	
+	/* update the tree with new region */
 	if (insert_region(region)) {
 		pr_err("ocmem: Failed to insert the region\n");
 		zone->z_ops->free(zone, alloc_addr, new_sz);
 		detach_req(region, req);
 		update_region_prio(region);
-		
+		/* req will be destroyed by the caller */
 		goto region_error;
 	}
 	return OP_COMPLETE;
@@ -1031,7 +1031,7 @@ retry_next_step:
 			goto invalid_op_error;
 		}
 
-		
+		/* no conflicting regions, schedule this region */
 		rc = zone->z_ops->allocate(zone, sz, &alloc_addr);
 
 		if (rc) {
@@ -1039,31 +1039,31 @@ retry_next_step:
 			goto internal_error;
 		}
 
-		
+		/* update the request */
 		req->req_start = alloc_addr;
 		req->req_end = alloc_addr + sz - 1;
 		req->req_sz = sz;
 		req->zone = zone;
 
-		
+		/* update request state */
 		CLEAR_STATE(req, R_FREE);
 		CLEAR_STATE(req, R_PENDING);
 		SET_STATE(req, R_ALLOCATED);
 		SET_STATE(req, R_MUST_MAP);
 		req->op = SCHED_NOP;
 
-		
+		/* attach the request to the region */
 		attach_req(region, req);
 		populate_region(region, req);
 		update_region_prio(region);
 
-		
+		/* update the tree with new region */
 		if (insert_region(region)) {
 			pr_err("ocmem: Failed to insert the region\n");
 			zone->z_ops->free(zone, alloc_addr, sz);
 			detach_req(region, req);
 			update_region_prio(region);
-			
+			/* req will be destroyed by the caller */
 			goto internal_error;
 		}
 
@@ -1074,7 +1074,7 @@ retry_next_step:
 			return OP_PARTIAL;
 		}
 	} else if (spanned_r != NULL && overlap_r != NULL) {
-		
+		/* resolve conflicting regions based on priority */
 		if (overlap_r->max_prio < prio) {
 			if (min == max) {
 				req->req_start = zone->z_head;
@@ -1083,7 +1083,7 @@ retry_next_step:
 				req->edata = NULL;
 				goto trigger_eviction;
 			} else {
-			
+			/* Try to allocate atleast >= 'min' immediately */
 				sz -= step;
 				if (sz < min)
 					goto err_out_of_mem;
@@ -1116,7 +1116,7 @@ retry_next_step:
 			pr_err("ocmem: Undetermined behavior\n");
 			pr_err("ocmem: New Region %p Existing %p\n", region,
 					overlap_r);
-			
+			/* This is serious enough to fail */
 			BUG();
 		}
 	} else if (spanned_r == NULL && overlap_r != NULL)
@@ -1257,7 +1257,7 @@ static int do_grow(struct ocmem_req *req)
 	down_write(&req->rw_sem);
 	buffer = req->buffer;
 
-	
+	/* Take the scheduler mutex */
 	mutex_lock(&sched_mutex);
 	rc = __sched_grow(req, can_block);
 	mutex_unlock(&sched_mutex);
@@ -1287,7 +1287,7 @@ static int process_grow(struct ocmem_req *req)
 	int rc = 0;
 	unsigned long offset = 0;
 
-	
+	/* Attempt to grow the region */
 	rc = do_grow(req);
 
 	if (rc < 0)
@@ -1318,7 +1318,7 @@ static int process_grow(struct ocmem_req *req)
 		goto power_ctl_error;
 	}
 
-	
+	/* Notify the client about the buffer growth */
 	rc = dispatch_notification(req->owner, OCMEM_ALLOC_GROW, req->buffer);
 	if (rc < 0) {
 		pr_err("No notifier callback to cater for req %p event: %d\n",
@@ -1346,7 +1346,7 @@ static int do_shrink(struct ocmem_req *req, unsigned long shrink_size)
 	down_write(&req->rw_sem);
 	buffer = req->buffer;
 
-	
+	/* Take the scheduler mutex */
 	mutex_lock(&sched_mutex);
 	rc = __sched_shrink(req, shrink_size);
 	mutex_unlock(&sched_mutex);
@@ -1405,7 +1405,7 @@ static int do_free(struct ocmem_req *req)
 
 	pr_debug("ocmem: do_free: client %s req %p\n", get_name(req->owner),
 					req);
-	
+	/* Grab the sched mutex */
 	mutex_lock(&sched_mutex);
 	rc = __sched_free(req);
 	mutex_unlock(&sched_mutex);
@@ -1469,11 +1469,11 @@ int process_free(int id, struct ocmem_handle *handle)
 		goto pending_shrink;
 	}
 
-	
+	/* Remove the request from any restore lists */
 	if (req->eviction_info)
 		cancel_restore(req);
 
-	
+	/* Remove the request from any pending opreations */
 	if (TEST_STATE(req, R_ENQUEUED)) {
 		mutex_lock(&sched_mutex);
 		sched_dequeue(req);
@@ -1483,14 +1483,14 @@ int process_free(int id, struct ocmem_handle *handle)
 	if (!TEST_STATE(req, R_FREE)) {
 
 		if (TEST_STATE(req, R_MAPPED)) {
-			
+			/* unmap the interval and clear the memory */
 			rc = process_unmap(req, req->req_start, req->req_end);
 
 			if (rc < 0) {
 				pr_err("ocmem: Failed to unmap %p\n", req);
 				goto free_fail;
 			}
-			
+			/* Turn off the memory */
 			if (req->req_sz != 0) {
 
 				offset = phys_to_offset(req->req_start);
@@ -1517,7 +1517,7 @@ int process_free(int id, struct ocmem_handle *handle)
 	}
 
 	if (!TEST_STATE(req, R_FREE)) {
-		
+		/* Turn off the memory */
 		if (req->req_sz != 0) {
 
 			offset = phys_to_offset(req->req_start);
@@ -1532,7 +1532,7 @@ int process_free(int id, struct ocmem_handle *handle)
 			ocmem_disable_core_clock();
 		}
 
-		
+		/* free the allocation */
 		rc = do_free(req);
 		if (rc < 0)
 			return -EINVAL;
@@ -2089,7 +2089,7 @@ static int do_allocate(struct ocmem_req *req, bool can_block, bool can_wait)
 
 retry_allocate:
 
-	
+	/* Take the scheduler mutex */
 	mutex_lock(&sched_mutex);
 	rc = __sched_allocate(req, can_block, can_wait);
 	mutex_unlock(&sched_mutex);
@@ -2197,7 +2197,7 @@ int process_allocate(int id, struct ocmem_handle *handle,
 	int rc = 0;
 	unsigned long offset = 0;
 
-	
+	/* sanity checks */
 	if (is_blocked(id)) {
 		pr_err("Client %d cannot request allocation\n", id);
 		return -EINVAL;
@@ -2211,7 +2211,7 @@ int process_allocate(int id, struct ocmem_handle *handle,
 	buffer = handle_to_buffer(handle);
 	BUG_ON(buffer == NULL);
 
-	
+	/* prepare a request structure to represent this transaction */
 	req = ocmem_create_req();
 	if (!req)
 		return -ENOMEM;
@@ -2295,7 +2295,7 @@ int process_delayed_allocate(struct ocmem_req *req)
 	if (rc < 0)
 		goto do_allocate_error;
 
-	
+	/* The request can still be pending */
 	if (TEST_STATE(req, R_PENDING))
 		return 0;
 
@@ -2329,7 +2329,7 @@ int process_delayed_allocate(struct ocmem_req *req)
 		}
 	}
 
-	
+	/* Notify the client about the buffer growth */
 	rc = dispatch_notification(id, OCMEM_ALLOC_GROW, req->buffer);
 	if (rc < 0) {
 		pr_err("No notifier callback to cater for req %p event: %d\n",

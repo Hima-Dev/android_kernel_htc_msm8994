@@ -123,13 +123,13 @@ static struct sysrq_key_op sysrq_unraw_op = {
 };
 #else
 #define sysrq_unraw_op (*(struct sysrq_key_op *)NULL)
-#endif 
+#endif /* CONFIG_VT */
 
 static void sysrq_handle_crash(int key)
 {
 	char *killer = NULL;
 
-	panic_on_oops = 1;	
+	panic_on_oops = 1;	/* force panic */
 	wmb();
 	*killer = 1;
 }
@@ -208,7 +208,7 @@ static void showacpu(void *dummy)
 {
 	unsigned long flags;
 
-	
+	/* Idle CPUs have no interesting backtrace. */
 	if (idle_cpu(smp_processor_id()))
 		return;
 
@@ -509,7 +509,7 @@ void __handle_sysrq(int key, bool check_mask)
 		}
 	} else {
 		printk("HELP : ");
-		
+		/* Only print the help msg once per handler */
 		for (i = 0; i < ARRAY_SIZE(sysrq_key_table); i++) {
 			if (sysrq_key_table[i]) {
 				int j;
@@ -556,7 +556,7 @@ struct sysrq_state {
 	bool need_reinject;
 	bool reinjecting;
 
-	
+	/* reset sequence handling */
 	bool reset_canceled;
 	unsigned long reset_keybit[BITS_TO_LONGS(KEY_CNT)];
 	int reset_seq_len;
@@ -565,7 +565,7 @@ struct sysrq_state {
 	struct timer_list keyreset_timer;
 };
 
-#define SYSRQ_KEY_RESET_MAX	20 
+#define SYSRQ_KEY_RESET_MAX	20 /* Should be plenty */
 static unsigned short sysrq_reset_seq[SYSRQ_KEY_RESET_MAX];
 static unsigned int sysrq_reset_seq_len;
 static unsigned int sysrq_reset_seq_version = 1;
@@ -590,7 +590,7 @@ static void sysrq_parse_reset_sequence(struct sysrq_state *state)
 			state->reset_seq_cnt++;
 	}
 
-	
+	/* Disable reset until old keys are not released */
 	state->reset_canceled = state->reset_seq_cnt != 0;
 
 	state->reset_seq_version = sysrq_reset_seq_version;
@@ -640,11 +640,11 @@ static void sysrq_reinject_alt_sysrq(struct work_struct *work)
 	unsigned int alt_code = sysrq->alt_use;
 
 	if (sysrq->need_reinject) {
-		
+		/* we do not want the assignment to be reordered */
 		sysrq->reinjecting = true;
 		mb();
 
-		
+		/* Simulate press and release of Alt + SysRq */
 		input_inject_event(handle, EV_KEY, alt_code, 1);
 		input_inject_event(handle, EV_KEY, KEY_SYSRQ, 1);
 		input_inject_event(handle, EV_SYN, SYN_REPORT, 1);
@@ -669,7 +669,7 @@ static bool sysrq_handle_keypress(struct sysrq_state *sysrq,
 	case KEY_LEFTALT:
 	case KEY_RIGHTALT:
 		if (!value) {
-			
+			/* One of ALTs is being released */
 			if (sysrq->active && code == sysrq->alt_use)
 				sysrq->active = false;
 
@@ -896,7 +896,7 @@ static inline void sysrq_unregister_handler(void)
 {
 }
 
-#endif 
+#endif /* CONFIG_INPUT */
 
 int sysrq_toggle_support(int enable_mask)
 {
@@ -976,7 +976,7 @@ static inline void sysrq_init_procfs(void)
 {
 }
 
-#endif 
+#endif /* CONFIG_PROC_FS */
 
 static int __init sysrq_init(void)
 {

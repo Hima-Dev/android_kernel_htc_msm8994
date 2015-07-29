@@ -86,7 +86,20 @@ enum {
 	WQ_NAME_LEN		= 24,
 };
 
-
+/*
+ * CPU hotplug.
+ *
+ * There are two challenges in supporting CPU hotplug.  Firstly, there
+ * are a lot of assumptions on strong associations among work, pwq and
+ * pool which make migrating pending and scheduled works very
+ * difficult to implement without impacting hot paths.  Secondly,
+ * worker pools serve mix of short, long and very long running works making
+ * blocked draining impractical.
+ *
+ * This is solved by allowing the pools to be disassociated from the CPU
+ * running as an unbound one and allowing it to be reattached later if the
+ * cpu comes back online.
+ */
 
 struct worker_pool {
 	spinlock_t		lock;		
@@ -838,7 +851,7 @@ retry:
 		if (worker && worker->current_pwq->wq == wq) {
 			pwq = worker->current_pwq;
 		} else {
-			
+			/* meh... not running there, queue here */
 			spin_unlock(&last_pool->lock);
 			spin_lock(&pwq->pool->lock);
 		}
@@ -904,7 +917,7 @@ void delayed_work_timer_fn(unsigned long __data)
 {
 	struct delayed_work *dwork = (struct delayed_work *)__data;
 
-	
+	/* should have been called from irqsafe timer with irq already off */
 	__queue_work(dwork->cpu, dwork->wq, &dwork->work);
 }
 EXPORT_SYMBOL(delayed_work_timer_fn);
@@ -944,7 +957,7 @@ bool queue_delayed_work_on(int cpu, struct workqueue_struct *wq,
 	bool ret = false;
 	unsigned long flags;
 
-	
+	/* read the comment in __queue_work() */
 	local_irq_save(flags);
 
 	if (!test_and_set_bit(WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
@@ -1142,7 +1155,7 @@ static void destroy_worker(struct worker *worker)
 	lockdep_assert_held(&pool->manager_mutex);
 	lockdep_assert_held(&pool->lock);
 
-	
+	/* sanity check frenzy */
 	if (WARN_ON(worker->current_work) ||
 	    WARN_ON(!list_empty(&worker->scheduled)))
 		return;
@@ -1178,14 +1191,14 @@ static void idle_worker_timeout(unsigned long __pool)
 		struct worker *worker;
 		unsigned long expires;
 
-		
+		/* idle_list is kept in LIFO order, check the last one */
 		worker = list_entry(pool->idle_list.prev, struct worker, entry);
 		expires = worker->last_active + IDLE_WORKER_TIMEOUT;
 
 		if (time_before(jiffies, expires))
 			mod_timer(&pool->idle_timer, expires);
 		else {
-			
+			/* it's been idle for too long, wake up manager */
 			pool->flags |= POOL_MANAGE_WORKERS;
 			wake_up_worker(pool);
 		}
@@ -1238,7 +1251,7 @@ __acquires(&pool->lock)
 restart:
 	spin_unlock_irq(&pool->lock);
 
-	
+	/* if we don't make progress in MAYDAY_INITIAL_TIMEOUT, call for help */
 	mod_timer(&pool->mayday_timer, jiffies + MAYDAY_INITIAL_TIMEOUT);
 
 	while (true) {
@@ -1442,7 +1455,7 @@ recheck:
 					 struct work_struct, entry);
 
 		if (likely(!(*work_data_bits(work) & WORK_STRUCT_LINKED))) {
-			
+			/* optimization path, not strictly necessary */
 			process_one_work(worker, work);
 			if (unlikely(!list_empty(&worker->scheduled)))
 				process_scheduled_works(worker);
@@ -1522,7 +1535,7 @@ repeat:
 		return 0;
 	}
 
-	
+	/* rescuers should never participate in concurrency management */
 	WARN_ON_ONCE(!(rescuer->flags & WORKER_NOT_RUNNING));
 	schedule();
 	goto repeat;
@@ -1671,7 +1684,7 @@ void flush_workqueue(struct workqueue_struct *wq)
 	while (true) {
 		struct wq_flusher *next, *tmp;
 
-		
+		/* complete all the flushers sharing the current flush color */
 		list_for_each_entry_safe(next, tmp, &wq->flusher_queue, list) {
 			if (next->flush_color != wq->flush_color)
 				break;
@@ -1774,7 +1787,7 @@ static bool start_flush_work(struct work_struct *work, struct wq_barrier *barr)
 	}
 
 	spin_lock(&pool->lock);
-	
+	/* see the comment in try_to_grab_pending() with the same code */
 	pwq = get_work_pwq(work);
 	if (pwq) {
 		if (unlikely(pwq->pool != pool))
@@ -2273,7 +2286,7 @@ static int init_worker_pool(struct worker_pool *pool)
 	INIT_HLIST_NODE(&pool->hash_node);
 	pool->refcnt = 1;
 
-	
+	/* shouldn't fail above this point */
 	pool->attrs = alloc_workqueue_attrs(GFP_KERNEL);
 	if (!pool->attrs)
 		return -ENOMEM;
@@ -2336,7 +2349,7 @@ static struct worker_pool *get_unbound_pool(const struct workqueue_attrs *attrs)
 
 	lockdep_assert_held(&wq_pool_mutex);
 
-	
+	/* do we already have a matching pool? */
 	hash_for_each_possible(unbound_pool_hash, pool, hash_node, hash) {
 		if (wqattrs_equal(pool->attrs, attrs)) {
 			pool->refcnt++;
@@ -2344,7 +2357,7 @@ static struct worker_pool *get_unbound_pool(const struct workqueue_attrs *attrs)
 		}
 	}
 
-	
+	/* nope, create a new one */
 	pool = kzalloc(sizeof(*pool), GFP_KERNEL);
 	if (!pool || init_worker_pool(pool) < 0)
 		goto fail;
@@ -2371,11 +2384,11 @@ static struct worker_pool *get_unbound_pool(const struct workqueue_attrs *attrs)
 	if (worker_pool_assign_id(pool) < 0)
 		goto fail;
 
-	
+	/* create and start the initial worker */
 	if (create_and_start_worker(pool) < 0)
 		goto fail;
 
-	
+	/* install */
 	hash_add(unbound_pool_hash, &pool->hash_node, hash);
 out_unlock:
 	return pool;
@@ -2530,7 +2543,7 @@ static bool wq_calc_node_cpumask(const struct workqueue_attrs *attrs, int node,
 	if (cpumask_empty(cpumask))
 		goto use_dfl;
 
-	
+	/* yeap, return possible CPUs in @node that @attrs wants */
 	cpumask_and(cpumask, attrs->cpumask, wq_numa_possible_cpumask[node]);
 	return !cpumask_equal(cpumask, attrs->cpumask);
 
@@ -2547,7 +2560,7 @@ static struct pool_workqueue *numa_pwq_tbl_install(struct workqueue_struct *wq,
 
 	lockdep_assert_held(&wq->mutex);
 
-	
+	/* link_pwq() can handle duplicate calls */
 	link_pwq(pwq);
 
 	old_pwq = rcu_access_pointer(wq->numa_pwq_tbl[node]);
@@ -2562,11 +2575,11 @@ int apply_workqueue_attrs(struct workqueue_struct *wq,
 	struct pool_workqueue **pwq_tbl, *dfl_pwq;
 	int node, ret;
 
-	
+	/* only unbound workqueues can change attributes */
 	if (WARN_ON(!(wq->flags & WQ_UNBOUND)))
 		return -EINVAL;
 
-	
+	/* creating multiple pwqs breaks ordering guarantee */
 	if (WARN_ON((wq->flags & __WQ_ORDERED) && !list_empty(&wq->pwqs)))
 		return -EINVAL;
 
@@ -2603,7 +2616,11 @@ int apply_workqueue_attrs(struct workqueue_struct *wq,
 
 	mutex_unlock(&wq_pool_mutex);
 
-	
+	/*
+	 * Unlink @pwq.  Synchronization against wq->mutex isn't strictly
+	 * necessary on release but do it anyway.  It's easier to verify
+	 * and consistent with the linking path.
+	 */
 	mutex_lock(&wq->mutex);
 
 	copy_workqueue_attrs(wq->unbound_attrs, new_attrs);
@@ -2680,7 +2697,7 @@ static void wq_update_unbound_numa(struct workqueue_struct *wq, int cpu,
 
 	mutex_unlock(&wq->mutex);
 
-	
+	/* create a new pwq */
 	pwq = alloc_unbound_pwq(wq, target_attrs);
 	if (!pwq) {
 		pr_warning("workqueue: allocation failed while updating NUMA affinity of \"%s\"\n",
@@ -2728,7 +2745,7 @@ static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 		return 0;
 	} else if (wq->flags & __WQ_ORDERED) {
 		ret = apply_workqueue_attrs(wq, ordered_wq_attrs[highpri]);
-		
+		/* there should only be single pwq for ordering guarantee */
 		WARN(!ret && (wq->pwqs.next != &wq->dfl_pwq->pwqs_node ||
 			      wq->pwqs.prev != &wq->dfl_pwq->pwqs_node),
 		     "ordering guarantee broken for workqueue %s\n", wq->name);
@@ -2761,7 +2778,7 @@ struct workqueue_struct *__alloc_workqueue_key(const char *fmt,
 	struct workqueue_struct *wq;
 	struct pool_workqueue *pwq;
 
-	
+	/* allocate wq and format name */
 	if (flags & WQ_UNBOUND)
 		tbl_size = wq_numa_tbl_len * sizeof(wq->numa_pwq_tbl[0]);
 
@@ -2782,7 +2799,7 @@ struct workqueue_struct *__alloc_workqueue_key(const char *fmt,
 	max_active = max_active ?: WQ_DFL_ACTIVE;
 	max_active = wq_clamp_max_active(max_active, flags, wq->name);
 
-	
+	/* init wq */
 	wq->flags = flags;
 	wq->saved_max_active = max_active;
 	mutex_init(&wq->mutex);
@@ -2852,7 +2869,12 @@ void destroy_workqueue(struct workqueue_struct *wq)
 	
 	drain_workqueue(wq);
 
-	
+	/*
+	 * Install the new pwq.  As this function is called only from CPU
+	 * hotplug callbacks and applying a new attrs is wrapped with
+	 * get/put_online_cpus(), @wq->unbound_attrs couldn't have changed
+	 * inbetween.
+	 */
 	mutex_lock(&wq->mutex);
 	for_each_pwq(pwq, wq) {
 		int i;
@@ -3098,7 +3120,13 @@ static void restore_unbound_workers_cpumask(struct worker_pool *pool, int cpu)
 	if (cpumask_weight(&cpumask) != 1)
 		return;
 
-	
+	/*
+	 * Restore CPU affinity of all workers.  As all idle workers should
+	 * be on the run-queue of the associated CPU before any local
+	 * wake-ups for concurrency management happen, restore CPU affinty
+	 * of all workers first and then clear UNBOUND.  As we're called
+	 * from CPU_ONLINE, the following shouldn't fail.
+	 */
 	for_each_pool_worker(worker, wi, pool)
 		WARN_ON_ONCE(set_cpus_allowed_ptr(worker->task,
 						  pool->attrs->cpumask) < 0);
@@ -3143,7 +3171,7 @@ static int __cpuinit workqueue_cpu_up_callback(struct notifier_block *nfb,
 			mutex_unlock(&pool->manager_mutex);
 		}
 
-		
+		/* update NUMA affinity of unbound workqueues */
 		list_for_each_entry(wq, &workqueues, list)
 			wq_update_unbound_numa(wq, cpu, true);
 
@@ -3163,17 +3191,17 @@ static int __cpuinit workqueue_cpu_down_callback(struct notifier_block *nfb,
 
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_DOWN_PREPARE:
-		
+		/* unbinding per-cpu workers should happen on the local CPU */
 		INIT_WORK_ONSTACK(&unbind_work, wq_unbind_fn);
 		queue_work_on(cpu, system_highpri_wq, &unbind_work);
 
-		
+		/* update NUMA affinity of unbound workqueues */
 		mutex_lock(&wq_pool_mutex);
 		list_for_each_entry(wq, &workqueues, list)
 			wq_update_unbound_numa(wq, cpu, false);
 		mutex_unlock(&wq_pool_mutex);
 
-		
+		/* wait for per-cpu unbinding to finish */
 		flush_work(&unbind_work);
 		break;
 	}
@@ -3222,7 +3250,7 @@ void freeze_workqueues_begin(void)
 	WARN_ON_ONCE(workqueue_freezing);
 	workqueue_freezing = true;
 
-	
+	/* set FREEZING */
 	for_each_pool(pool, pi) {
 		spin_lock_irq(&pool->lock);
 		WARN_ON_ONCE(pool->flags & POOL_FREEZING);
@@ -3281,7 +3309,7 @@ void thaw_workqueues(void)
 	if (!workqueue_freezing)
 		goto out_unlock;
 
-	
+	/* clear FREEZING */
 	for_each_pool(pool, pi) {
 		spin_lock_irq(&pool->lock);
 		WARN_ON_ONCE(!(pool->flags & POOL_FREEZING));
@@ -3289,7 +3317,7 @@ void thaw_workqueues(void)
 		spin_unlock_irq(&pool->lock);
 	}
 
-	
+	/* restore max_active and repopulate worklist */
 	list_for_each_entry(wq, &workqueues, list) {
 		mutex_lock(&wq->mutex);
 		for_each_pwq(pwq, wq)
@@ -3301,14 +3329,14 @@ void thaw_workqueues(void)
 out_unlock:
 	mutex_unlock(&wq_pool_mutex);
 }
-#endif 
+#endif /* CONFIG_FREEZER */
 
 static void __init wq_numa_init(void)
 {
 	cpumask_var_t *tbl;
 	int node, cpu;
 
-	
+	/* determine NUMA pwq table len - highest node id + 1 */
 	for_each_node(node)
 		wq_numa_tbl_len = max(wq_numa_tbl_len, node + 1);
 
@@ -3334,7 +3362,7 @@ static void __init wq_numa_init(void)
 		node = cpu_to_node(cpu);
 		if (WARN_ON(node == NUMA_NO_NODE)) {
 			pr_warn("workqueue: NUMA node mapping not available for cpu%d, disabling NUMA support\n", cpu);
-			
+			/* happens iff arch is bonkers, let's just proceed */
 			return;
 		}
 		cpumask_set_cpu(cpu, tbl[node]);
@@ -3377,7 +3405,7 @@ static int __init init_workqueues(void)
 	int std_nice[NR_STD_WORKER_POOLS] = { 0, HIGHPRI_NICE_LEVEL };
 	int i, cpu;
 
-	
+	/* make sure we have enough bits for OFFQ pool ID */
 	BUILD_BUG_ON((1LU << (BITS_PER_LONG - WORK_OFFQ_POOL_SHIFT)) <
 		     WORK_CPU_END * NR_STD_WORKER_POOLS);
 
@@ -3390,7 +3418,7 @@ static int __init init_workqueues(void)
 
 	wq_numa_init();
 
-	
+	/* initialize CPU pools */
 	for_each_possible_cpu(cpu) {
 		struct worker_pool *pool;
 
@@ -3402,14 +3430,14 @@ static int __init init_workqueues(void)
 			pool->attrs->nice = std_nice[i++];
 			pool->node = cpu_to_node(cpu);
 
-			
+			/* alloc pool ID */
 			mutex_lock(&wq_pool_mutex);
 			BUG_ON(worker_pool_assign_id(pool));
 			mutex_unlock(&wq_pool_mutex);
 		}
 	}
 
-	
+	/* create the initial worker */
 	for_each_online_cpu(cpu) {
 		struct worker_pool *pool;
 
@@ -3419,7 +3447,7 @@ static int __init init_workqueues(void)
 		}
 	}
 
-	
+	/* create default unbound and ordered wq attrs */
 	for (i = 0; i < NR_STD_WORKER_POOLS; i++) {
 		struct workqueue_attrs *attrs;
 

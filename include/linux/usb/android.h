@@ -76,4 +76,4 @@ int acm_port_setup(struct usb_configuration *c);
 void acm_port_cleanup(void);
 int acm_init_port(int port_num, const char *name);
 
-#endif	
+#endif	/* __LINUX_USB_ANDROID_H */

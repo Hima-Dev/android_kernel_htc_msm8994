@@ -147,8 +147,8 @@ struct thermal_cooling_device {
 	struct device device;
 	void *devdata;
 	const struct thermal_cooling_device_ops *ops;
-	bool updated; 
-	struct mutex lock; 
+	bool updated; /* true if the cooling device does not need update */
+	struct mutex lock; /* protect thermal_instances list */
 	struct list_head thermal_instances;
 	struct list_head node;
 };
@@ -281,4 +281,4 @@ static inline int thermal_generate_netlink_event(struct thermal_zone_device *tz,
 }
 #endif
 
-#endif 
+#endif /* __THERMAL_H__ */

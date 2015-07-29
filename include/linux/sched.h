@@ -8,7 +8,7 @@ struct sched_param {
 	int sched_priority;
 };
 
-#include <asm/param.h>	
+#include <asm/param.h>	/* for HZ */
 
 #include <linux/capability.h>
 #include <linux/threads.h>
@@ -206,7 +206,7 @@ struct task_struct;
 
 #ifdef CONFIG_PROVE_RCU
 extern int lockdep_tasklist_lock_is_held(void);
-#endif 
+#endif /* #ifdef CONFIG_PROVE_RCU */
 
 extern void sched_init(void);
 extern void sched_init_smp(void);
@@ -336,13 +336,13 @@ extern int get_dumpable(struct mm_struct *mm);
 #else
 # define MMF_DUMP_MASK_DEFAULT_ELF	0
 #endif
-					
-#define MMF_VM_MERGEABLE	16	
-#define MMF_VM_HUGEPAGE		17	
-#define MMF_EXE_FILE_CHANGED	18	
+					/* leave room for more dump flags */
+#define MMF_VM_MERGEABLE	16	/* KSM may merge identical pages */
+#define MMF_VM_HUGEPAGE		17	/* set when VM_HUGEPAGE is set on vma */
+#define MMF_EXE_FILE_CHANGED	18	/* see prctl_set_mm_exe_file() */
 
-#define MMF_HAS_UPROBES		19	
-#define MMF_RECALC_UPROBES	20	
+#define MMF_HAS_UPROBES		19	/* has uprobes */
+#define MMF_RECALC_UPROBES	20	/* MMF_HAS_UPROBES can be wrong */
 
 #define MMF_INIT_MASK		(MMF_DUMPABLE_MASK | MMF_DUMP_FILTER_MASK)
 
@@ -636,15 +636,15 @@ extern int sched_domain_level_max;
 struct sched_group;
 
 struct sched_domain {
-	
-	struct sched_domain *parent;	
-	struct sched_domain *child;	
-	struct sched_group *groups;	
-	unsigned long min_interval;	
-	unsigned long max_interval;	
-	unsigned int busy_factor;	
-	unsigned int imbalance_pct;	
-	unsigned int cache_nice_tries;	
+	/* These fields must be setup */
+	struct sched_domain *parent;	/* top domain must be null terminated */
+	struct sched_domain *child;	/* bottom domain must be null terminated */
+	struct sched_group *groups;	/* the balancing groups of the domain */
+	unsigned long min_interval;	/* Minimum balance interval ms */
+	unsigned long max_interval;	/* Maximum balance interval ms */
+	unsigned int busy_factor;	/* less balancing by factor if busy */
+	unsigned int imbalance_pct;	/* No balance until over watermark */
+	unsigned int cache_nice_tries;	/* Leave cache hot tasks for # tries */
 	unsigned int busy_idx;
 	unsigned int idle_idx;
 	unsigned int newidle_idx;
@@ -652,19 +652,19 @@ struct sched_domain {
 	unsigned int forkexec_idx;
 	unsigned int smt_gain;
 
-	int nohz_idle;			
-	int flags;			
+	int nohz_idle;			/* NOHZ IDLE status */
+	int flags;			/* See SD_* */
 	int level;
 
-	
-	unsigned long last_balance;	
-	unsigned int balance_interval;	
-	unsigned int nr_balance_failed; 
+	/* Runtime fields. */
+	unsigned long last_balance;	/* init to jiffies. units in jiffies */
+	unsigned int balance_interval;	/* initialise to 1. units in ms. */
+	unsigned int nr_balance_failed; /* initialise to 0 */
 
 	u64 last_update;
 
 #ifdef CONFIG_SCHEDSTATS
-	
+	/* load_balance() stats */
 	unsigned int lb_count[CPU_MAX_IDLE_TYPES];
 	unsigned int lb_failed[CPU_MAX_IDLE_TYPES];
 	unsigned int lb_balanced[CPU_MAX_IDLE_TYPES];
@@ -674,22 +674,22 @@ struct sched_domain {
 	unsigned int lb_nobusyg[CPU_MAX_IDLE_TYPES];
 	unsigned int lb_nobusyq[CPU_MAX_IDLE_TYPES];
 
-	
+	/* Active load balancing */
 	unsigned int alb_count;
 	unsigned int alb_failed;
 	unsigned int alb_pushed;
 
-	
+	/* SD_BALANCE_EXEC stats */
 	unsigned int sbe_count;
 	unsigned int sbe_balanced;
 	unsigned int sbe_pushed;
 
-	
+	/* SD_BALANCE_FORK stats */
 	unsigned int sbf_count;
 	unsigned int sbf_balanced;
 	unsigned int sbf_pushed;
 
-	
+	/* try_to_wake_up() stats */
 	unsigned int ttwu_wake_remote;
 	unsigned int ttwu_move_affine;
 	unsigned int ttwu_move_balance;
@@ -734,10 +734,10 @@ static inline bool cpus_share_cache(int this_cpu, int that_cpu)
 	return true;
 }
 
-#endif	
+#endif	/* !CONFIG_SMP */
 
 
-struct io_context;			
+struct io_context;			/* See blkdev.h */
 
 
 #ifdef ARCH_HAS_PREFETCH_SWITCH_STACK
@@ -746,7 +746,7 @@ extern void prefetch_stack(struct task_struct *t);
 static inline void prefetch_stack(struct task_struct *t) { }
 #endif
 
-struct audit_context;		
+struct audit_context;		/* See audit.c */
 struct mempolicy;
 struct pipe_inode_info;
 struct uts_namespace;
@@ -813,7 +813,7 @@ struct ravg {
 };
 
 struct sched_entity {
-	struct load_weight	load;		
+	struct load_weight	load;		/* for load-balancing */
 	struct rb_node		run_node;
 	struct list_head	group_node;
 	unsigned int		on_rq;
@@ -852,9 +852,9 @@ struct sched_rt_entity {
 	struct sched_rt_entity *back;
 #ifdef CONFIG_RT_GROUP_SCHED
 	struct sched_rt_entity	*parent;
-	
+	/* rq on which this entity is (to be) queued: */
 	struct rt_rq		*rt_rq;
-	
+	/* rq "owned" by this entity/group: */
 	struct rt_rq		*my_q;
 #endif
 };
@@ -870,10 +870,10 @@ enum perf_event_task_context {
 };
 
 struct task_struct {
-	volatile long state;	
+	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	void *stack;
 	atomic_t usage;
-	unsigned int flags;	
+	unsigned int flags;	/* per process flags, defined below */
 	unsigned int ptrace;
 
 #ifdef CONFIG_SMP
@@ -914,13 +914,13 @@ struct task_struct {
 	int rcu_read_lock_nesting;
 	char rcu_read_unlock_special;
 	struct list_head rcu_node_entry;
-#endif 
+#endif /* #ifdef CONFIG_PREEMPT_RCU */
 #ifdef CONFIG_TREE_PREEMPT_RCU
 	struct rcu_node *rcu_blocked_node;
-#endif 
+#endif /* #ifdef CONFIG_TREE_PREEMPT_RCU */
 #ifdef CONFIG_RCU_BOOST
 	struct rt_mutex *rcu_boost_mutex;
-#endif 
+#endif /* #ifdef CONFIG_RCU_BOOST */
 
 #if defined(CONFIG_SCHEDSTATS) || defined(CONFIG_TASK_DELAY_ACCT)
 	struct sched_info sched_info;
@@ -1097,23 +1097,23 @@ struct task_struct {
 	struct io_context *io_context;
 
 	unsigned long ptrace_message;
-	siginfo_t *last_siginfo; 
+	siginfo_t *last_siginfo; /* For ptrace use.  */
 	struct task_io_accounting ioac;
 #if defined(CONFIG_TASK_XACCT)
-	u64 acct_rss_mem1;	
-	u64 acct_vm_mem1;	
-	cputime_t acct_timexpd;	
+	u64 acct_rss_mem1;	/* accumulated rss usage */
+	u64 acct_vm_mem1;	/* accumulated virtual memory usage */
+	cputime_t acct_timexpd;	/* stime + utime since last update */
 #endif
 #ifdef CONFIG_CPUSETS
-	nodemask_t mems_allowed;	
-	seqcount_t mems_allowed_seq;	
+	nodemask_t mems_allowed;	/* Protected by alloc_lock */
+	seqcount_t mems_allowed_seq;	/* Seqence no to catch updates */
 	int cpuset_mem_spread_rotor;
 	int cpuset_slab_spread_rotor;
 #endif
 #ifdef CONFIG_CGROUPS
-	
+	/* Control Group info protected by css_set_lock */
 	struct css_set __rcu *cgroups;
-	
+	/* cg_list protected by css_set_lock and tsk->alloc_lock */
 	struct list_head cg_list;
 #endif
 #ifdef CONFIG_FUTEX
@@ -1130,7 +1130,7 @@ struct task_struct {
 	struct list_head perf_event_list;
 #endif
 #ifdef CONFIG_NUMA
-	struct mempolicy *mempolicy;	
+	struct mempolicy *mempolicy;	/* Protected by alloc_lock */
 	short il_next;
 	short pref_node_fork;
 #endif
@@ -1467,8 +1467,8 @@ extern void task_clear_jobctl_pending(struct task_struct *task,
 
 #ifdef CONFIG_PREEMPT_RCU
 
-#define RCU_READ_UNLOCK_BLOCKED (1 << 0) 
-#define RCU_READ_UNLOCK_NEED_QS (1 << 1) 
+#define RCU_READ_UNLOCK_BLOCKED (1 << 0) /* blocked while in RCU read-side. */
+#define RCU_READ_UNLOCK_NEED_QS (1 << 1) /* RCU core needs CPU response. */
 
 static inline void rcu_copy_process(struct task_struct *p)
 {
@@ -1476,10 +1476,10 @@ static inline void rcu_copy_process(struct task_struct *p)
 	p->rcu_read_unlock_special = 0;
 #ifdef CONFIG_TREE_PREEMPT_RCU
 	p->rcu_blocked_node = NULL;
-#endif 
+#endif /* #ifdef CONFIG_TREE_PREEMPT_RCU */
 #ifdef CONFIG_RCU_BOOST
 	p->rcu_boost_mutex = NULL;
-#endif 
+#endif /* #ifdef CONFIG_RCU_BOOST */
 	INIT_LIST_HEAD(&p->rcu_node_entry);
 }
 
@@ -1557,7 +1557,7 @@ void calc_load_exit_idle(void);
 #else
 static inline void calc_load_enter_idle(void) { }
 static inline void calc_load_exit_idle(void) { }
-#endif 
+#endif /* CONFIG_NO_HZ_COMMON */
 
 static inline void set_wake_up_idle(bool enabled)
 {
@@ -2020,7 +2020,7 @@ static inline unsigned long stack_not_used(struct task_struct *p)
 {
 	unsigned long *n = end_of_stack(p);
 
-	do { 	
+	do { 	/* Skip over canary */
 		n++;
 	} while (!*n);
 
@@ -2263,7 +2263,7 @@ static inline void set_task_cpu(struct task_struct *p, unsigned int cpu)
 {
 }
 
-#endif 
+#endif /* CONFIG_SMP */
 
 extern struct atomic_notifier_head migration_notifier_head;
 struct migration_notify_data {
@@ -2279,7 +2279,7 @@ extern long sched_getaffinity(pid_t pid, struct cpumask *mask);
 
 #ifdef CONFIG_CGROUP_SCHED
 extern struct task_group root_task_group;
-#endif 
+#endif /* CONFIG_CGROUP_SCHED */
 
 extern int task_can_switch_user(struct user_struct *up,
 					struct task_struct *tsk);
@@ -2337,7 +2337,7 @@ static inline void mm_update_next_owner(struct mm_struct *mm)
 static inline void mm_init_owner(struct mm_struct *mm, struct task_struct *p)
 {
 }
-#endif 
+#endif /* CONFIG_MM_OWNER */
 
 static inline unsigned long task_rlimit(const struct task_struct *tsk,
 		unsigned int limit)

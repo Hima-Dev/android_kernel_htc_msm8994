@@ -565,7 +565,7 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
 					continue;
 				}
 
-				
+				/* Drop this request */
 				inet_csk_reqsk_queue_unlink(parent, req, reqp);
 				reqsk_queue_removed(queue, req);
 				reqsk_free(req);
@@ -609,7 +609,7 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
 		newicsk->icsk_backoff	  = 0;
 		newicsk->icsk_probes_out  = 0;
 
-		
+		/* Deinitialize accept_queue to trap illegal accesses. */
 		memset(&newicsk->icsk_accept_queue, 0, sizeof(newicsk->icsk_accept_queue));
 
 		security_inet_csk_clone(newsk, req);
@@ -732,7 +732,7 @@ void inet_csk_listen_stop(struct sock *sk)
 		__reqsk_free(req);
 	}
 	if (queue->fastopenq != NULL) {
-		
+		/* Free all the reqs queued in rskq_rst_head. */
 		spin_lock_bh(&queue->fastopenq->lock);
 		acc_req = queue->fastopenq->rskq_rst_head;
 		queue->fastopenq->rskq_rst_head = NULL;

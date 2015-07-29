@@ -29,7 +29,7 @@
 #define QSD_REG(x)
 #define QUP_REG(x) (x)
 
-#define QUP_CONFIG                    0x0000 
+#define QUP_CONFIG                    0x0000 /* N & NO_INPUT/NO_OUPUT bits */
 #define QUP_ERROR_FLAGS_EN            0x030C
 #define QUP_ERR_MASK                  0x3
 #define SPI_OUTPUT_FIFO_WORD_CNT      0x010C
@@ -162,7 +162,7 @@ enum msm_spi_pipe_direction {
 };
 
 #define SPI_BAM_MAX_DESC_NUM      32
-#define SPI_MAX_TRFR_BTWN_RESETS  ((64 * 1024) - 16)  
+#define SPI_MAX_TRFR_BTWN_RESETS  ((64 * 1024) - 16)  /* 64KB - 16byte */
 
 enum msm_spi_clk_path_vec_idx {
 	MSM_SPI_CLK_PATH_SUSPEND_VEC = 0,
@@ -283,8 +283,8 @@ struct msm_spi {
 	struct spi_message      *cur_msg;
 	struct spi_transfer     *cur_transfer;
 	struct completion        transfer_complete;
-	struct clk              *clk;    
-	struct clk              *pclk;   
+	struct clk              *clk;    /* core clock */
+	struct clk              *pclk;   /* interface clock */
 	struct qup_i2c_clk_path_vote clk_path_vote;
 	unsigned long            mem_phys_addr;
 	size_t                   mem_size;
@@ -306,7 +306,7 @@ struct msm_spi {
 	bool                     suspended;
 	bool                     transfer_pending;
 	wait_queue_head_t        continue_suspend;
-	
+	/* DMA data */
 	enum msm_spi_mode        mode;
 	bool                     use_dma;
 	int                      tx_dma_chan;
@@ -322,33 +322,33 @@ struct msm_spi {
 	int                      output_burst_size;
 	atomic_t                 rx_irq_called;
 	atomic_t                 tx_irq_called;
-	
+	/* Used to pad messages unaligned to block size */
 	u8                       *tx_padding;
 	dma_addr_t               tx_padding_dma;
 	u8                       *rx_padding;
 	dma_addr_t               rx_padding_dma;
 	u32                      tx_unaligned_len;
 	u32                      rx_unaligned_len;
-	
+	/* DMA statistics */
 	int                      stat_rx;
 	int                      stat_tx;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dent_spi;
 	struct dentry *debugfs_spi_regs[ARRAY_SIZE(debugfs_spi_regs)];
 #endif
-	struct msm_spi_platform_data *pdata; 
-	
+	struct msm_spi_platform_data *pdata; /* Platform data */
+	/* When set indicates multiple transfers in a single message */
 	bool                     multi_xfr;
 	bool                     done;
 	u32                      cur_msg_len;
-	
+	/* Used in FIFO mode to keep track of the transfer being processed */
 	struct spi_transfer     *cur_tx_transfer;
 	struct spi_transfer     *cur_rx_transfer;
-	
+	/* Temporary buffer used for WR-WR or WR-RD transfers */
 	u8                      *temp_buf;
-	
+	/* GPIO pin numbers for SPI clk, miso and mosi */
 	int                      spi_gpios[ARRAY_SIZE(spi_rsrcs)];
-	
+	/* SPI CS GPIOs for each slave */
 	struct spi_cs_gpio       cs_gpios[ARRAY_SIZE(spi_cs_rsrcs)];
 	enum msm_spi_qup_version qup_ver;
 	int			 max_trfr_len;

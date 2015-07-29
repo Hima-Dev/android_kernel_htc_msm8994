@@ -202,7 +202,7 @@ struct msm_ssphy_qmp {
 	void __iomem		*ahb2phy;
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
-	int			vdd_levels[3]; 
+	int			vdd_levels[3]; /* none, low, high */
 	struct clk		*ldo_clk;
 	struct clk		*aux_clk;
 	struct clk		*cfg_ahb_clk;
@@ -235,11 +235,11 @@ static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy)
 	val |= ARCVR_DTCT_EN;
 	if (phy->cable_connected) {
 		val |= ALFPS_DTCT_EN;
-		
+		/* Detect detach */
 		val &= ~ARCVR_DTCT_EVENT_SEL;
 	} else {
 		val &= ~ALFPS_DTCT_EN;
-		
+		/* Detect attach */
 		val |= ARCVR_DTCT_EVENT_SEL;
 	}
 
@@ -251,7 +251,7 @@ static int msm_ssusb_qmp_config_vdd(struct msm_ssphy_qmp *phy, int high)
 {
 	int min, ret;
 
-	min = high ? 1 : 0; 
+	min = high ? 1 : 0; /* low or none? */
 	ret = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
 				    phy->vdd_levels[2]);
 	if (ret) {
@@ -418,7 +418,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		}
 	}
 
-	
+	/* Rev ID is made up each of the LSBs of REVISION_ID[0-3] */
 	revid = (readl_relaxed(phy->base +
 			PCIE_USB3_PHY_REVISION_ID3) & 0xFF) << 24;
 	revid |= (readl_relaxed(phy->base +
@@ -476,10 +476,10 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	writel_relaxed(0x03, phy->base + PCIE_USB3_PHY_START);
 
 	if (!phy->switch_pipe_clk_src)
-		
+		/* this clock wasn't enabled before, enable it now */
 		clk_prepare_enable(phy->pipe_clk);
 
-	
+	/* Wait for PHY initialization to be done */
 	do {
 		if (readl_relaxed(phy->base + PCIE_USB3_PHY_PCS_STATUS) &
 			PHYSTATUS)
@@ -515,7 +515,7 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 		}
 	}
 
-	
+	/* Assert USB3 PHY reset */
 	if (phy->phy_com_reset) {
 		ret = clk_reset(phy->phy_com_reset, CLK_RESET_ASSERT);
 		if (ret) {
@@ -524,7 +524,7 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 		}
 	}
 
-	
+	/* Assert USB3 PHY reset */
 	if (phy->phy_phy_reset) {
 		ret = clk_reset(phy->phy_phy_reset, CLK_RESET_ASSERT);
 		if (ret) {
@@ -539,21 +539,21 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 		}
 	}
 
-	
+	/* Assert USB3 PHY CSR reset */
 	ret = clk_reset(phy->phy_reset, CLK_RESET_ASSERT);
 	if (ret) {
 		dev_err(uphy->dev, "phy_reset clk assert failed\n");
 		goto deassert_phy_phy_reset;
 	}
 
-	
+	/* Deassert USB3 PHY CSR reset */
 	ret = clk_reset(phy->phy_reset, CLK_RESET_DEASSERT);
 	if (ret) {
 		dev_err(uphy->dev, "phy_reset clk deassert failed\n");
 		goto deassert_phy_phy_reset;
 	}
 
-	
+	/* Deassert USB3 PHY reset */
 	if (phy->phy_phy_reset) {
 		ret = clk_reset(phy->phy_phy_reset, CLK_RESET_DEASSERT);
 		if (ret) {

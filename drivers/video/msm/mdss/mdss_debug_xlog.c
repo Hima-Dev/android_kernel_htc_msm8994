@@ -29,7 +29,7 @@
 #endif
 
 #define XLOG_DEFAULT_PANIC 1
-#define XLOG_DEFAULT_REGDUMP 0x2 
+#define XLOG_DEFAULT_REGDUMP 0x2 /* dump in RAM */
 
 #define MDSS_XLOG_ENTRY	256
 #define MDSS_XLOG_MAX_DATA 6
@@ -276,7 +276,7 @@ static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
 
 	pr_info("%s:=========%s DUMP=========\n", __func__, dbg->name);
 
-	
+	/* If there is a list to dump the registers by ranges, use the ranges */
 	if (!list_empty(&dbg->dump_list)) {
 		list_for_each_entry_safe(xlog_node, xlog_tmp,
 			&dbg->dump_list, head) {
@@ -291,7 +291,7 @@ static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
 				xlog_node->reg_dump);
 		}
 	} else {
-		
+		/* If there is no list to dump ranges, dump all registers */
 		pr_info("Ranges not found, will dump full registers");
 		pr_info("base:0x%p len:0x%zu\n", dbg->base, dbg->max_offset);
 		addr = dbg->base;
@@ -427,7 +427,7 @@ void mdss_xlog_tout_handler_default(bool queue, const char *name, ...)
 	va_end(args);
 
 	if (queue) {
-		
+		/* schedule work to dump later */
 		mdss_dbg_xlog.work_panic = dead;
 		schedule_work(&mdss_dbg_xlog.xlog_dump_work);
 		flush_work(&mdss_dbg_xlog.xlog_dump_work);
@@ -452,7 +452,7 @@ int mdss_xlog_tout_handler_iommu(struct iommu_domain *domain,
 
 static int mdss_xlog_dump_open(struct inode *inode, struct file *file)
 {
-	
+	/* non-seekable */
 	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
 	file->private_data = inode->i_private;
 	return 0;

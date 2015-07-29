@@ -242,12 +242,12 @@ struct v4l2_event_and_payload {
 };
 
 struct msm_stats_reqbuf {
-	int num_buf;		
-	int stats_type;	
+	int num_buf;		/* how many buffers requested */
+	int stats_type;	/* stats type */
 };
 
 struct msm_stats_flush_bufq {
-	int stats_type;	
+	int stats_type;	/* enum msm_stats_enum_type */
 };
 
 struct msm_mctl_pp_cmd {
@@ -393,9 +393,9 @@ struct msm_cam_evt_divert_frame {
 };
 
 struct msm_mctl_pp_cmd_ack_event {
-	uint32_t cmd;        
-	int      status;     
-	uint32_t cookie;     
+	uint32_t cmd;        /* VPE_CMD_ZOOM? */
+	int      status;     /* 0 done, < 0 err */
+	uint32_t cookie;     /* daemon's cookie */
 };
 
 struct msm_mctl_pp_event_info {
@@ -603,24 +603,24 @@ struct camera_enable_cmd {
 #define FRAME_MAX			5
 
 enum msm_stats_enum_type {
-	MSM_STATS_TYPE_AEC, 
-	MSM_STATS_TYPE_AF,  
-	MSM_STATS_TYPE_AWB, 
-	MSM_STATS_TYPE_RS,  
-	MSM_STATS_TYPE_CS,  
-	MSM_STATS_TYPE_IHIST,   
-	MSM_STATS_TYPE_SKIN,    
-	MSM_STATS_TYPE_BG,  
-	MSM_STATS_TYPE_BF,  
-	MSM_STATS_TYPE_BE,  
-	MSM_STATS_TYPE_BHIST,   
-	MSM_STATS_TYPE_AE_AW,   
-	MSM_STATS_TYPE_COMP, 
-	MSM_STATS_TYPE_MAX  
+	MSM_STATS_TYPE_AEC, /* legacy based AEC */
+	MSM_STATS_TYPE_AF,  /* legacy based AF */
+	MSM_STATS_TYPE_AWB, /* legacy based AWB */
+	MSM_STATS_TYPE_RS,  /* legacy based RS */
+	MSM_STATS_TYPE_CS,  /* legacy based CS */
+	MSM_STATS_TYPE_IHIST,   /* legacy based HIST */
+	MSM_STATS_TYPE_SKIN,    /* legacy based SKIN */
+	MSM_STATS_TYPE_BG,  /* Bayer Grids */
+	MSM_STATS_TYPE_BF,  /* Bayer Focus */
+	MSM_STATS_TYPE_BE,  /* Bayer Exposure*/
+	MSM_STATS_TYPE_BHIST,   /* Bayer Hist */
+	MSM_STATS_TYPE_AE_AW,   /* legacy stats for vfe 2.x*/
+	MSM_STATS_TYPE_COMP, /* Composite stats */
+	MSM_STATS_TYPE_MAX  /* MAX */
 };
 
 struct msm_stats_buf_info {
-	int type; 
+	int type; /* msm_stats_enum_type */
 	int fd;
 	void *vaddr;
 	uint32_t offset;
@@ -661,8 +661,8 @@ struct outputCfg {
 
 #define OUTPUT_1	0
 #define OUTPUT_2	1
-#define OUTPUT_1_AND_2            2   
-#define OUTPUT_1_AND_3            3   
+#define OUTPUT_1_AND_2            2   /* snapshot only */
+#define OUTPUT_1_AND_3            3   /* video */
 #define CAMIF_TO_AXI_VIA_OUTPUT_2 4
 #define OUTPUT_1_AND_CAMIF_TO_AXI_VIA_OUTPUT_2 5
 #define OUTPUT_2_AND_CAMIF_TO_AXI_VIA_OUTPUT_1 6
@@ -1056,7 +1056,7 @@ struct msm_snapshot_pp_status {
 #define CAMERA_SETAE_AVERAGE		0
 #define CAMERA_SETAE_CENWEIGHT	1
 
-#define  CAMERA_WB_AUTO               1 
+#define  CAMERA_WB_AUTO               1 /* This list must match aeecamera.h */
 #define  CAMERA_WB_CUSTOM             2
 #define  CAMERA_WB_INCANDESCENT       3
 #define  CAMERA_WB_FLUORESCENT        4
@@ -1240,12 +1240,12 @@ struct sensor_init_cfg {
 };
 
 struct sensor_calib_data {
-	
+	/* Color Related Measurements */
 	uint16_t r_over_g;
 	uint16_t b_over_g;
 	uint16_t gr_over_gb;
 
-	
+	/* Lens Related Measurements */
 	uint16_t macro_2_inf;
 	uint16_t inf_2_macro;
 	uint16_t stroke_amt;
@@ -1620,7 +1620,7 @@ struct sensor_cfg_data {
 		struct sensor_output_info_t output_info;
 		struct msm_eeprom_data_t eeprom_data;
 		struct csi_lane_params_t csi_lane_params;
-		
+		/* QRD */
 		uint16_t antibanding;
 		uint8_t contrast;
 		uint8_t saturation;
@@ -1903,8 +1903,8 @@ struct msm_camsensor_info {
 	uint8_t support_3d;
 	enum flash_type flashtype;
 	enum sensor_type_t sensor_type;
-	uint32_t pxlcode; 
-	uint32_t camera_type; 
+	uint32_t pxlcode; /* enum v4l2_mbus_pixelcode */
+	uint32_t camera_type; /* msm_camera_type */
 	int mount_angle;
 	uint32_t max_width;
 	uint32_t max_height;
@@ -1926,7 +1926,7 @@ struct img_plane_info {
 	uint32_t width;
 	uint32_t height;
 	uint32_t pixelformat;
-	uint8_t buffer_type; 
+	uint8_t buffer_type; /*Single/Multi planar*/
 	uint8_t output_port;
 	uint32_t ext_mode;
 	uint8_t num_planes;
@@ -2192,4 +2192,4 @@ struct msm_ver_num_info {
 #define SET_VIDEO_INST_IDX(handle, data)	\
 	(handle |= (0x1 << 7) | (data & 0x7F))
 
-#endif 
+#endif /* __UAPI_MSM_CAMERA_H */

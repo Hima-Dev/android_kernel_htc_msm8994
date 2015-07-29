@@ -171,7 +171,9 @@ void inet_sock_destruct(struct sock *sk)
 }
 EXPORT_SYMBOL(inet_sock_destruct);
 
-
+/*
+ *	Accept a pending connection. The TCP layer now gives BSD semantics.
+ */
 
 static int inet_autobind(struct sock *sk)
 {
@@ -274,19 +276,19 @@ static int inet_create(struct net *net, struct socket *sock, int protocol,
 
 	sock->state = SS_UNCONNECTED;
 
-	
+	/* Look for the requested type/protocol pair. */
 lookup_protocol:
 	err = -ESOCKTNOSUPPORT;
 	rcu_read_lock();
 	list_for_each_entry_rcu(answer, &inetsw[sock->type], list) {
 
 		err = 0;
-		
+		/* Check the non-wild match. */
 		if (protocol == answer->protocol) {
 			if (protocol != IPPROTO_IP)
 				break;
 		} else {
-			
+			/* Check for the two wild cases. */
 			if (IPPROTO_IP == protocol) {
 				protocol = answer->protocol;
 				break;
@@ -385,7 +387,11 @@ out_rcu_unlock:
 	goto out;
 }
 
-
+/*
+ *	The peer socket should always be NULL (or else). When we call this
+ *	function we are destroying the object and from then on nobody
+ *	should refer to it.
+ */
 int inet_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
@@ -422,7 +428,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	int chk_addr_ret;
 	int err;
 
-	
+	/* If the socket has its own bind function then use it. (RAW) */
 	if (sk->sk_prot->bind) {
 		err = sk->sk_prot->bind(sk, uaddr, addr_len);
 		goto out;
@@ -552,7 +558,7 @@ int __inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 		goto out;
 	case SS_CONNECTING:
 		err = -EALREADY;
-		
+		/* Fall out of switch with err, set for this state */
 		break;
 	case SS_UNCONNECTED:
 		err = -EISCONN;
@@ -580,7 +586,7 @@ int __inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 				tcp_sk(sk)->fastopen_req &&
 				tcp_sk(sk)->fastopen_req->data ? 1 : 0;
 
-		
+		/* Error code is set above */
 		if (!timeo || !inet_wait_for_connect(sk, timeo, writebias))
 			goto out;
 
@@ -646,7 +652,9 @@ do_err:
 }
 EXPORT_SYMBOL(inet_accept);
 
-
+/*
+ *	This does both peername and sockname.
+ */
 int inet_getname(struct socket *sock, struct sockaddr *uaddr,
 			int *uaddr_len, int peer)
 {
@@ -682,7 +690,7 @@ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 
 	sock_rps_record_flow(sk);
 
-	
+	/* We may need to bind the socket. */
 	if (!inet_sk(sk)->inet_num && !sk->sk_prot->no_autobind &&
 	    inet_autobind(sk))
 		return -EAGAIN;
@@ -698,7 +706,7 @@ ssize_t inet_sendpage(struct socket *sock, struct page *page, int offset,
 
 	sock_rps_record_flow(sk);
 
-	
+	/* We may need to bind the socket. */
 	if (!inet_sk(sk)->inet_num && !sk->sk_prot->no_autobind &&
 	    inet_autobind(sk))
 		return -EAGAIN;
@@ -951,7 +959,7 @@ static struct inet_protosw inetsw_array[] =
 
        {
 	       .type =       SOCK_RAW,
-	       .protocol =   IPPROTO_IP,	
+	       .protocol =   IPPROTO_IP,	/* wild card */
 	       .prot =       &raw_prot,
 	       .ops =        &inet_sockraw_ops,
 	       .no_check =   UDP_CSUM_DEFAULT,
@@ -973,13 +981,13 @@ void inet_register_protosw(struct inet_protosw *p)
 	if (p->type >= SOCK_MAX)
 		goto out_illegal;
 
-	
+	/* If we are trying to override a permanent protocol, bail. */
 	answer = NULL;
 	last_perm = &inetsw[p->type];
 	list_for_each(lh, &inetsw[p->type]) {
 		answer = list_entry(lh, struct inet_protosw, list);
 
-		
+		/* Check only the non-wild match. */
 		if (INET_PROTOSW_PERMANENT & answer->flags) {
 			if (protocol == answer->protocol)
 				break;
@@ -1041,7 +1049,7 @@ static int inet_sk_reselect_saddr(struct sock *sk)
 	if (inet_opt && inet_opt->opt.srr)
 		daddr = inet_opt->opt.faddr;
 
-	
+	/* Query new route. */
 	fl4 = &inet->cork.fl.u.ip4;
 	rt = ip_route_connect(fl4, daddr, 0, RT_CONN_FLAGS(sk),
 			      sk->sk_bound_dev_if, sk->sk_protocol,
@@ -1076,11 +1084,11 @@ int inet_sk_rebuild_header(struct sock *sk)
 	struct flowi4 *fl4;
 	int err;
 
-	
+	/* Route is OK, nothing to do. */
 	if (rt)
 		return 0;
 
-	
+	/* Reroute. */
 	rcu_read_lock();
 	inet_opt = rcu_dereference(inet->inet_opt);
 	daddr = inet->inet_daddr;
@@ -1273,7 +1281,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
 			continue;
 		}
 
-		
+		/* All fields must match except length and checksum. */
 		NAPI_GRO_CB(p)->flush |=
 			(iph->ttl ^ iph2->ttl) |
 			(iph->tos ^ iph2->tos) |
@@ -1696,12 +1704,12 @@ out_raw:
 	goto out;
 }
 
-#else 
+#else /* CONFIG_PROC_FS */
 static int __init ipv4_proc_init(void)
 {
 	return 0;
 }
-#endif 
+#endif /* CONFIG_PROC_FS */
 
 MODULE_ALIAS_NETPROTO(PF_INET);
 

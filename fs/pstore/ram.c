@@ -120,7 +120,7 @@ ramoops_get_next_prz(struct persistent_ram_zone *przs[], uint *c, uint max,
 	prz = przs[i];
 
 	if (update) {
-		
+		/* Update old/shadowed buffer. */
 		persistent_ram_save_old(prz);
 		if (!persistent_ram_old_size(prz))
 			return NULL;
@@ -153,13 +153,13 @@ static ssize_t ramoops_pstore_read(u64 *id, enum pstore_type_id *type,
 	if (!prz)
 		return 0;
 
-	
+	/* TODO(kees): Bogus time for the moment. */
 	time->tv_sec = 0;
 	time->tv_nsec = 0;
 
 	size = persistent_ram_old_size(prz);
 
-	
+	/* ECC correction notice */
 	ecc_notice_size = persistent_ram_ecc_string(prz, NULL, 0);
 
 	*buf = kmalloc(size + ecc_notice_size + 1, GFP_KERNEL);
@@ -178,7 +178,7 @@ static size_t ramoops_write_kmsg_hdr(struct persistent_ram_zone *prz)
 	struct timespec timestamp;
 	size_t len;
 
-	
+	/* Report zeroed timestamp if called before timekeeping has resumed. */
 	if (__getnstimeofday(&timestamp)) {
 		timestamp.tv_sec = 0;
 		timestamp.tv_nsec = 0;

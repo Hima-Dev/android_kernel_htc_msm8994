@@ -308,4 +308,4 @@ struct msm_camera_i2c_reg_setting_array {
 	enum msm_camera_i2c_data_type data_type;
 	uint16_t delay;
 };
-#endif 
+#endif /* __LINUX_MSM_CAM_SENSOR_H */

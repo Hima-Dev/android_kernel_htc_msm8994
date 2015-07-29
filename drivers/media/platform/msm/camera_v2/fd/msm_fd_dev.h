@@ -135,4 +135,4 @@ struct msm_fd_device {
 	struct work_struct work;
 };
 
-#endif 
+#endif /* __MSM_FD_DEV_H__ */

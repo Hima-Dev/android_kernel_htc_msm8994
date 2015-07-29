@@ -1021,7 +1021,7 @@ enum wiphy_flags {
 	WIPHY_FLAG_IBSS_RSN			= BIT(8),
 	WIPHY_FLAG_MESH_AUTH			= BIT(10),
 	WIPHY_FLAG_SUPPORTS_SCHED_SCAN		= BIT(11),
-	
+	/* use hole at 12 */
 	WIPHY_FLAG_SUPPORTS_FW_ROAM		= BIT(13),
 	WIPHY_FLAG_AP_UAPSD			= BIT(14),
 	WIPHY_FLAG_SUPPORTS_TDLS		= BIT(15),
@@ -1111,7 +1111,7 @@ struct wiphy {
 
 	u16 n_addresses;
 
-	
+	/* Supported interface modes, OR together BIT(NL80211_IFTYPE_...) */
 	u16 interface_modes;
 
 	u16 max_acl_mac_addrs;
@@ -1273,7 +1273,7 @@ struct wireless_dev {
 
 	u8 address[ETH_ALEN] __aligned(sizeof(u16));
 
-	
+	/* currently used for IBSS and SME - might be rearranged later */
 	u8 ssid[IEEE80211_MAX_SSID_LEN];
 	u8 ssid_len, mesh_id_len, mesh_id_up_len;
 	enum {
@@ -1287,10 +1287,10 @@ struct wireless_dev {
 	struct list_head event_list;
 	spinlock_t event_lock;
 
-	struct cfg80211_internal_bss *current_bss; 
+	struct cfg80211_internal_bss *current_bss; /* associated / joined */
 	struct cfg80211_chan_def preset_chandef;
 
-	
+	/* for AP and mesh channel tracking */
 	struct ieee80211_channel *channel;
 
 	bool ibss_fixed;
@@ -1310,7 +1310,7 @@ struct wireless_dev {
     
 
 #ifdef CONFIG_CFG80211_WEXT
-	
+	/* wext data */
 	struct {
 		struct cfg80211_ibss_params ibss;
 		struct cfg80211_connect_params connect;
@@ -1727,7 +1727,34 @@ void cfg80211_key_mgmt_auth(struct net_device *dev,
 
 void cfg80211_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info);
 
-
+/**
+ * struct ieee80211_radiotap_iterator - tracks walk thru present radiotap args
+ * @this_arg_index: index of current arg, valid after each successful call
+ *	to ieee80211_radiotap_iterator_next()
+ * @this_arg: pointer to current radiotap arg; it is valid after each
+ *	call to ieee80211_radiotap_iterator_next() but also after
+ *	ieee80211_radiotap_iterator_init() where it will point to
+ *	the beginning of the actual data portion
+ * @this_arg_size: length of the current arg, for convenience
+ * @current_namespace: pointer to the current namespace definition
+ *	(or internally %NULL if the current namespace is unknown)
+ * @is_radiotap_ns: indicates whether the current namespace is the default
+ *	radiotap namespace or not
+ *
+ * @_rtheader: pointer to the radiotap header we are walking through
+ * @_max_length: length of radiotap header in cpu byte ordering
+ * @_arg_index: next argument index
+ * @_arg: next argument pointer
+ * @_next_bitmap: internal pointer to next present u32
+ * @_bitmap_shifter: internal shifter for curr u32 bitmap, b0 set == arg present
+ * @_vns: vendor namespace definitions
+ * @_next_ns_data: beginning of the next namespace's data
+ * @_reset_on_ext: internal; reset the arg index to 0 when going to the
+ *	next bitmap word
+ *
+ * Describes the radiotap parser state. Fields prefixed with an underscore
+ * must not be used by users of the parser, only by the parser internally.
+ */
 
 #define wiphy_printk(level, wiphy, format, args...)		\
 	dev_printk(level, &(wiphy)->dev, format, ##args)

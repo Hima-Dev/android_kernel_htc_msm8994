@@ -47,7 +47,7 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 
 	policy = cdbs->cur_policy;
 
-	
+	/* Get Absolute Load */
 	for_each_cpu(j, policy->cpus) {
 		struct cpu_dbs_common_info *j_cdbs;
 		u64 cur_wall_time, cur_idle_time;
@@ -140,7 +140,7 @@ bool need_load_eval(struct cpu_dbs_common_info *cdbs,
 		ktime_t time_now = ktime_get();
 		s64 delta_us = ktime_us_delta(time_now, cdbs->time_stamp);
 
-		
+		/* Do nothing if we recently have sampled */
 		if (delta_us < (s64)(sampling_rate / 2))
 			return false;
 		else
@@ -222,12 +222,12 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		policy->governor_data = dbs_data;
 
-		
+		/* policy latency is in ns. Convert it to us first */
 		latency = policy->cpuinfo.transition_latency / 1000;
 		if (latency == 0)
 			latency = 1;
 
-		
+		/* Bring kernel and HW constraints together */
 		dbs_data->min_sampling_rate = max(dbs_data->min_sampling_rate,
 				MIN_LATENCY_MULTIPLIER * latency);
 		set_sampling_rate(dbs_data, max(dbs_data->min_sampling_rate,
@@ -322,7 +322,7 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		mutex_unlock(&dbs_data->mutex);
 
-		
+		/* Initiate timer time stamp */
 		cpu_cdbs->time_stamp = ktime_get();
 
 		gov_queue_work(dbs_data, policy,

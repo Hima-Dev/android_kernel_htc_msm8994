@@ -211,10 +211,10 @@ struct address_space_operations {
 	int (*writepage)(struct page *page, struct writeback_control *wbc);
 	int (*readpage)(struct file *, struct page *);
 
-	
+	/* Write back some dirty pages from this mapping. */
 	int (*writepages)(struct address_space *, struct writeback_control *);
 
-	
+	/* Set a page dirty.  Return true if this dirtied it */
 	int (*set_page_dirty)(struct page *page);
 
 	int (*readpages)(struct file *filp, struct address_space *mapping,
@@ -227,7 +227,7 @@ struct address_space_operations {
 				loff_t pos, unsigned len, unsigned copied,
 				struct page *page, void *fsdata);
 
-	
+	/* Unfortunately this kludge is needed for FIBMAP. Don't use it */
 	sector_t (*bmap)(struct address_space *, sector_t);
 	void (*invalidatepage) (struct page *, unsigned long);
 	int (*releasepage) (struct page *, gfp_t);
@@ -244,7 +244,7 @@ struct address_space_operations {
 	void (*is_dirty_writeback) (struct page *, bool *, bool *);
 	int (*error_remove_page)(struct address_space *, struct page *);
 
-	
+	/* swapfile support */
 	int (*swap_activate)(struct swap_info_struct *sis, struct file *file,
 				sector_t *span);
 	void (*swap_deactivate)(struct file *file);
@@ -378,7 +378,7 @@ struct inode {
 	struct timespec		i_atime;
 	struct timespec		i_mtime;
 	struct timespec		i_ctime;
-	spinlock_t		i_lock;	
+	spinlock_t		i_lock;	/* i_blocks, i_bytes, maybe i_size */
 	unsigned short          i_bytes;
 	unsigned int		i_blkbits;
 	blkcnt_t		i_blocks;
@@ -387,15 +387,15 @@ struct inode {
 	seqcount_t		i_size_seqcount;
 #endif
 
-	
+	/* Misc */
 	unsigned long		i_state;
 	struct mutex		i_mutex;
 
-	unsigned long		dirtied_when;	
+	unsigned long		dirtied_when;	/* jiffies of first dirtying */
 
 	struct hlist_node	i_hash;
-	struct list_head	i_wb_list;	
-	struct list_head	i_lru;		
+	struct list_head	i_wb_list;	/* backing dev IO list */
+	struct list_head	i_lru;		/* inode LRU list */
 	struct list_head	i_sb_list;
 	union {
 		struct hlist_head	i_dentry;
@@ -405,7 +405,7 @@ struct inode {
 	atomic_t		i_count;
 	atomic_t		i_dio_count;
 	atomic_t		i_writecount;
-	const struct file_operations	*i_fop;	
+	const struct file_operations	*i_fop;	/* former ->i_op->default_file_ops */
 	struct file_lock	*i_flock;
 	struct address_space	i_data;
 #ifdef CONFIG_QUOTA
@@ -421,14 +421,14 @@ struct inode {
 	__u32			i_generation;
 
 #ifdef CONFIG_FSNOTIFY
-	__u32			i_fsnotify_mask; 
+	__u32			i_fsnotify_mask; /* all events this inode cares about */
 	struct hlist_head	i_fsnotify_marks;
 #endif
 
 #ifdef CONFIG_IMA
-	atomic_t		i_readcount; 
+	atomic_t		i_readcount; /* struct files open RO */
 #endif
-	void			*i_private; 
+	void			*i_private; /* fs or device private pointer */
 };
 
 static inline int inode_unhashed(struct inode *inode)
@@ -570,14 +570,14 @@ struct file {
 #ifdef CONFIG_SECURITY
 	void			*f_security;
 #endif
-	
+	/* needed for tty driver, and maybe others */
 	void			*private_data;
 
 #ifdef CONFIG_EPOLL
-	
+	/* Used by fs/eventpoll.c to link all the hooks to this file */
 	struct list_head	f_ep_links;
 	struct list_head	f_tfile_llink;
-#endif 
+#endif /* #ifdef CONFIG_EPOLL */
 	struct address_space	*f_mapping;
 #ifdef CONFIG_DEBUG_WRITECOUNT
 	unsigned long f_mnt_write_state;
@@ -587,7 +587,7 @@ struct file {
 struct file_handle {
 	__u32 handle_bytes;
 	int handle_type;
-	
+	/* file identifier */
 	unsigned char f_handle[0];
 };
 
@@ -627,7 +627,7 @@ static inline int file_check_writeable(struct file *f)
 	WARN_ON(1);
 	return -EINVAL;
 }
-#else 
+#else /* !CONFIG_DEBUG_WRITECOUNT */
 static inline void file_take_write(struct file *filp) {}
 static inline void file_release_write(struct file *filp) {}
 static inline void file_reset_write(struct file *filp) {}
@@ -636,11 +636,12 @@ static inline int file_check_writeable(struct file *filp)
 {
 	return 0;
 }
-#endif 
+#endif /* CONFIG_DEBUG_WRITECOUNT */
 
 #define	MAX_NON_LFS	((1UL<<31) - 1)
 
- 
+/* Page cache limit. The filesystems should put that into their s_maxbytes 
+   limits, otherwise bad things can happen in VM. */ 
 #if BITS_PER_LONG==32
 #define MAX_LFS_FILESIZE	(((loff_t)PAGE_CACHE_SIZE << (BITS_PER_LONG-1))-1) 
 #elif BITS_PER_LONG==64
@@ -668,7 +669,7 @@ struct file_lock_operations {
 
 struct lock_manager_operations {
 	int (*lm_compare_owner)(struct file_lock *, struct file_lock *);
-	void (*lm_notify)(struct file_lock *);	
+	void (*lm_notify)(struct file_lock *);	/* unblock callback */
 	int (*lm_grant)(struct file_lock *, struct file_lock *, int);
 	void (*lm_break)(struct file_lock *);
 	int (*lm_change)(struct file_lock **, int);
@@ -766,7 +767,7 @@ extern int lock_may_write(struct inode *, loff_t start, unsigned long count);
 extern void locks_delete_block(struct file_lock *waiter);
 extern void lock_flocks(void);
 extern void unlock_flocks(void);
-#else 
+#else /* !CONFIG_FILE_LOCKING */
 static inline int fcntl_getlk(struct file *file, struct flock __user *user)
 {
 	return -EINVAL;
@@ -1411,9 +1412,9 @@ struct file_system_type {
 #define FS_REQUIRES_DEV		1 
 #define FS_BINARY_MOUNTDATA	2
 #define FS_HAS_SUBTYPE		4
-#define FS_USERNS_MOUNT		8	
-#define FS_USERNS_DEV_MOUNT	16 
-#define FS_RENAME_DOES_D_MOVE	32768	
+#define FS_USERNS_MOUNT		8	/* Can be mounted by userns root */
+#define FS_USERNS_DEV_MOUNT	16 /* A userns mount does not imply MNT_NODEV */
+#define FS_RENAME_DOES_D_MOVE	32768	/* FS will handle d_move() during rename() internally. */
 	struct dentry *(*mount) (struct file_system_type *, int,
 		       const char *, void *);
 	void (*kill_sb) (struct super_block *);
@@ -1541,7 +1542,7 @@ static inline int break_lease(struct inode *inode, unsigned int mode)
 		return __break_lease(inode, mode);
 	return 0;
 }
-#else 
+#else /* !CONFIG_FILE_LOCKING */
 static inline int locks_mandatory_locked(struct inode *inode)
 {
 	return 0;
@@ -2008,10 +2009,10 @@ typedef void (dio_submit_t)(int rw, struct bio *bio, struct inode *inode,
 			    loff_t file_offset);
 
 enum {
-	
+	/* need locking between buffered and direct access */
 	DIO_LOCKING	= 0x01,
 
-	
+	/* filesystem does not support filling holes */
 	DIO_SKIP_HOLES	= 0x02,
 };
 
@@ -2206,7 +2207,7 @@ static const struct file_operations __fops = {				\
 static inline __printf(1, 2)
 void __simple_attr_check_format(const char *fmt, ...)
 {
-	
+	/* don't do anything, just let the compiler check the arguments; */
 }
 
 int simple_attr_open(struct inode *inode, struct file *file,
@@ -2245,4 +2246,4 @@ static inline void inode_has_no_xattr(struct inode *inode)
 		inode->i_flags |= S_NOSEC;
 }
 
-#endif 
+#endif /* _LINUX_FS_H */

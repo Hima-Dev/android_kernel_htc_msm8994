@@ -349,7 +349,7 @@ static void diag_send_feature_mask_update(struct diag_smd_info *smd_info)
 	}
 
 	mutex_lock(&driver->diag_cntl_mutex);
-	
+	/* send feature mask update */
 	feature_mask.ctrl_pkt_id = DIAG_CTRL_MSG_FEATURE;
 	feature_mask.ctrl_pkt_data_len = sizeof(uint32_t) + FEATURE_MASK_LEN;
 	feature_mask.feature_mask_len = FEATURE_MASK_LEN;
@@ -504,7 +504,7 @@ static int diag_cmd_get_msg_mask(unsigned char *src_buf, int src_len,
 			continue;
 		}
 		mask_size = mask->range * sizeof(uint32_t);
-		
+		/* Copy msg mask only till the end of the rsp buffer */
 		if (mask_size + sizeof(rsp) > dest_len)
 			mask_size = dest_len - sizeof(rsp);
 		memcpy(dest_buf + sizeof(rsp), mask->ptr, mask_size);
@@ -1278,7 +1278,7 @@ static int diag_build_time_mask_init(void)
 {
 	int err = 0;
 
-	
+	/* There is no need for update buffer for Build Time masks */
 	err = __diag_mask_init(&msg_bt_mask, MSG_MASK_SIZE, 0);
 	if (err)
 		return err;
@@ -1395,7 +1395,7 @@ int diag_copy_to_user_msg_mask(char __user *buf, size_t count)
 		}
 		memcpy(ptr + len, mask->ptr, copy_len);
 		len += copy_len;
-		
+		/* + sizeof(int) to account for data_type already in buf */
 		if (total_len + sizeof(int) + len > count) {
 			pr_err("diag: In %s, unable to send msg masks to user space, total_len: %d, count: %zu\n",
 			       __func__, total_len, count);
@@ -1446,7 +1446,7 @@ int diag_copy_to_user_log_mask(char __user *buf, size_t count)
 		}
 		memcpy(ptr + len, mask->ptr, copy_len);
 		len += copy_len;
-		
+		/* + sizeof(int) to account for data_type already in buf */
 		if (total_len + sizeof(int) + len > count) {
 			pr_err("diag: In %s, unable to send log masks to user space, total_len: %d, count: %zu\n",
 			       __func__, total_len, count);

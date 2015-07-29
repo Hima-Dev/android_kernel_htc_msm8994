@@ -84,7 +84,7 @@ struct msm_hsl_port {
 	struct wake_lock	port_open_wake_lock;
 	int			clk_enable_count;
 	u32			bus_perf_client;
-	
+	/* BLSP UART required BUS Scaling data */
 	struct msm_bus_scale_pdata *bus_scale_table;
 };
 
@@ -530,7 +530,7 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 		msm_hsl_port->old_snap_state += count;
 	}
 
-	
+	/* and now the main RX loop */
 	while (count > 0) {
 		unsigned int c;
 		char flag = TTY_NORMAL;
@@ -551,15 +551,15 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 			port->icount.rx++;
 		}
 
-		
+		/* Mask conditions we're ignorning. */
 		sr &= port->read_status_mask;
 		if (sr & UARTDM_SR_RX_BREAK_BMSK)
 			flag = TTY_BREAK;
 		else if (sr & UARTDM_SR_PAR_FRAME_BMSK)
 			flag = TTY_FRAME;
 
-		
-		
+		/* TODO: handle sysrq */
+		/* if (!uart_handle_sysrq_char(port, c)) */
 		tty_insert_flip_string(tty->port, (char *) &c,
 				       (count > 4) ? 4 : count);
 		count -= 4;
@@ -585,7 +585,7 @@ static void handle_tx(struct uart_port *port)
 	if (tx_count >= port->fifosize)
 		tx_count = port->fifosize;
 
-	
+	/* Handle x_char */
 	if (port->x_char) {
 		wait_for_xmitr(port);
 		msm_hsl_write(port, tx_count + 1, regmap[vid][UARTDM_NCF_TX]);
@@ -668,7 +668,7 @@ static irqreturn_t msm_hsl_irq(int irq, void *dev_id)
 	spin_lock_irqsave(&port->lock, flags);
 	vid = msm_hsl_port->ver_id;
 	misr = msm_hsl_read(port, regmap[vid][UARTDM_MISR]);
-	
+	/* disable interrupt */
 	msm_hsl_write(port, 0, regmap[vid][UARTDM_IMR]);
 
 	if (misr & (UARTDM_ISR_RXSTALE_BMSK | UARTDM_ISR_RXLEV_BMSK)) {
@@ -685,7 +685,7 @@ static irqreturn_t msm_hsl_irq(int irq, void *dev_id)
 	if (misr & UARTDM_ISR_DELTA_CTS_BMSK)
 		handle_delta_cts(port);
 
-	
+	/* restore interrupt */
 	msm_hsl_write(port, msm_hsl_port->imr, regmap[vid][UARTDM_IMR]);
 	spin_unlock_irqrestore(&port->lock, flags);
 
@@ -706,7 +706,7 @@ static void msm_hsl_reset(struct uart_port *port)
 {
 	unsigned int vid = UART_TO_MSM(port)->ver_id;
 
-	
+	/* reset everything */
 	msm_hsl_write(port, RESET_RX, regmap[vid][UARTDM_CR]);
 	msm_hsl_write(port, RESET_TX, regmap[vid][UARTDM_CR]);
 	msm_hsl_write(port, RESET_ERROR_STATUS, regmap[vid][UARTDM_CR]);
@@ -743,10 +743,10 @@ static void msm_hsl_set_mctrl(struct uart_port *port, unsigned int mctrl)
 		mr |= UARTDM_MR2_LOOP_MODE_BMSK;
 		msm_hsl_write(port, mr, regmap[vid][UARTDM_MR2]);
 
-		
+		/* Reset TX */
 		msm_hsl_reset(port);
 
-		
+		/* Turn on Uart Receiver & Transmitter*/
 		msm_hsl_write(port, UARTDM_CR_RX_EN_BMSK
 		      | UARTDM_CR_TX_EN_BMSK, regmap[vid][UARTDM_CR]);
 	}
@@ -840,7 +840,7 @@ static void msm_hsl_set_baud_rate(struct uart_port *port,
 		baud_code = 0xff;
 		rxstale = 31;
 		break;
-	default: 
+	default: /*115200 baud rate */
 		baud_code = UARTDM_CSR_28800;
 		rxstale = 31;
 		break;
@@ -881,11 +881,11 @@ static void msm_hsl_set_baud_rate(struct uart_port *port,
 
 	data = UARTDM_CR_TX_EN_BMSK;
 	data |= UARTDM_CR_RX_EN_BMSK;
-	
+	/* enable TX & RX */
 	msm_hsl_write(port, data, regmap[vid][UARTDM_CR]);
 
 	msm_hsl_write(port, RESET_STALE_INT, regmap[vid][UARTDM_CR]);
-	
+	/* turn on RX and CTS interrupts */
 	msm_hsl_port->imr = UARTDM_ISR_RXSTALE_BMSK
 		| UARTDM_ISR_DELTA_CTS_BMSK | UARTDM_ISR_RXLEV_BMSK;
 	msm_hsl_write(port, msm_hsl_port->imr, regmap[vid][UARTDM_IMR]);
@@ -943,7 +943,7 @@ static int msm_hsl_startup(struct uart_port *port)
 	spin_lock_irqsave(&port->lock, flags);
 
 	vid = msm_hsl_port->ver_id;
-	
+	/* set automatic RFR level */
 	data = msm_hsl_read(port, regmap[vid][UARTDM_MR1]);
 	data &= ~UARTDM_MR1_AUTO_RFR_LEVEL1_BMSK;
 	data &= ~UARTDM_MR1_AUTO_RFR_LEVEL0_BMSK;
@@ -977,14 +977,14 @@ static void msm_hsl_shutdown(struct uart_port *port)
 					pdev->dev.platform_data;
 
 	msm_hsl_port->imr = 0;
-	
+	/* disable interrupts */
 	msm_hsl_write(port, 0, regmap[msm_hsl_port->ver_id][UARTDM_IMR]);
 
 	free_irq(port->irq, port);
 
 	if (!(is_console(port)) || (!port->cons) ||
 		(port->cons && (!(port->cons->flags & CON_ENABLED)))) {
-		
+		/* Free UART GPIOs */
 		if (pdata && pdata->config_gpio)
 			msm_hsl_unconfig_uart_gpios(port);
 
@@ -1026,7 +1026,7 @@ static void msm_hsl_set_termios(struct uart_port *port,
 			mr |= EVEN_PARITY;
 	}
 
-	
+	/* calculate bits per char */
 	mr &= ~UARTDM_MR2_BITS_PER_CHAR_BMSK;
 	switch (termios->c_cflag & CSIZE) {
 	case CS5:
@@ -1044,17 +1044,17 @@ static void msm_hsl_set_termios(struct uart_port *port,
 		break;
 	}
 
-	
+	/* calculate stop bits */
 	mr &= ~(STOP_BIT_ONE | STOP_BIT_TWO);
 	if (termios->c_cflag & CSTOPB)
 		mr |= STOP_BIT_TWO;
 	else
 		mr |= STOP_BIT_ONE;
 
-	
+	/* set parity, bits per char, and stop bit */
 	msm_hsl_write(port, mr, regmap[vid][UARTDM_MR2]);
 
-	
+	/* calculate and set hardware flow control */
 	mr = msm_hsl_read(port, regmap[vid][UARTDM_MR1]);
 	mr &= ~(UARTDM_MR1_CTS_CTL_BMSK | UARTDM_MR1_RX_RDY_CTL_BMSK);
 	if (termios->c_cflag & CRTSCTS) {
@@ -1063,7 +1063,7 @@ static void msm_hsl_set_termios(struct uart_port *port,
 	}
 	msm_hsl_write(port, mr, regmap[vid][UARTDM_MR1]);
 
-	
+	/* Configure status bits to ignore based on termio flags. */
 	port->read_status_mask = 0;
 	if (termios->c_iflag & INPCK)
 		port->read_status_mask |= UARTDM_SR_PAR_FRAME_BMSK;
@@ -1168,7 +1168,7 @@ static void msm_hsl_config_port(struct uart_port *port, int flags)
 			return;
 	}
 
-	
+	/* Configure required GSBI based UART protocol. */
 	if (msm_serial_hsl_has_gsbi(port))
 		set_gsbi_uart_func_mode(port);
 }
@@ -1361,7 +1361,7 @@ static void msm_hsl_console_write(struct console *co, const char *s,
 	msm_hsl_port = UART_TO_MSM(port);
 	vid = msm_hsl_port->ver_id;
 
-	
+	/* not pretty, but we can end up here via various convoluted paths */
 	if (port->sysrq || oops_in_progress)
 		locked = spin_trylock(&port->lock);
 	else {
@@ -1407,7 +1407,7 @@ static int msm_hsl_console_setup(struct console *co, char *options)
 	parity = 'n';
 	flow = 'n';
 	msm_hsl_write(port, UARTDM_MR2_BITS_PER_CHAR_8 | STOP_BIT_ONE,
-		      regmap[vid][UARTDM_MR2]);	
+		      regmap[vid][UARTDM_MR2]);	/* 8N1 */
 
 	if (baud < 300 || baud > 115200)
 		baud = 115200;
@@ -1421,7 +1421,7 @@ static int msm_hsl_console_setup(struct console *co, char *options)
 	msm_hsl_write(port, mr2, regmap[vid][UARTDM_MR2]);
 
 	msm_hsl_reset(port);
-	
+	/* Enable transmitter */
 	msm_hsl_write(port, CR_PROTECTION_EN, regmap[vid][UARTDM_CR]);
 	msm_hsl_write(port, UARTDM_CR_TX_EN_BMSK, regmap[vid][UARTDM_CR]);
 
@@ -1551,7 +1551,7 @@ static struct msm_serial_hslite_platform_data
 		if (pdata->uart_rx_gpio < 0)
 				return ERR_PTR(pdata->uart_rx_gpio);
 
-		
+		/* check if 4-wire UART, then get cts/rfr GPIOs. */
 		if (pdata->config_gpio == 4) {
 			pdata->uart_cts_gpio = of_get_named_gpio(node,
 						"qcom,cts-gpio", 0);
@@ -1586,14 +1586,14 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	if (pdev->id == -1)
 		pdev->id = atomic_inc_return(&msm_serial_hsl_next_id) - 1;
 
-	
+	/* Use line (ttyHSLx) number from pdata or device tree if specified */
 	pdata = pdev->dev.platform_data;
 	if (pdata)
 		line = pdata->line;
 	else
 		line = pdev->id;
 
-	
+	/* Use line number from device tree alias if present */
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
 		ret = of_alias_get_id(pdev->dev.of_node, "serial");
@@ -1636,7 +1636,7 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 		}
 	}
 
-	
+	/* Identify UART functional mode as 2-wire or 4-wire. */
 	if (pdata && pdata->config_gpio == 4)
 		msm_hsl_port->func_mode = UART_FOUR_WIRE;
 	else

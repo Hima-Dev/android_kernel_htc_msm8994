@@ -549,18 +549,18 @@ struct adm_cmd_connect_afe_port_v5 {
 #define AFE_PSEUDOPORT_CMD_START 0x000100cf
 struct afe_pseudoport_start_command {
 	struct apr_hdr hdr;
-	u16 port_id;		
-				
-				
-	u16 timing;		
+	u16 port_id;		/* Pseudo Port 1 = 0x8000 */
+				/* Pseudo Port 2 = 0x8001 */
+				/* Pseudo Port 3 = 0x8002 */
+	u16 timing;		/* FTRT = 0 , AVTimer = 1, */
 } __packed;
 
 #define AFE_PSEUDOPORT_CMD_STOP 0x000100d0
 struct afe_pseudoport_stop_command {
 	struct apr_hdr hdr;
-	u16 port_id;		
-				
-				
+	u16 port_id;		/* Pseudo Port 1 = 0x8000 */
+				/* Pseudo Port 2 = 0x8001 */
+				/* Pseudo Port 3 = 0x8002 */
 	u16 reserved;
 } __packed;
 
@@ -1385,7 +1385,7 @@ struct asm_softvolume_params {
 
 struct asm_data_cmd_media_fmt_update_v2 {
 u32                    fmt_blk_size;
-	
+	/* Media format block size in bytes.*/
 }  __packed;
 
 struct asm_multi_channel_pcm_fmt_blk_v2 {
@@ -1950,9 +1950,14 @@ struct asm_session_cmd_rgstr_rx_underflow {
 struct asm_session_cmd_regx_overflow {
 	struct apr_hdr hdr;
 	u16                  enable_flag;
-
+/* Specifies whether a client is to receive events when an Rx
+ * session underflows.
+ * Supported values:
+ * - 0 -- Do not send underflow events
+ * - 1 -- Send underflow events
+ */
 	u16                  reserved;
-	
+	/* Reserved. This field must be set to zero.*/
 } __packed;
 
 #define ASM_SESSION_EVENT_RX_UNDERFLOW        0x00010C17
@@ -3725,7 +3730,14 @@ struct afe_group_device_group_cfg {
 	u16 port_id[8];
 } __packed;
 
-
+/* This module represents the VI processing of feedback speaker protection.
+ * It will receive Vsens and Isens from codec and generates necessary
+ * parameters needed by Rx processing.
+ * This module id will support following param ids.
+ * - AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG
+ * - AFE_PARAM_ID_CALIB_RES_CFG
+ * - AFE_PARAM_ID_FEEDBACK_PATH_CFG
+ */
 
 struct afe_group_device_enable {
 	u16 group_id;
@@ -3802,4 +3814,4 @@ struct adm_set_compressed_device_latency {
 	struct adm_param_data_v5 params;
 	u32    latency;
 } __packed;
-#endif 
+#endif /*_APR_AUDIO_V2_H_ */

@@ -455,10 +455,10 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 
 	down_read(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
-		
+		/* if the caller didn't specify this heap id */
 		if (!((1 << heap->id) & heap_id_mask))
 			continue;
-		
+		/* Do not allow un-secure heap if secure is specified */
 		if (secure_allocation &&
 		    !ion_heap_allow_secure_allocation(heap->type))
 			continue;
@@ -478,13 +478,13 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			int ret_value = snprintf(&dbg_str[dbg_str_idx],
 						len_left, "%s ", heap->name);
 			if (ret_value >= len_left) {
-				
+				/* overflow */
 				dbg_str[MAX_DBG_STR_LEN-1] = '\0';
 				dbg_str_idx = MAX_DBG_STR_LEN;
 			} else if (ret_value >= 0) {
 				dbg_str_idx += ret_value;
 			} else {
-				
+				/* error */
 				dbg_str[MAX_DBG_STR_LEN-1] = '\0';
 			}
 		}
@@ -1136,7 +1136,7 @@ static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	mutex_lock(&buffer->lock);
-	
+	/* now map it to userspace */
 	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma);
 	mutex_unlock(&buffer->lock);
 
@@ -1264,7 +1264,7 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
 	dmabuf = dma_buf_get(fd);
 	if (IS_ERR(dmabuf))
 		return ERR_PTR(PTR_ERR(dmabuf));
-	
+	/* if this memory came from ion */
 
 	if (dmabuf->ops != &dma_buf_ops) {
 		pr_err("%s: can not import dmabuf from another exporter\n",
@@ -1275,7 +1275,7 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
 	buffer = dmabuf->priv;
 
 	mutex_lock(&client->lock);
-	
+	/* if a handle exists for this buffer just take a reference to it */
 	handle = ion_handle_lookup(client, buffer);
 	if (!IS_ERR(handle)) {
 		ion_handle_get(handle);
@@ -1311,7 +1311,7 @@ static int ion_sync_for_device(struct ion_client *client, int fd)
 	if (IS_ERR(dmabuf))
 		return PTR_ERR(dmabuf);
 
-	
+	/* if this memory came from ion */
 	if (dmabuf->ops != &dma_buf_ops) {
 		pr_err("%s: can not sync dmabuf from another exporter\n",
 		       __func__);
@@ -1860,7 +1860,7 @@ void ion_device_destroy(struct ion_device *dev)
 {
 	misc_deregister(&dev->dev);
 	debugfs_remove_recursive(dev->debug_root);
-	
+	/* XXX need to free the heaps and clients ? */
 	kfree(dev);
 }
 

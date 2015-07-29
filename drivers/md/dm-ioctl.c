@@ -215,7 +215,7 @@ static void __hash_remove(struct hash_cell *hc)
 {
 	struct dm_table *table;
 
-	
+	/* remove from the dev hash */
 	list_del(&hc->uuid_list);
 	list_del(&hc->name_list);
 	mutex_lock(&dm_hash_cells_mutex);
@@ -460,7 +460,7 @@ static void list_version_get_info(struct target_type *tt, void *param)
 {
     struct vers_iter *info = param;
 
-    
+    /* Check space - it might have changed since the first iteration */
     if ((char *)info->vers + sizeof(tt->version) + strlen(tt->name) + 1 >
 	info->end) {
 
@@ -850,9 +850,9 @@ static int do_resume(struct dm_ioctl *param)
 
 	up_write(&_hash_lock);
 
-	
+	/* Do we need to load a new map ? */
 	if (new_map) {
-		
+		/* Suspend if it isn't already suspended */
 		if (param->flags & DM_SKIP_LOCKFS_FLAG)
 			suspend_flags &= ~DM_SUSPEND_LOCKFS_FLAG;
 		if (param->flags & DM_NOFLUSH_FLAG)
@@ -928,7 +928,7 @@ static void retrieve_status(struct dm_table *table,
 	else
 		type = STATUSTYPE_INFO;
 
-	
+	/* Get all the target info */
 	num_targets = dm_table_get_num_targets(table);
 	for (i = 0; i < num_targets; i++) {
 		struct dm_target *ti = dm_table_get_target(table, i);
@@ -955,7 +955,7 @@ static void retrieve_status(struct dm_table *table,
 			break;
 		}
 
-		
+		/* Get the status/table string from the target driver */
 		if (ti->type->status) {
 			if (param->flags & DM_NOFLUSH_FLAG)
 				status_flags |= DM_STATUS_NOFLUSH_FLAG;
@@ -1103,10 +1103,10 @@ static int table_load(struct dm_ioctl *param, size_t param_size)
 		goto out;
 	}
 
-	
+	/* Protect md->type and md->queue against concurrent table loads. */
 	dm_lock_md_type(md);
 	if (dm_get_md_type(md) == DM_TYPE_NONE)
-		
+		/* Initial table load: acquire type of table. */
 		dm_set_md_type(md, dm_table_get_type(t));
 	else if (dm_get_md_type(md) != dm_table_get_type(t)) {
 		DMWARN("can't change device type after initial table load.");
@@ -1116,7 +1116,7 @@ static int table_load(struct dm_ioctl *param, size_t param_size)
 		goto out;
 	}
 
-	
+	/* setup md->queue to reflect md's type (may block) */
 	r = dm_setup_md_queue(md);
 	if (r) {
 		DMWARN("unable to set up device queue for new table.");
@@ -1126,7 +1126,7 @@ static int table_load(struct dm_ioctl *param, size_t param_size)
 	}
 	dm_unlock_md_type(md);
 
-	
+	/* stage inactive table */
 	down_write(&_hash_lock);
 	hc = dm_get_mdptr(md);
 	if (!hc || hc->md != md) {
@@ -1350,7 +1350,7 @@ static ioctl_fn lookup_ioctl(unsigned int cmd, int *ioctl_flags)
 		int flags;
 		ioctl_fn fn;
 	} _ioctls[] = {
-		{DM_VERSION_CMD, 0, NULL}, 
+		{DM_VERSION_CMD, 0, NULL}, /* version is dealt with elsewhere */
 		{DM_REMOVE_ALL_CMD, IOCTL_FLAGS_NO_PARAMS, remove_all},
 		{DM_LIST_DEVICES_CMD, 0, list_devices},
 
@@ -1406,9 +1406,9 @@ static int check_version(unsigned int cmd, struct dm_ioctl __user *user)
 	return r;
 }
 
-#define DM_PARAMS_KMALLOC	0x0001	
-#define DM_PARAMS_VMALLOC	0x0002	
-#define DM_WIPE_BUFFER		0x0010	
+#define DM_PARAMS_KMALLOC	0x0001	/* Params alloced with kmalloc */
+#define DM_PARAMS_VMALLOC	0x0002	/* Params alloced with vmalloc */
+#define DM_WIPE_BUFFER		0x0010	/* Wipe input buffer before returning from ioctl */
 
 static void free_params(struct dm_ioctl *param, size_t param_size, int param_flags)
 {
@@ -1491,13 +1491,13 @@ bad:
 
 static int validate_params(uint cmd, struct dm_ioctl *param)
 {
-	
+	/* Always clear this flag */
 	param->flags &= ~DM_BUFFER_FULL_FLAG;
 	param->flags &= ~DM_UEVENT_GENERATED_FLAG;
 	param->flags &= ~DM_SECURE_DATA_FLAG;
 	param->flags &= ~DM_DATA_OUT_FLAG;
 
-	
+	/* Ignores parameters */
 	if (cmd == DM_REMOVE_ALL_CMD ||
 	    cmd == DM_LIST_DEVICES_CMD ||
 	    cmd == DM_LIST_VERSIONS_CMD)
@@ -1513,7 +1513,7 @@ static int validate_params(uint cmd, struct dm_ioctl *param)
 		return -EINVAL;
 	}
 
-	
+	/* Ensure strings are terminated */
 	param->name[DM_NAME_LEN - 1] = '\0';
 	param->uuid[DM_UUID_LEN - 1] = '\0';
 
@@ -1531,7 +1531,7 @@ static int ctl_ioctl(uint command, struct dm_ioctl __user *user)
 	size_t input_param_size;
 	struct dm_ioctl param_kernel;
 
-	
+	/* only root can play with this */
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
 

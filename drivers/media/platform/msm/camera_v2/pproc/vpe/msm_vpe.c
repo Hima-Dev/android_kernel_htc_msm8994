@@ -832,7 +832,7 @@ static void vpe_update_scaler_params(struct vpe_device *vpe_dev,
 			numerator, denominator);
 	}
 
-	
+	/* decide which set of FIR coefficients to use */
 	if (phase_step_x > HAL_MDP_PHASE_STEP_2P50)
 		xscale_filter_sel = 0;
 	else if (phase_step_x > HAL_MDP_PHASE_STEP_1P66)
@@ -851,9 +851,9 @@ static void vpe_update_scaler_params(struct vpe_device *vpe_dev,
 	else
 		yscale_filter_sel = 3;
 
-	
+	/* calculate phase init for the x direction */
 
-	
+	/* if using FIR scalar */
 	if (scale_unit_sel_x == 0) {
 		if (out_ROI_width == 1)
 			phase_init_x =
@@ -871,7 +871,7 @@ static void vpe_update_scaler_params(struct vpe_device *vpe_dev,
 						1) << SCALER_PHASE_BITS);
 		else
 			phase_init_y = 0;
-	} else if (scale_unit_sel_y == 1) 
+	} else if (scale_unit_sel_y == 1) /* M over N scalar   */
 		phase_init_y = 0;
 
 	strip_info.phase_step_x = phase_step_x;
@@ -914,7 +914,7 @@ static void vpe_program_buffer_addresses(
 
 static int vpe_start(struct vpe_device *vpe_dev)
 {
-	
+	/*  enable the frame irq, bit 0 = Display list 0 ROI done */
 	msm_camera_io_w_mb(1, vpe_dev->base + VPE_INTR_ENABLE_OFFSET);
 	msm_camera_io_dump(vpe_dev->base, 0x120);
 	msm_camera_io_dump(vpe_dev->base + 0x00400, 0x18);
@@ -940,13 +940,13 @@ static int vpe_reset(struct vpe_device *vpe_dev)
 	vpe_version = msm_camera_io_r(
 			vpe_dev->base + VPE_HW_VERSION_OFFSET);
 	VPE_DBG("vpe_version = 0x%x\n", vpe_version);
-	
+	/* disable all interrupts.*/
 	msm_camera_io_w(0, vpe_dev->base + VPE_INTR_ENABLE_OFFSET);
-	
+	/* clear all pending interrupts*/
 	msm_camera_io_w(0x1fffff, vpe_dev->base + VPE_INTR_CLEAR_OFFSET);
-	
+	/* write sw_reset to reset the core. */
 	msm_camera_io_w(0x10, vpe_dev->base + VPE_SW_RESET_OFFSET);
-	
+	/* then poll the reset bit, it should be self-cleared. */
 	while (1) {
 		rc = msm_camera_io_r(vpe_dev->base + VPE_SW_RESET_OFFSET) \
 			& 0x10;
@@ -1398,7 +1398,7 @@ static long msm_vpe_subdev_fops_ioctl(struct file *file, unsigned int cmd,
 static int vpe_register_domain(void)
 {
 	struct msm_iova_partition vpe_iommu_partition = {
-		
+		/* TODO: verify that these are correct? */
 		.start = SZ_128K,
 		.size = SZ_2G - SZ_128K,
 	};

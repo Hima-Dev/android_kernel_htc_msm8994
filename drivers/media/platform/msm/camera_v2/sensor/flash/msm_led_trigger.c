@@ -239,7 +239,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	
+	/* Flash source */
 	if (of_get_property(of_node, "qcom,flash-source", &count)) {
 		count /= sizeof(uint32_t);
 		CDBG("qcom,flash-source count %d\n", count);
@@ -273,7 +273,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 				fctrl.flash_trigger_name[i]);
 
 			if (flashtype == GPIO_FLASH) {
-				
+				/* use fake current */
 				fctrl.flash_op_current[i] = LED_FULL;
 			} else {
 				rc = of_property_read_u32(flash_src_node,
@@ -303,7 +303,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 		}
 
 	}
-	
+	/* Torch source */
 	if (of_get_property(of_node, "qcom,torch-source", &count)) {
 		count /= sizeof(uint32_t);
 		CDBG("qcom,torch-source count %d\n", count);
@@ -338,7 +338,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 				fctrl.torch_trigger_name[i]);
 
 			if (flashtype == GPIO_FLASH) {
-				
+				/* use fake current */
 				fctrl.torch_op_current[i] = LED_HALF;
 			} else {
 				rc = of_property_read_u32(flash_src_node,

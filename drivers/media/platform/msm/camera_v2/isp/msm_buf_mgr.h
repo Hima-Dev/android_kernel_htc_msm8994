@@ -36,13 +36,13 @@ enum msm_isp_buffer_src_t {
 };
 
 enum msm_isp_buffer_state {
-	MSM_ISP_BUFFER_STATE_UNUSED,         
-	MSM_ISP_BUFFER_STATE_INITIALIZED,    
-	MSM_ISP_BUFFER_STATE_PREPARED,       
-	MSM_ISP_BUFFER_STATE_QUEUED,         
-	MSM_ISP_BUFFER_STATE_DEQUEUED,       
-	MSM_ISP_BUFFER_STATE_DIVERTED,       
-	MSM_ISP_BUFFER_STATE_DISPATCHED,     
+	MSM_ISP_BUFFER_STATE_UNUSED,         /* not used */
+	MSM_ISP_BUFFER_STATE_INITIALIZED,    /* REQBUF done */
+	MSM_ISP_BUFFER_STATE_PREPARED,       /* BUF mapped */
+	MSM_ISP_BUFFER_STATE_QUEUED,         /* buf queued */
+	MSM_ISP_BUFFER_STATE_DEQUEUED,       /* in use in VFE */
+	MSM_ISP_BUFFER_STATE_DIVERTED,       /* Sent to other hardware*/
+	MSM_ISP_BUFFER_STATE_DISPATCHED,     /* Sent to HAL*/
 };
 
 enum msm_isp_buffer_flush_t {
@@ -67,7 +67,7 @@ struct buffer_cmd {
 };
 
 struct msm_isp_buffer {
-	
+	/*Common Data structure*/
 	int num_planes;
 	struct msm_isp_buffer_mapped_info mapped_info[VIDEO_MAX_PLANES];
 	int buf_idx;
@@ -75,14 +75,14 @@ struct msm_isp_buffer {
 	uint32_t frame_id;
 	struct timeval *tv;
 
-	
+	/*Native buffer*/
 	struct list_head list;
 	enum msm_isp_buffer_state state;
 
-	
+	/*Vb2 buffer data*/
 	struct vb2_buffer *vb2_buf;
 
-	
+	/*Share buffer cache state*/
 	struct list_head share_list;
 	uint8_t buf_used[ISP_SHARE_BUF_CLIENT];
 	uint8_t buf_get_count;
@@ -99,9 +99,9 @@ struct msm_isp_bufq {
 	struct msm_isp_buffer *bufs;
 	spinlock_t bufq_lock;
 
-	
+	/*Native buffer queue*/
 	struct list_head head;
-	
+	/*Share buffer cache queue*/
 	struct list_head share_head;
 	uint8_t buf_client_count;
 };
@@ -165,15 +165,15 @@ struct msm_isp_buf_mgr {
 
 	struct msm_sd_req_vb2_q *vb2_ops;
 
-	
+	/*IOMMU specific*/
 	int iommu_domain_num;
 	struct iommu_domain *iommu_domain;
 
-	
+	/*Add secure domain num and domain */
 	int iommu_domain_num_secure;
 	struct iommu_domain *iommu_domain_secure;
 
-	
+	/*Add secure mode*/
 	int secure_enable;
 
 	int num_iommu_ctx;
@@ -198,4 +198,4 @@ int msm_isp_create_secure_domain(struct msm_isp_buf_mgr *buf_mgr,
 int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	void *arg);
 
-#endif 
+#endif /* _MSM_ISP_BUF_H_ */

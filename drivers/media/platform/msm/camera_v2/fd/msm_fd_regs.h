@@ -151,4 +151,4 @@
 #define MSM_FD_VBIF_OUT_AXI_AOOO            (0x17c)
 #define MSM_FD_VBIF_ROUND_ROBIN_QOS_ARB     (0x124)
 
-#endif 
+#endif /* __MSM_FD_REGS_H__ */

@@ -225,7 +225,7 @@ static void smd_tty_read(unsigned long param)
 
 	for (;;) {
 		if (is_in_reset(info)) {
-			
+			/* signal TTY clients using TTY_BREAK */
 			tty_insert_flip_char(tty->port, 0x00, TTY_BREAK);
 			tty_flip_buffer_push(tty->port);
 			break;
@@ -267,7 +267,7 @@ static void smd_tty_read(unsigned long param)
 		tty_flip_buffer_push(tty->port);
 	}
 
-	
+	/* XXX only when writable and necessary */
 	tty_wakeup(tty);
 	tty_kref_put(tty);
 }
@@ -324,7 +324,7 @@ static void smd_tty_notify(void *priv, unsigned event)
 
 		tty = tty_port_tty_get(&info->port);
 		if (tty) {
-			
+			/* send TTY_BREAK through read tasklet */
 			set_bit(TTY_OTHER_CLOSED, &tty->flags);
 			tasklet_hi_schedule(&info->tty_tsklt);
 
@@ -710,7 +710,7 @@ static int smd_tty_tiocmset(struct tty_struct *tty,
 
 static void loopback_probe_worker(struct work_struct *work)
 {
-	
+	/* wait for modem to restart before requesting loopback server */
 	if (!is_modem_smsm_inited())
 		schedule_delayed_work(&loopback_work, msecs_to_jiffies(1000));
 	else
@@ -931,7 +931,7 @@ static int smd_tty_devicetree_init(struct platform_device *pdev)
 
 error:
 	SMD_TTY_ERR("%s:Initialization error, key[%s]\n", __func__, key);
-	
+	/* Unregister tty platform devices */
 	for_each_child_of_node(pdev->dev.of_node, node) {
 
 		ret = of_alias_get_id(node, "smd");

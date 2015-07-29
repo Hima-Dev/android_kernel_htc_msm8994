@@ -3547,7 +3547,7 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 #endif
 	memcpy(sb->s_uuid, es->s_uuid, sizeof(es->s_uuid));
 
-	INIT_LIST_HEAD(&sbi->s_orphan); 
+	INIT_LIST_HEAD(&sbi->s_orphan); /* unlinked but open files */
 	mutex_init(&sbi->s_orphan_lock);
 
 	sb->s_root = NULL;
@@ -3662,7 +3662,7 @@ no_journal:
 	if (ext4_setup_super(sb, es, sb->s_flags & MS_RDONLY))
 		sb->s_flags |= MS_RDONLY;
 
-	
+	/* determine the minimum size of new large inodes, if present */
 	if (sbi->s_inode_size > EXT4_GOOD_OLD_INODE_SIZE) {
 		sbi->s_want_extra_isize = sizeof(struct ext4_inode) -
 						     EXT4_GOOD_OLD_INODE_SIZE;
@@ -3678,7 +3678,7 @@ no_journal:
 					le16_to_cpu(es->s_min_extra_isize);
 		}
 	}
-	
+	/* Check if enough inode space is available */
 	if (EXT4_GOOD_OLD_INODE_SIZE + sbi->s_want_extra_isize >
 							sbi->s_inode_size) {
 		sbi->s_want_extra_isize = sizeof(struct ext4_inode) -
@@ -3721,14 +3721,14 @@ no_journal:
 		goto failed_mount7;
 
 #ifdef CONFIG_QUOTA
-	
+	/* Enable quota usage during mount. */
 	if (EXT4_HAS_RO_COMPAT_FEATURE(sb, EXT4_FEATURE_RO_COMPAT_QUOTA) &&
 	    !(sb->s_flags & MS_RDONLY)) {
 		err = ext4_enable_quotas(sb);
 		if (err)
 			goto failed_mount8;
 	}
-#endif  
+#endif  /* CONFIG_QUOTA */
 
 	EXT4_SB(sb)->s_mount_state |= EXT4_ORPHAN_FS;
 	ext4_orphan_cleanup(sb, es);
@@ -3760,7 +3760,7 @@ no_journal:
 		 *sbi->s_es->s_mount_opts ? "; " : "", orig_data);
 
 	if (es->s_error_count)
-		mod_timer(&sbi->s_err_report, jiffies + 300*HZ); 
+		mod_timer(&sbi->s_err_report, jiffies + 300*HZ); /* 5 minutes */
 
 	kfree(orig_data);
 	return 0;
@@ -3944,7 +3944,7 @@ static journal_t *ext4_get_dev_journal(struct super_block *sb,
 
 	len = ext4_blocks_count(es);
 	start = sb_block + 1;
-	brelse(bh);	
+	brelse(bh);	/* we're done with the superblock */
 
 	journal = jbd2_journal_init_dev(bdev, sb->s_bdev,
 					start, len, blocksize);
@@ -4056,7 +4056,7 @@ static int ext4_load_journal(struct super_block *sb,
 	    journal_devnum != le32_to_cpu(es->s_journal_dev)) {
 		es->s_journal_dev = cpu_to_le32(journal_devnum);
 
-		
+		/* Make sure we flush the recovery flag to disk. */
 		ext4_commit_super(sb, 1);
 	}
 
@@ -4257,7 +4257,7 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 #endif
 	char *orig_data = kstrdup(data, GFP_KERNEL);
 
-	
+	/* Store the original options */
 	old_sb_flags = sb->s_flags;
 	old_opts.s_mount_opt = sbi->s_mount_opt;
 	old_opts.s_mount_opt2 = sbi->s_mount_opt2;
@@ -4394,7 +4394,7 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 		ext4_commit_super(sb, 1);
 
 #ifdef CONFIG_QUOTA
-	
+	/* Release old quota file names */
 	for (i = 0; i < MAXQUOTAS; i++)
 		kfree(old_opts.s_qf_names[i]);
 	if (enable_quota) {
@@ -4451,7 +4451,7 @@ static int ext4_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_blocks = ext4_blocks_count(es) - EXT4_C2B(sbi, overhead);
 	bfree = percpu_counter_sum_positive(&sbi->s_freeclusters_counter) -
 		percpu_counter_sum_positive(&sbi->s_dirtyclusters_counter);
-	
+	/* prevent underflow in case that few free space is available */
 	buf->f_bfree = EXT4_C2B(sbi, max_t(s64, bfree, 0));
 	buf->f_bavail = buf->f_bfree -
 			(ext4_r_blocks_count(es) + resv_blocks);
@@ -4518,7 +4518,7 @@ static int ext4_release_dquot(struct dquot *dquot)
 	handle = ext4_journal_start(dquot_to_inode(dquot), EXT4_HT_QUOTA,
 				    EXT4_QUOTA_DEL_BLOCKS(dquot->dq_sb));
 	if (IS_ERR(handle)) {
-		
+		/* Release dquot anyway to avoid endless cycle in dqput() */
 		dquot_release(dquot);
 		return PTR_ERR(handle);
 	}
@@ -4534,7 +4534,7 @@ static int ext4_mark_dquot_dirty(struct dquot *dquot)
 	struct super_block *sb = dquot->dq_sb;
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
 
-	
+	/* Are we journaling quotas? */
 	if (EXT4_HAS_RO_COMPAT_FEATURE(sb, EXT4_FEATURE_RO_COMPAT_QUOTA) ||
 	    sbi->s_qf_names[USRQUOTA] || sbi->s_qf_names[GRPQUOTA]) {
 		dquot_mark_dquot_dirty(dquot);
@@ -4549,7 +4549,7 @@ static int ext4_write_info(struct super_block *sb, int type)
 	int ret, err;
 	handle_t *handle;
 
-	
+	/* Data block + inode block */
 	handle = ext4_journal_start(sb->s_root->d_inode, EXT4_HT_QUOTA, 2);
 	if (IS_ERR(handle))
 		return PTR_ERR(handle);
@@ -4619,7 +4619,7 @@ static int ext4_quota_enable(struct super_block *sb, int type, int format_id,
 		return PTR_ERR(qf_inode);
 	}
 
-	
+	/* Don't account quota for quota files to avoid recursion */
 	qf_inode->i_flags |= S_NOQUOTA;
 	err = dquot_enable(qf_inode, type, format_id, flags);
 	iput(qf_inode);
@@ -4715,7 +4715,7 @@ static ssize_t ext4_quota_read(struct super_block *sb, int type, char *data,
 		bh = ext4_bread(NULL, inode, blk, 0, &err);
 		if (err)
 			return err;
-		if (!bh)	
+		if (!bh)	/* A hole? */
 			memset(data, 0, tocopy);
 		else
 			memcpy(data, bh->b_data+offset, tocopy);
@@ -4896,7 +4896,7 @@ static int __init ext4_init_fs(void)
 	ext4_li_info = NULL;
 	mutex_init(&ext4_li_mtx);
 
-	
+	/* Build-time check for flags consistency */
 	ext4_check_flag_values();
 
 	for (i = 0; i < EXT4_WQ_HASH_SZ; i++) {

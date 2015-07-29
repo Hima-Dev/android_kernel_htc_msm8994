@@ -136,7 +136,7 @@ static void req_bio_endio(struct request *rq, struct bio *bio,
 
 	bio_advance(bio, nbytes);
 
-	
+	/* don't actually finish bio if it's part of flush sequence */
 	if (bio->bi_size == 0 && !(rq->cmd_flags & REQ_FLUSH_SEQ))
 		bio_endio(bio, error);
 }
@@ -367,7 +367,7 @@ void blk_cleanup_queue(struct request_queue *q)
 		q->queue_lock = &q->__queue_lock;
 	spin_unlock_irq(lock);
 
-	
+	/* @q is and will stay empty, shutdown and put */
 	blk_put_queue(q);
 }
 EXPORT_SYMBOL(blk_cleanup_queue);
@@ -676,7 +676,7 @@ static struct request *__get_request(struct request_list *rl, int rw_flags,
 		rw_flags |= REQ_IO_STAT;
 	spin_unlock_irq(q->queue_lock);
 
-	
+	/* allocate and init request */
 	rq = mempool_alloc(rl->rq_pool, gfp_mask);
 	if (!rq)
 		goto fail_alloc;
@@ -685,7 +685,7 @@ static struct request *__get_request(struct request_list *rl, int rw_flags,
 	blk_rq_set_rl(rq, rl);
 	rq->cmd_flags = rw_flags | REQ_ALLOCED;
 
-	
+	/* init elvpriv */
 	if (rw_flags & REQ_ELVPRIV) {
 		if (unlikely(et->icq_cache && !icq)) {
 			if (ioc)
@@ -739,7 +739,7 @@ static struct request *get_request(struct request_queue *q, int rw_flags,
 	struct request_list *rl;
 	struct request *rq;
 
-	rl = blk_get_rl(q, bio);	
+	rl = blk_get_rl(q, bio);	/* transferred to @rq on success */
 retry:
 	rq = __get_request(rl, rw_flags, bio, gfp_mask);
 	if (rq)
@@ -750,7 +750,7 @@ retry:
 		return NULL;
 	}
 
-	
+	/* wait on @rl and retry */
 	prepare_to_wait_exclusive(&rl->wait[is_sync], &wait,
 				  TASK_UNINTERRUPTIBLE);
 
@@ -1194,7 +1194,7 @@ static int __init fail_make_request_debugfs(void)
 
 late_initcall(fail_make_request_debugfs);
 
-#else 
+#else /* CONFIG_FAIL_MAKE_REQUEST */
 
 static inline bool should_fail_request(struct hd_struct *part,
 					unsigned int bytes)
@@ -1677,7 +1677,14 @@ bool blk_update_request(struct request *req, int error, unsigned int nr_bytes)
 	req->__data_len -= total_bytes;
 	req->buffer = bio_data(req->bio);
 
-	
+	/*
+	 * For fs requests, rq is just carrier of independent bio's
+	 * and each partial completion should be handled separately.
+	 * Reset per-request error on each partial completion.
+	 *
+	 * TODO: tj: This is too subtle.  It would be better to let
+	 * low level drivers do what they see fit.
+	 */
 	if (req->cmd_type == REQ_TYPE_FS)
 		req->__sector += total_bytes >> 9;
 
@@ -1706,7 +1713,7 @@ static bool blk_update_bidi_request(struct request *rq, int error,
 	if (blk_update_request(rq, error, nr_bytes))
 		return true;
 
-	
+	/* Bidi request must be completed as a whole */
 	if (unlikely(blk_bidi_rq(rq)) &&
 	    blk_update_request(rq->next_rq, error, bidi_bytes))
 		return true;
@@ -1849,7 +1856,7 @@ EXPORT_SYMBOL_GPL(__blk_end_request_err);
 void blk_rq_bio_prep(struct request_queue *q, struct request *rq,
 		     struct bio *bio)
 {
-	
+	/* Bit 0 (R/W) is identical in rq->cmd_flags and bio->bi_rw */
 	rq->cmd_flags |= bio->bi_rw & REQ_WRITE;
 
 	if (bio_has_data(bio)) {
@@ -2029,7 +2036,7 @@ struct blk_plug_cb *blk_check_plugged(blk_plug_cb_fn unplug, void *data,
 		if (cb->callback == unplug && cb->data == data)
 			return cb;
 
-	
+	/* Not currently on the callback list */
 	BUG_ON(size < sizeof(*cb));
 	cb = kzalloc(size, GFP_ATOMIC);
 	if (cb) {
@@ -2171,7 +2178,7 @@ int __init blk_dev_init(void)
 	BUILD_BUG_ON(__REQ_NR_BITS > 8 *
 			sizeof(((struct request *)0)->cmd_flags));
 
-	
+	/* used for unplugging and affects IO latency/throughput - HIGHPRI */
 	kblockd_workqueue = alloc_workqueue("kblockd",
 					    WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
 	if (!kblockd_workqueue)

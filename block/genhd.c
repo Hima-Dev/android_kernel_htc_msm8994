@@ -110,7 +110,7 @@ struct hd_struct *disk_part_iter_next(struct disk_part_iter *piter)
 		end = ptbl->len;
 	}
 
-	
+	/* iterate to the next partition */
 	for (; piter->idx != end; piter->idx += inc) {
 		struct hd_struct *part;
 
@@ -204,7 +204,7 @@ int register_blkdev(unsigned int major, const char *name)
 
 	mutex_lock(&block_class_lock);
 
-	
+	/* temporary */
 	if (major == 0) {
 		for (index = ARRAY_SIZE(major_names)-1; index > 0; index--) {
 			if (major_names[index] == NULL)
@@ -388,7 +388,7 @@ static void register_disk(struct gendisk *disk)
 
 	dev_set_name(ddev, "%s", disk->disk_name);
 
-	
+	/* delay uevents, until we scanned partition table */
 	dev_set_uevent_suppress(ddev, 1);
 
 	if (device_add(ddev))
@@ -490,7 +490,7 @@ void del_gendisk(struct gendisk *disk)
 
 	disk_del_events(disk);
 
-	
+	/* invalidate stuff */
 	disk_part_iter_init(&piter, disk,
 			     DISK_PITER_INCL_EMPTY | DISK_PITER_REVERSE);
 	while ((part = disk_part_iter_next(&piter))) {
@@ -530,7 +530,7 @@ void del_gendisk_async(struct gendisk *disk)
 
 	disk_del_events(disk);
 
-	
+	/* invalidate stuff */
 	disk_part_iter_init(&piter, disk,
 			     DISK_PITER_INCL_EMPTY | DISK_PITER_REVERSE);
 	while ((part = disk_part_iter_next(&piter))) {
@@ -690,7 +690,7 @@ static void disk_seqf_stop(struct seq_file *seqf, void *v)
 {
 	struct class_dev_iter *iter = seqf->private;
 
-	
+	/* stop is called even after start failed :-( */
 	if (iter) {
 		class_dev_iter_exit(iter);
 		kfree(iter);
@@ -714,14 +714,14 @@ static int show_partition(struct seq_file *seqf, void *v)
 	struct hd_struct *part;
 	char buf[BDEVNAME_SIZE];
 
-	
+	/* Don't show non-partitionable removeable devices or empty devices */
 	if (!get_capacity(sgp) || (!disk_max_parts(sgp) &&
 				   (sgp->flags & GENHD_FL_REMOVABLE)))
 		return 0;
 	if (sgp->flags & GENHD_FL_SUPPRESS_PARTITION_INFO)
 		return 0;
 
-	
+	/* show the full disk and all non-0 size partitions of it */
 	disk_part_iter_init(&piter, sgp, DISK_PITER_INCL_PART0);
 	while ((part = disk_part_iter_next(&piter)))
 		seq_printf(seqf, "%4d  %7d %10llu %s\n",
@@ -757,7 +757,7 @@ static const struct file_operations proc_partitions_operations = {
 static struct kobject *base_probe(dev_t devt, int *partno, void *data)
 {
 	if (request_module("block-major-%d-%d", MAJOR(devt), MINOR(devt)) > 0)
-		
+		/* Make old-style 2.4 aliases work */
 		request_module("block-major-%d", MAJOR(devt));
 	return NULL;
 }
@@ -775,7 +775,7 @@ static int __init genhd_device_init(void)
 
 	register_blkdev(BLOCK_EXT_MAJOR, "blkext");
 
-	
+	/* create top-level block dir */
 	if (!sysfs_deprecated)
 		block_depr = kobject_create_and_add("block", NULL);
 	return 0;
@@ -914,7 +914,7 @@ int disk_expand_part_tbl(struct gendisk *disk, int partno)
 	size_t size;
 	int i;
 
-	
+	/* disk_max_parts() is zero during initialization, ignore if so */
 	if (disk_max_parts(disk) && target > disk_max_parts(disk))
 		return -EINVAL;
 
@@ -1049,7 +1049,7 @@ static int __init proc_genhd_init(void)
 	return 0;
 }
 module_init(proc_genhd_init);
-#endif 
+#endif /* CONFIG_PROC_FS */
 
 dev_t blk_lookup_devt(const char *name, int partno)
 {
@@ -1323,7 +1323,7 @@ unsigned int disk_clear_events(struct gendisk *disk, unsigned int mask)
 	unsigned int clearing = mask;
 
 	if (!ev) {
-		
+		/* for drivers still using the old ->media_changed method */
 		if ((mask & DISK_EVENT_MEDIA_CHANGE) &&
 		    bdops->media_changed && bdops->media_changed(disk))
 			return DISK_EVENT_MEDIA_CHANGE;
@@ -1368,10 +1368,10 @@ static void disk_check_events(struct disk_events *ev,
 	unsigned long intv;
 	int nr_events = 0, i;
 
-	
+	/* check events */
 	events = disk->fops->check_events(disk, clearing);
 
-	
+	/* accumulate pending events and schedule next poll if necessary */
 	spin_lock_irq(&ev->lock);
 
 	events &= ~ev->pending;
@@ -1527,7 +1527,7 @@ static void disk_add_events(struct gendisk *disk)
 	if (!disk->ev)
 		return;
 
-	
+	/* FIXME: error handling */
 	if (sysfs_create_files(&disk_to_dev(disk)->kobj, disk_events_attrs) < 0)
 		pr_warn("%s: failed to create sysfs files for events\n",
 			disk->disk_name);
@@ -1555,7 +1555,7 @@ static void disk_del_events(struct gendisk *disk)
 
 static void disk_release_events(struct gendisk *disk)
 {
-	
+	/* the block count should be 1 from disk_del_events() */
 	WARN_ON_ONCE(disk->ev && disk->ev->block != 1);
 	kfree(disk->ev);
 }

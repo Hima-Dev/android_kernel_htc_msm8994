@@ -58,10 +58,10 @@ struct mdss_mdp_cmd_ctx {
 	bool autorefresh_init;
 
 	struct mdss_intf_recovery intf_recovery;
-	struct mdss_mdp_cmd_ctx *sync_ctx; 
+	struct mdss_mdp_cmd_ctx *sync_ctx; /* for partial update */
 	u32 pp_timeout_report_cnt;
 	int pingpong_split_slave;
-	bool pending_mode_switch; 
+	bool pending_mode_switch; /* Used to prevent powering down in stop */
 };
 
 struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
@@ -82,7 +82,7 @@ static bool __mdss_mdp_cmd_is_panel_power_on_interactive(
 static inline u32 mdss_mdp_cmd_line_count(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_mixer *mixer;
-	u32 cnt = 0xffff;	
+	u32 cnt = 0xffff;	/* init it to an invalid value */
 	u32 init;
 	u32 height;
 
@@ -110,7 +110,7 @@ static inline u32 mdss_mdp_cmd_line_count(struct mdss_mdp_ctl *ctl)
 	cnt = mdss_mdp_pingpong_read(mixer->pingpong_base,
 		MDSS_MDP_REG_PP_INT_COUNT_VAL) & 0xffff;
 
-	if (cnt < init)		
+	if (cnt < init)		/* wrap around happened at height */
 		cnt += (height - init);
 	else
 		cnt -= init;
@@ -271,7 +271,7 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 	int set_clk_off = 0;
 
 	if (ctx->autorefresh_init) {
-		
+		/* Do not turn off clocks if aurtorefresh is on. */
 		return;
 	}
 
@@ -332,7 +332,7 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 		if (ctx->rdptr_enabled && !ctx->autorefresh_init)
 			ctx->rdptr_enabled--;
 
-		
+		/* keep clk on during kickoff */
 		if (ctx->rdptr_enabled == 0 && atomic_read(&ctx->koff_cnt))
 			ctx->rdptr_enabled++;
 	}
@@ -465,7 +465,7 @@ static void clk_ctrl_work(struct work_struct *work)
 			sctx =
 			(struct mdss_mdp_cmd_ctx *)sctl->intf_ctx[MASTER_CTX];
 		} else {
-			
+			/* slave ctl, let master ctl do clk control */
 			mutex_unlock(&cmd_clk_mtx);
 			return;
 		}
@@ -653,7 +653,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 
 	cancel_work_sync(&ctx->pp_done_work);
 
-	
+	/* signal any pending ping pong done events */
 	while (atomic_add_unless(&ctx->pp_done_cnt, -1, 0))
 		mdss_mdp_ctl_notify(ctx->ctl, MDP_NOTIFY_FRAME_DONE);
 
@@ -689,11 +689,11 @@ static void mdss_mdp_cmd_set_sync_ctx(
 	sctx = (struct mdss_mdp_cmd_ctx *)sctl->intf_ctx[MASTER_CTX];
 
 	if (!sctl->roi.w && !sctl->roi.h) {
-		
+		/* left only */
 		ctx->sync_ctx = NULL;
 		sctx->sync_ctx = NULL;
 	} else  {
-		
+		/* left + right */
 		ctx->sync_ctx = sctx;
 		sctx->sync_ctx = ctx;
 	}
@@ -706,7 +706,7 @@ static int mdss_mdp_cmd_set_partial_roi(struct mdss_mdp_ctl *ctl)
 	if (!ctl->panel_data->panel_info.partial_update_supported)
 		return rc;
 
-	
+	/* set panel col and page addr */
 	rc = mdss_mdp_ctl_intf_event(ctl,
 			MDSS_EVENT_ENABLE_PARTIAL_ROI, NULL);
 	return rc;
@@ -719,7 +719,7 @@ static int mdss_mdp_cmd_set_stream_size(struct mdss_mdp_ctl *ctl)
 	if (!ctl->panel_data->panel_info.partial_update_supported)
 		return rc;
 
-	
+	/* set dsi controller stream size */
 	rc = mdss_mdp_ctl_intf_event(ctl,
 			MDSS_EVENT_DSI_STREAM_SIZE, NULL);
 	return rc;
@@ -854,11 +854,11 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	INIT_COMPLETION(ctx->readptr_done);
-	
+	/* sctl will be null for right only in the case of Partial update */
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
 	if (sctl && (sctl->roi.w == 0 || sctl->roi.h == 0)) {
-		
+		/* left update only */
 		sctl = NULL;
 	}
 
@@ -904,7 +904,7 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, sctx->pp_num);
 
 	if (!ctx->autorefresh_pending_frame_cnt && !ctl->cmd_autorefresh_en) {
-		
+		/* Kickoff */
 		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
 	} else {
 		pr_debug("Enabling autorefresh in hardware.\n");
@@ -1059,7 +1059,7 @@ static int mdss_mdp_cmd_stop_sub(struct mdss_mdp_ctl *ctl,
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
 				ctx->rdptr_enabled, XLOG_FUNC_ENTRY);
 
-	
+	/* Command mode is supported only starting at INTF1 */
 	session = ctl->intf_num - MDSS_MDP_INTF1;
 	return mdss_mdp_cmd_intfs_stop(ctl, session, panel_power_state,
 			pend_switch);
@@ -1347,7 +1347,7 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 
 	pr_debug("%s:+\n", __func__);
 
-	
+	/* Command mode is supported only starting at INTF1 */
 	session = ctl->intf_num - MDSS_MDP_INTF1;
 	ret = mdss_mdp_cmd_intfs_setup(ctl, session);
 	if (IS_ERR_VALUE(ret)) {

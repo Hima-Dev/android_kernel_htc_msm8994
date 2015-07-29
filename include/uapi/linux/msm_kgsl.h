@@ -46,7 +46,7 @@
 #define KGSL_CMDBATCH_SYNC		KGSL_CONTEXT_SYNC           
 #define KGSL_CMDBATCH_PWR_CONSTRAINT	KGSL_CONTEXT_PWR_CONSTRAINT 
 
-
+/* --- generic KGSL flag values --- */
 
 #define KGSL_MEMFLAGS_GPUREADONLY 0x01000000
 #define KGSL_MEMFLAGS_USE_CPU_MAP 0x10000000
@@ -202,7 +202,7 @@ enum kgsl_property_type {
 struct kgsl_shadowprop {
 	unsigned long gpuaddr;
 	size_t size;
-	unsigned int flags; 
+	unsigned int flags; /* contains KGSL_FLAGS_ values */
 };
 
 struct kgsl_version {
@@ -354,7 +354,7 @@ struct kgsl_map_user_mem {
 struct kgsl_cmdstream_readtimestamp_ctxtid {
 	unsigned int context_id;
 	unsigned int type;
-	unsigned int timestamp; 
+	unsigned int timestamp; /*output param */
 };
 
 #define IOCTL_KGSL_CMDSTREAM_READTIMESTAMP_CTXTID \
@@ -430,7 +430,7 @@ struct kgsl_bind_gmem_shadow {
 #define IOCTL_KGSL_DRAWCTXT_BIND_GMEM_SHADOW \
     _IOW(KGSL_IOC_TYPE, 0x22, struct kgsl_bind_gmem_shadow)
 
-
+/* Performance counter groups */
 
 struct kgsl_sharedmem_from_vmalloc {
 	unsigned long gpuaddr;	
@@ -472,7 +472,7 @@ struct kgsl_cmdwindow_write {
 	_IOW(KGSL_IOC_TYPE, 0x2e, struct kgsl_cmdwindow_write)
 
 struct kgsl_gpumem_alloc {
-	unsigned long gpuaddr; 
+	unsigned long gpuaddr; /* output param */
 	size_t size;
 	unsigned int flags;
 };

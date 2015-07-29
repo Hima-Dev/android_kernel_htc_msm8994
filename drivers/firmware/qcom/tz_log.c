@@ -588,7 +588,7 @@ static void tzdbg_register_qsee_log_buf(void)
 	req.len = len;
 
 	if (!is_scm_armv8()) {
-		
+		/*  SCM_CALL  to register the log buffer */
 		ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &req, sizeof(req),
 			&resp, sizeof(resp));
 	} else {

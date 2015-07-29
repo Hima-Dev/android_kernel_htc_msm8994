@@ -944,7 +944,7 @@ struct ext4_sb_info {
 	u32 s_next_generation;
 	u32 s_hash_seed[4];
 	int s_def_hash_version;
-	int s_hash_unsigned;	
+	int s_hash_unsigned;	/* 3 if hash should be signed, 0 if not */
 	struct percpu_counter s_freeclusters_counter;
 	struct percpu_counter s_freeinodes_counter;
 	struct percpu_counter s_dirs_counter;
@@ -955,24 +955,25 @@ struct ext4_sb_info {
 	struct completion s_kobj_unregister;
 	struct super_block *s_sb;
 
-	
+	/* Journaling */
 	struct journal_s *s_journal;
 	struct list_head s_orphan;
 	struct mutex s_orphan_lock;
-	unsigned long s_resize_flags;		
+	unsigned long s_resize_flags;		/* Flags indicating if there
+						   is a resizer */
 	unsigned long s_commit_interval;
 	u32 s_max_batch_time;
 	u32 s_min_batch_time;
 	struct block_device *journal_bdev;
 #ifdef CONFIG_QUOTA
-	char *s_qf_names[MAXQUOTAS];		
-	int s_jquota_fmt;			
+	char *s_qf_names[MAXQUOTAS];		/* Names of quota files with journalled quota */
+	int s_jquota_fmt;			/* Format of quota to use */
 #endif
-	unsigned int s_want_extra_isize; 
+	unsigned int s_want_extra_isize; /* New inodes should reserve # bytes */
 	struct rb_root system_blks;
 
 #ifdef EXTENTS_STATS
-	
+	/* ext4 extents stats */
 	unsigned long s_ext_min;
 	unsigned long s_ext_max;
 	unsigned long s_depth_max;
@@ -981,7 +982,7 @@ struct ext4_sb_info {
 	unsigned long s_ext_extents;
 #endif
 
-	
+	/* for buddy allocator */
 	struct ext4_group_info ***s_group_info;
 	struct inode *s_buddy_cache;
 	spinlock_t s_md_lock;
@@ -989,7 +990,7 @@ struct ext4_sb_info {
 	unsigned int *s_mb_maxs;
 	unsigned int s_group_info_size;
 
-	
+	/* tunables */
 	unsigned long s_stripe;
 	unsigned int s_mb_stream_request;
 	unsigned int s_mb_max_to_scan;
@@ -999,18 +1000,18 @@ struct ext4_sb_info {
 	unsigned int s_mb_group_prealloc;
 	unsigned int s_max_writeback_mb_bump;
 	unsigned int s_max_dir_size_kb;
-	
+	/* where last allocation was done - for stream allocation */
 	unsigned long s_mb_last_group;
 	unsigned long s_mb_last_start;
 
-	
-	atomic_t s_bal_reqs;	
-	atomic_t s_bal_success;	
-	atomic_t s_bal_allocated;	
-	atomic_t s_bal_ex_scanned;	
-	atomic_t s_bal_goals;	
-	atomic_t s_bal_breaks;	
-	atomic_t s_bal_2orders;	
+	/* stats for buddy allocator */
+	atomic_t s_bal_reqs;	/* number of reqs with len > 1 */
+	atomic_t s_bal_success;	/* we found long enough chunks */
+	atomic_t s_bal_allocated;	/* in blocks */
+	atomic_t s_bal_ex_scanned;	/* total extents scanned */
+	atomic_t s_bal_goals;	/* goal hits */
+	atomic_t s_bal_breaks;	/* too long searches */
+	atomic_t s_bal_2orders;	/* 2^order hits */
 	spinlock_t s_bal_lock;
 	unsigned long s_mb_buddies_generated;
 	unsigned long long s_mb_generation_time;
@@ -1993,16 +1994,19 @@ static inline void ext4_update_i_disksize(struct inode *inode, loff_t newsize)
 struct ext4_group_info {
 	unsigned long   bb_state;
 	struct rb_root  bb_free_root;
-	ext4_grpblk_t	bb_first_free;	
-	ext4_grpblk_t	bb_free;	
-	ext4_grpblk_t	bb_fragments;	
-	ext4_grpblk_t	bb_largest_free_order;
+	ext4_grpblk_t	bb_first_free;	/* first free block */
+	ext4_grpblk_t	bb_free;	/* total free blocks */
+	ext4_grpblk_t	bb_fragments;	/* nr of freespace fragments */
+	ext4_grpblk_t	bb_largest_free_order;/* order of largest frag in BG */
 	struct          list_head bb_prealloc_list;
 #ifdef DOUBLE_CHECK
 	void            *bb_bitmap;
 #endif
 	struct rw_semaphore alloc_sem;
-	ext4_grpblk_t	bb_counters[];	
+	ext4_grpblk_t	bb_counters[];	/* Nr of free power-of-two-block
+					 * regions, index is order.
+					 * bb_counters[3] = 5 means
+					 * 5 free 8-block regions. */
 };
 
 #define EXT4_GROUP_INFO_NEED_INIT_BIT		0
@@ -2228,7 +2232,7 @@ extern int ext4_find_delalloc_cluster(struct inode *inode, ext4_lblk_t lblk);
 extern int ext4_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 			__u64 start, __u64 len);
 
-
+/* move_extent.c */
 extern void ext4_double_down_write_data_sem(struct inode *first,
 					    struct inode *second);
 extern void ext4_double_up_write_data_sem(struct inode *orig_inode,
@@ -2304,6 +2308,6 @@ extern struct mutex ext4__aio_mutex[EXT4_WQ_HASH_SZ];
 extern int ext4_resize_begin(struct super_block *sb);
 extern void ext4_resize_end(struct super_block *sb);
 
-#endif	
+#endif	/* __KERNEL__ */
 
-#endif	
+#endif	/* _EXT4_H */

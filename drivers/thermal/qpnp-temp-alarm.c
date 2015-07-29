@@ -197,12 +197,12 @@ static int qpnp_tm_update_temp_no_adc(struct qpnp_tm_chip *chip)
 	stage = reg & STATUS_STAGE_MASK;
 
 	if (stage > chip->stage) {
-		
+		/* increasing stage, use lower bound */
 		chip->temperature = (stage - 1) * TEMP_STAGE_STEP
 				+ chip->thresh * TEMP_THRESH_STEP
 				+ TEMP_STAGE_HYSTERESIS + TEMP_THRESH_MIN;
 	} else if (stage < chip->stage) {
-		
+		/* decreasing stage, use upper bound */
 		chip->temperature = stage * TEMP_STAGE_STEP
 				+ chip->thresh * TEMP_THRESH_STEP
 				- TEMP_STAGE_HYSTERESIS + TEMP_THRESH_MIN;
@@ -403,7 +403,7 @@ static void qpnp_tm_work(struct work_struct *work)
 
 		thermal_zone_device_update(chip->tz_dev);
 
-		
+		/* Notify user space */
 		sysfs_notify(&chip->tz_dev->device.kobj, NULL, "type");
 	}
 
@@ -511,7 +511,7 @@ static int qpnp_tm_probe(struct spmi_device *spmi)
 
 	INIT_DELAYED_WORK(&chip->irq_work, qpnp_tm_work);
 
-	
+	/* These bindings are optional, so it is okay if they are not found. */
 	chip->thresh = THRESH_MAX + 1;
 	rc = of_property_read_u32(node, "qcom,threshold-set", &chip->thresh);
 	if (!rc && (chip->thresh < THRESH_MIN || chip->thresh > THRESH_MAX))
@@ -582,7 +582,7 @@ static int qpnp_tm_probe(struct spmi_device *spmi)
 		}
 	}
 
-	
+	/* Start in HW control; switch to SW control when user changes mode. */
 	chip->mode = THERMAL_DEVICE_DISABLED;
 	rc = qpnp_tm_shutdown_override(chip, SOFTWARE_OVERRIDE_DISABLED);
 	if (rc) {
@@ -641,7 +641,7 @@ static int qpnp_tm_suspend(struct device *dev)
 {
 	struct qpnp_tm_chip *chip = dev_get_drvdata(dev);
 
-	
+	/* Clear override bits in suspend to allow hardware control */
 	qpnp_tm_shutdown_override(chip, SOFTWARE_OVERRIDE_DISABLED);
 
 	return 0;
@@ -651,7 +651,7 @@ static int qpnp_tm_resume(struct device *dev)
 {
 	struct qpnp_tm_chip *chip = dev_get_drvdata(dev);
 
-	
+	/* Override hardware actions so software can control */
 	if (chip->mode == THERMAL_DEVICE_ENABLED)
 		qpnp_tm_shutdown_override(chip, SOFTWARE_OVERRIDE_ENABLED);
 

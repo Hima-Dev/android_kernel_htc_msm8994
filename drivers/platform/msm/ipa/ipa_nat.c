@@ -354,7 +354,7 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	}
 
 	memset(&desc, 0, sizeof(desc));
-	
+	/* NO-OP IC for ensuring that IPA pipeline is empty */
 	reg_write_nop = kzalloc(sizeof(*reg_write_nop), GFP_KERNEL);
 	if (!reg_write_nop) {
 		IPAERR("no mem\n");
@@ -601,7 +601,7 @@ int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 	}
 
 	memset(&desc, 0, sizeof(desc));
-	
+	/* NO-OP IC for ensuring that IPA pipeline is empty */
 	reg_write_nop = kzalloc(sizeof(*reg_write_nop), GFP_KERNEL);
 	if (!reg_write_nop) {
 		IPAERR("no mem\n");

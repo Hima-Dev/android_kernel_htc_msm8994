@@ -170,4 +170,4 @@ struct msm_camera_smmu_attach_type {
 	enum smmu_attach_mode attach;
 };
 
-#endif 
+#endif /* __LINUX_MSMB_CAMERA_H */

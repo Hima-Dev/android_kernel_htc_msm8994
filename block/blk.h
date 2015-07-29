@@ -168,6 +168,6 @@ static inline bool blk_throtl_bio(struct request_queue *q, struct bio *bio)
 static inline void blk_throtl_drain(struct request_queue *q) { }
 static inline int blk_throtl_init(struct request_queue *q) { return 0; }
 static inline void blk_throtl_exit(struct request_queue *q) { }
-#endif 
+#endif /* CONFIG_BLK_DEV_THROTTLING */
 
-#endif 
+#endif /* BLK_INTERNAL_H */

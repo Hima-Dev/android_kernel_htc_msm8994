@@ -119,7 +119,7 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 						 =  12,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
 						 =  19,
-	
+	/* Only for test purpose */
 	[IPA_2_0][IPA_CLIENT_TEST_PROD]          = 19,
 	[IPA_2_0][IPA_CLIENT_TEST1_PROD]         = 19,
 	[IPA_2_0][IPA_CLIENT_TEST2_PROD]         = 12,
@@ -155,7 +155,7 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 						 =  13,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
 						 =  16,
-	
+	/* Only for test purpose */
 	[IPA_2_0][IPA_CLIENT_TEST_CONS]          = 14,
 	[IPA_2_0][IPA_CLIENT_TEST1_CONS]         = 14,
 	[IPA_2_0][IPA_CLIENT_TEST2_CONS]         = 16,
@@ -410,7 +410,7 @@ int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
 		if (ipa_ctx->ep[ipa_ep_idx].client == client &&
 		    ipa_should_pipe_be_suspended(client)) {
 			if (ipa_ctx->ep[ipa_ep_idx].valid) {
-				
+				/* suspend endpoint */
 				memset(&suspend, 0, sizeof(suspend));
 				suspend.ipa_ep_suspend = true;
 				ipa_cfg_ep_ctrl(ipa_ep_idx, &suspend);
@@ -466,7 +466,7 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 		if (ipa_ctx->ep[ipa_ep_idx].client == client &&
 		    ipa_should_pipe_be_suspended(client)) {
 			if (ipa_ctx->ep[ipa_ep_idx].valid) {
-				
+				/* suspend endpoint */
 				memset(&suspend, 0, sizeof(suspend));
 				suspend.ipa_ep_suspend = true;
 				ipa_cfg_ep_ctrl(ipa_ep_idx, &suspend);
@@ -791,7 +791,7 @@ void ipa_generate_mac_addr_hw_rule(u8 **buf, u8 hdr_mac_addr_offset,
 {
 	*buf = ipa_write_8(hdr_mac_addr_offset, *buf);
 
-	
+	/* MAC addr mask copied as little endian each 4 bytes */
 	*buf = ipa_write_8(mac_addr_mask[3], *buf);
 	*buf = ipa_write_8(mac_addr_mask[2], *buf);
 	*buf = ipa_write_8(mac_addr_mask[1], *buf);
@@ -802,7 +802,7 @@ void ipa_generate_mac_addr_hw_rule(u8 **buf, u8 hdr_mac_addr_offset,
 	*buf = ipa_write_32(0, *buf);
 	*buf = ipa_write_32(0, *buf);
 
-	
+	/* MAC addr copied as little endian each 4 bytes */
 	*buf = ipa_write_8(mac_addr[3], *buf);
 	*buf = ipa_write_8(mac_addr[2], *buf);
 	*buf = ipa_write_8(mac_addr[1], *buf);
@@ -825,7 +825,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 
 	if (ip == IPA_IP_v4) {
 
-		
+		/* error check */
 		if (attrib->attrib_mask & IPA_FLT_NEXT_HDR ||
 		    attrib->attrib_mask & IPA_FLT_TC || attrib->attrib_mask &
 		    IPA_FLT_FLOW_LABEL) {
@@ -845,7 +845,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			
+			/* 0 => offset of TOS in v4 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32((attrib->tos_mask << 16), *buf);
 			*buf = ipa_write_32((attrib->tos_value << 16), *buf);
@@ -865,7 +865,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			
+			/* 12 => offset of src ip in v4 header */
 			*buf = ipa_write_8(12, *buf);
 			*buf = ipa_write_32(attrib->u.v4.src_addr_mask, *buf);
 			*buf = ipa_write_32(attrib->u.v4.src_addr, *buf);
@@ -879,7 +879,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			
+			/* 16 => offset of dst ip in v4 header */
 			*buf = ipa_write_8(16, *buf);
 			*buf = ipa_write_32(attrib->u.v4.dst_addr_mask, *buf);
 			*buf = ipa_write_32(attrib->u.v4.dst_addr, *buf);
@@ -893,7 +893,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			
+			/* -2 => offset of ether type in L2 hdr */
 			*buf = ipa_write_8((u8)-2, *buf);
 			*buf = ipa_write_16(0, *buf);
 			*buf = ipa_write_16(htons(attrib->ether_type), *buf);
@@ -913,7 +913,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			
+			/* 0  => offset of src port after v4 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_16(attrib->src_port_hi, *buf);
 			*buf = ipa_write_16(attrib->src_port_lo, *buf);
@@ -931,7 +931,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			
+			/* 2  => offset of dst port after v4 header */
 			*buf = ipa_write_8(2, *buf);
 			*buf = ipa_write_16(attrib->dst_port_hi, *buf);
 			*buf = ipa_write_16(attrib->dst_port_lo, *buf);
@@ -945,7 +945,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			
+			/* 0  => offset of type after v4 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32(0xFF, *buf);
 			*buf = ipa_write_32(attrib->type, *buf);
@@ -959,7 +959,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			
+			/* 1  => offset of code after v4 header */
 			*buf = ipa_write_8(1, *buf);
 			*buf = ipa_write_32(0xFF, *buf);
 			*buf = ipa_write_32(attrib->code, *buf);
@@ -973,7 +973,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			
+			/* 0  => offset of SPI after v4 header FIXME */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32(0xFFFFFFFF, *buf);
 			*buf = ipa_write_32(attrib->spi, *buf);
@@ -987,7 +987,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			
+			/* 0  => offset of src port after v4 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_16(attrib->src_port, *buf);
 			*buf = ipa_write_16(attrib->src_port, *buf);
@@ -1001,7 +1001,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			
+			/* 2  => offset of dst port after v4 header */
 			*buf = ipa_write_8(2, *buf);
 			*buf = ipa_write_16(attrib->dst_port, *buf);
 			*buf = ipa_write_16(attrib->dst_port, *buf);
@@ -1016,7 +1016,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -14 => offset of dst mac addr in Ethernet II hdr */
 			ipa_generate_mac_addr_hw_rule(
 				buf,
 				-14,
@@ -1033,7 +1033,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -8 => offset of src mac addr in Ethernet II hdr */
 			ipa_generate_mac_addr_hw_rule(
 				buf,
 				-8,
@@ -1050,7 +1050,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -22 => offset of dst mac addr in 802.3 hdr */
 			ipa_generate_mac_addr_hw_rule(
 				buf,
 				-22,
@@ -1067,7 +1067,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -16 => offset of src mac addr in 802.3 hdr */
 			ipa_generate_mac_addr_hw_rule(
 				buf,
 				-16,
@@ -1079,7 +1079,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_META_DATA) {
 			*en_rule |= IPA_METADATA_COMPARE;
-			*buf = ipa_write_8(0, *buf);    
+			*buf = ipa_write_8(0, *buf);    /* offset, reserved */
 			*buf = ipa_write_32(attrib->meta_data_mask, *buf);
 			*buf = ipa_write_32(attrib->meta_data, *buf);
 			*buf = ipa_pad_to_32(*buf);
@@ -1091,9 +1091,9 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 		}
 	} else if (ip == IPA_IP_v6) {
 
-		
+		/* v6 code below assumes no extension headers TODO: fix this */
 
-		
+		/* error check */
 		if (attrib->attrib_mask & IPA_FLT_TOS ||
 		    attrib->attrib_mask & IPA_FLT_PROTOCOL) {
 			IPAERR("v4 attrib's specified for v6 rule\n");
@@ -1112,7 +1112,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			
+			/* -2 => offset of ether type in L2 hdr */
 			*buf = ipa_write_8((u8)-2, *buf);
 			*buf = ipa_write_16(0, *buf);
 			*buf = ipa_write_16(htons(attrib->ether_type), *buf);
@@ -1128,7 +1128,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			
+			/* 0  => offset of type after v6 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32(0xFF, *buf);
 			*buf = ipa_write_32(attrib->type, *buf);
@@ -1142,7 +1142,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			
+			/* 1  => offset of code after v6 header */
 			*buf = ipa_write_8(1, *buf);
 			*buf = ipa_write_32(0xFF, *buf);
 			*buf = ipa_write_32(attrib->code, *buf);
@@ -1156,7 +1156,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			
+			/* 0  => offset of SPI after v6 header FIXME */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32(0xFFFFFFFF, *buf);
 			*buf = ipa_write_32(attrib->spi, *buf);
@@ -1170,7 +1170,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			
+			/* 0  => offset of src port after v6 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_16(attrib->src_port, *buf);
 			*buf = ipa_write_16(attrib->src_port, *buf);
@@ -1184,7 +1184,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			
+			/* 2  => offset of dst port after v6 header */
 			*buf = ipa_write_8(2, *buf);
 			*buf = ipa_write_16(attrib->dst_port, *buf);
 			*buf = ipa_write_16(attrib->dst_port, *buf);
@@ -1202,7 +1202,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			
+			/* 0  => offset of src port after v6 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_16(attrib->src_port_hi, *buf);
 			*buf = ipa_write_16(attrib->src_port_lo, *buf);
@@ -1220,7 +1220,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			
+			/* 2  => offset of dst port after v6 header */
 			*buf = ipa_write_8(2, *buf);
 			*buf = ipa_write_16(attrib->dst_port_hi, *buf);
 			*buf = ipa_write_16(attrib->dst_port_lo, *buf);
@@ -1234,7 +1234,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-			
+			/* 8 => offset of src ip in v6 header */
 			*buf = ipa_write_8(8, *buf);
 			*buf = ipa_write_32(attrib->u.v6.src_addr_mask[0],
 					*buf);
@@ -1258,7 +1258,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-			
+			/* 24 => offset of dst ip in v6 header */
 			*buf = ipa_write_8(24, *buf);
 			*buf = ipa_write_32(attrib->u.v6.dst_addr_mask[0],
 					*buf);
@@ -1288,7 +1288,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-			
+			/* 0 => offset of TOS in v6 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32((attrib->tos_mask << 20), *buf);
 			*buf = ipa_write_32(0, *buf);
@@ -1310,7 +1310,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -14 => offset of dst mac addr in Ethernet II hdr */
 			ipa_generate_mac_addr_hw_rule(
 				buf,
 				-14,
@@ -1327,7 +1327,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -8 => offset of src mac addr in Ethernet II hdr */
 			ipa_generate_mac_addr_hw_rule(
 				buf,
 				-8,
@@ -1344,7 +1344,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -22 => offset of dst mac addr in 802.3 hdr */
 			ipa_generate_mac_addr_hw_rule(
 				buf,
 				-22,
@@ -1361,7 +1361,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -16 => offset of src mac addr in 802.3 hdr */
 			ipa_generate_mac_addr_hw_rule(
 				buf,
 				-16,
@@ -1373,14 +1373,14 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_FLOW_LABEL) {
 			*en_rule |= IPA_FLT_FLOW_LABEL;
-			 
+			 /* FIXME FL is only 20 bits */
 			*buf = ipa_write_32(attrib->u.v6.flow_label, *buf);
 			*buf = ipa_pad_to_32(*buf);
 		}
 
 		if (attrib->attrib_mask & IPA_FLT_META_DATA) {
 			*en_rule |= IPA_METADATA_COMPARE;
-			*buf = ipa_write_8(0, *buf);    
+			*buf = ipa_write_8(0, *buf);    /* offset, reserved */
 			*buf = ipa_write_32(attrib->meta_data_mask, *buf);
 			*buf = ipa_write_32(attrib->meta_data, *buf);
 			*buf = ipa_pad_to_32(*buf);
@@ -1449,7 +1449,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 	if (ip == IPA_IP_v4) {
 
-		
+		/* error check */
 		if (attrib->attrib_mask & IPA_FLT_NEXT_HDR ||
 		    attrib->attrib_mask & IPA_FLT_TC || attrib->attrib_mask &
 		    IPA_FLT_FLOW_LABEL) {
@@ -1635,7 +1635,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -14 => offset of dst mac addr in Ethernet II hdr */
 			ipa_generate_flt_mac_addr_eq(eq_atrb, -14,
 				attrib->dst_mac_addr_mask, attrib->dst_mac_addr,
 				ofst_meq128);
@@ -1650,7 +1650,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -8 => offset of src mac addr in Ethernet II hdr */
 			ipa_generate_flt_mac_addr_eq(eq_atrb, -8,
 				attrib->src_mac_addr_mask, attrib->src_mac_addr,
 				ofst_meq128);
@@ -1665,7 +1665,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -22 => offset of dst mac addr in 802.3 hdr */
 			ipa_generate_flt_mac_addr_eq(eq_atrb, -22,
 				attrib->dst_mac_addr_mask, attrib->dst_mac_addr,
 				ofst_meq128);
@@ -1680,7 +1680,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -16 => offset of src mac addr in 802.3 hdr */
 			ipa_generate_flt_mac_addr_eq(eq_atrb, -16,
 				attrib->src_mac_addr_mask, attrib->src_mac_addr,
 				ofst_meq128);
@@ -1703,9 +1703,9 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		}
 	} else if (ip == IPA_IP_v6) {
 
-		
+		/* v6 code below assumes no extension headers TODO: fix this */
 
-		
+		/* error check */
 		if (attrib->attrib_mask & IPA_FLT_TOS ||
 		    attrib->attrib_mask & IPA_FLT_PROTOCOL) {
 			IPAERR("v4 attrib's specified for v6 rule\n");
@@ -1932,7 +1932,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -14 => offset of dst mac addr in Ethernet II hdr */
 			ipa_generate_flt_mac_addr_eq(eq_atrb, -14,
 				attrib->dst_mac_addr_mask, attrib->dst_mac_addr,
 				ofst_meq128);
@@ -1947,7 +1947,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -8 => offset of src mac addr in Ethernet II hdr */
 			ipa_generate_flt_mac_addr_eq(eq_atrb, -8,
 				attrib->src_mac_addr_mask, attrib->src_mac_addr,
 				ofst_meq128);
@@ -1962,7 +1962,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -22 => offset of dst mac addr in 802.3 hdr */
 			ipa_generate_flt_mac_addr_eq(eq_atrb, -22,
 				attrib->dst_mac_addr_mask, attrib->dst_mac_addr,
 				ofst_meq128);
@@ -1977,7 +1977,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
 
-			
+			/* -16 => offset of src mac addr in 802.3 hdr */
 			ipa_generate_flt_mac_addr_eq(eq_atrb, -16,
 				attrib->src_mac_addr_mask, attrib->src_mac_addr,
 				ofst_meq128);
@@ -2140,7 +2140,7 @@ int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 			ep_nat->nat_en,
 			ipa_get_nat_en_str(ep_nat->nat_en));
 
-	
+	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.nat = *ep_nat;
 
 	ipa_inc_client_enable_clks();
@@ -2192,7 +2192,7 @@ int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ep_status)
 			ep_status->status_en,
 			ep_status->status_ep);
 
-	
+	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].status = *ep_status;
 
 	ipa_inc_client_enable_clks();
@@ -2245,7 +2245,7 @@ int ipa_cfg_ep_cfg(u32 clnt_hdl, const struct ipa_ep_cfg_cfg *cfg)
 			cfg->cs_offload_en,
 			cfg->cs_metadata_hdr_offset);
 
-	
+	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.cfg = *cfg;
 
 	ipa_inc_client_enable_clks();
@@ -2293,7 +2293,7 @@ int ipa_cfg_ep_metadata_mask(u32 clnt_hdl, const struct ipa_ep_cfg_metadata_mask
 			clnt_hdl,
 			metadata_mask->metadata_mask);
 
-	
+	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.metadata_mask = *metadata_mask;
 
 	ipa_inc_client_enable_clks();
@@ -2408,7 +2408,7 @@ int ipa_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ep_hdr)
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	
+	/* copy over EP cfg */
 	ep->cfg.hdr = *ep_hdr;
 
 	ipa_inc_client_enable_clks();
@@ -2512,7 +2512,7 @@ int ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	
+	/* copy over EP cfg */
 	ep->cfg.hdr_ext = *ep_hdr_ext;
 
 	ipa_inc_client_enable_clks();
@@ -2687,7 +2687,7 @@ int ipa_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 			ipa_get_mode_type_str(ep_mode->mode),
 			ep_mode->dst);
 
-	
+	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.mode = *ep_mode;
 	ipa_ctx->ep[clnt_hdl].dst_pipe_index = ep;
 
@@ -2808,7 +2808,7 @@ int ipa_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 			ep_aggr->aggr_byte_limit,
 			ep_aggr->aggr_time_limit);
 
-	
+	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.aggr = *ep_aggr;
 
 	ipa_inc_client_enable_clks();
@@ -2875,7 +2875,7 @@ int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 			clnt_hdl,
 			ep_route->rt_tbl_hdl);
 
-	
+	/* always use "default" routing table when programming EP ROUTE reg */
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
 		ipa_ctx->ipa_hw_type == IPA_HW_v2_5)
 		ipa_ctx->ep[clnt_hdl].rt_tbl_idx =
@@ -3031,7 +3031,7 @@ int ipa_cfg_ep_deaggr(u32 clnt_hdl,
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	
+	/* copy over EP cfg */
 	ep->cfg.deaggr = *ep_deaggr;
 
 	ipa_inc_client_enable_clks();
@@ -3075,7 +3075,7 @@ int ipa_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
 
 	IPADBG("pipe=%d, mux id=%d\n", clnt_hdl, ep_md->qmap_id);
 
-	
+	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.meta = *ep_md;
 
 	ipa_inc_client_enable_clks();
@@ -3164,7 +3164,7 @@ int ipa_pipe_mem_init(u32 start_ofst, u32 size)
 	IPADBG("start_ofst=%u aligned_start_ofst=%u size=%u aligned_size=%u\n",
 	       start_ofst, aligned_start_ofst, size, aligned_size);
 
-	
+	/* allocation order of 8 i.e. 128 bytes, global pool */
 	pool = gen_pool_create(8, -1);
 	if (!pool) {
 		IPAERR("Failed to create a new memory pool.\n");
@@ -3720,7 +3720,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	int res;
 	struct ipa_tag_completion *comp;
 
-	
+	/* Not enough room for the required descriptors for the tag process */
 	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
 		IPAERR("up to %d descriptors are allowed (received %d)\n",
 		       IPA_TAG_MAX_DESC - REQUIRED_TAG_PROCESS_DESCRIPTORS,
@@ -3737,7 +3737,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 		goto fail_alloc_desc;
 	}
 
-	
+	/* IP_PACKET_INIT IC for tag status to be sent to apps */
 	pkt_init = kzalloc(sizeof(*pkt_init), GFP_KERNEL);
 	if (!pkt_init) {
 		IPAERR("failed to allocate memory\n");
@@ -3756,7 +3756,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	tag_desc[desc_idx].user1 = pkt_init;
 	desc_idx++;
 
-	
+	/* NO-OP IC for ensuring that IPA pipeline is empty */
 	reg_write_nop = kzalloc(sizeof(*reg_write_nop), GFP_KERNEL);
 	if (!reg_write_nop) {
 		IPAERR("no mem\n");
@@ -3775,7 +3775,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	tag_desc[desc_idx].user1 = reg_write_nop;
 	desc_idx++;
 
-	
+	/* status IC */
 	status = kzalloc(sizeof(*status), GFP_KERNEL);
 	if (!status) {
 		IPAERR("no mem\n");
@@ -3793,7 +3793,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	tag_desc[desc_idx].user1 = status;
 	desc_idx++;
 
-	
+	/* Copy the required descriptors from the client now */
 	if (desc) {
 		memcpy(&(tag_desc[desc_idx]), desc, descs_num *
 			sizeof(struct ipa_desc));
@@ -3808,10 +3808,10 @@ int ipa_tag_process(struct ipa_desc desc[],
 	}
 	init_completion(&comp->comp);
 
-	
+	/* completion needs to be released from both here and rx handler */
 	atomic_set(&comp->cnt, 2);
 
-	
+	/* dummy packet to send to IPA. packet payload is a completion object */
 	dummy_skb = alloc_skb(sizeof(comp), GFP_KERNEL);
 	if (!dummy_skb) {
 		IPAERR("failed to allocate memory\n");
@@ -3828,7 +3828,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	tag_desc[desc_idx].user1 = dummy_skb;
 	desc_idx++;
 
-	
+	/* send all descriptors to IPA with single EOT */
 	res = ipa_send(sys, desc_idx, tag_desc, true);
 	if (res) {
 		IPAERR("failed to send TAG packets %d\n", res);
@@ -3853,7 +3853,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	if (atomic_dec_return(&comp->cnt) == 0)
 		kfree(comp);
 
-	
+	/* sleep for short period to ensure IPA wrote all packets to BAM */
 	usleep_range(IPA_TAG_SLEEP_MIN_USEC, IPA_TAG_SLEEP_MAX_USEC);
 
 	return 0;
@@ -3971,7 +3971,7 @@ int ipa_tag_aggr_force_close(int pipe_num)
 		return -ENOMEM;
 	}
 
-	
+	/* Force close aggregation on all valid pipes with aggregation */
 	num_aggr_descs = ipa_tag_generate_force_close_desc(desc, num_descs,
 						start_pipe, end_pipe);
 	if (num_aggr_descs < 0) {

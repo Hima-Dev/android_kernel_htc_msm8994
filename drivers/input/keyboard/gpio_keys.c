@@ -46,7 +46,7 @@ struct gpio_button_data {
 	struct input_dev *input;
 	struct timer_list timer;
 	struct work_struct work;
-	unsigned int timer_debounce;	
+	unsigned int timer_debounce;	/* in msecs */
 	unsigned int irq;
 	spinlock_t lock;
 	bool disabled;
@@ -205,7 +205,7 @@ static ssize_t gpio_keys_attr_store_helper(struct gpio_keys_drvdata *ddata,
 	if (error)
 		goto out;
 
-	
+	/* First validate */
 	for (i = 0; i < ddata->pdata->nbuttons; i++) {
 		struct gpio_button_data *bdata = &ddata->data[i];
 
@@ -545,7 +545,7 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 		if (button->debounce_interval) {
 			error = gpio_set_debounce(button->gpio,
 					button->debounce_interval * 1000);
-			
+			/* use timer if gpiolib doesn't provide debounce */
 			if (error < 0)
 				bdata->timer_debounce =
 						button->debounce_interval;
@@ -693,7 +693,7 @@ static int gpio_keys_open(struct input_dev *input)
 			return error;
 	}
 
-	
+	/* Report current state of buttons that are connected to GPIOs */
 	gpio_keys_report_state(ddata);
 
 	return 0;
@@ -889,11 +889,11 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	input->id.product = 0x0001;
 	input->id.version = 0x0100;
 
-	
+	/* Enable auto repeat feature of Linux input subsystem */
 	if (pdata->rep)
 		__set_bit(EV_REP, input->evbit);
 
-	
+	/* Get pinctrl if target uses pinctrl */
 	ddata->key_pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(ddata->key_pinctrl)) {
 		if (PTR_ERR(ddata->key_pinctrl) == -EPROBE_DEFER)
@@ -974,7 +974,7 @@ static int gpio_keys_probe(struct platform_device *pdev)
  fail1:
 	input_free_device(input);
 	kfree(ddata);
-	
+	/* If we have no platform data, we allocated pdata dynamically. */
 	if (!dev_get_platdata(&pdev->dev))
 		kfree(pdata);
 
@@ -998,7 +998,7 @@ static int gpio_keys_remove(struct platform_device *pdev)
 
 	input_unregister_device(input);
 
-	
+	/* If we have no platform data, we allocated pdata dynamically. */
 	if (!dev_get_platdata(&pdev->dev))
 		kfree(ddata->pdata);
 

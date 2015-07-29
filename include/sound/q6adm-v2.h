@@ -131,4 +131,4 @@ int q6adm_enable_effect(u16 port_id, int copp_idx, uint32_t copp_id, uint32_t pa
 int adm_send_compressed_device_mute(int port_id, int copp_idx, bool mute_on);
 
 int adm_send_compressed_device_latency(int port_id, int copp_idx, int latency);
-#endif 
+#endif /* __Q6_ADM_V2_H__ */

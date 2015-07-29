@@ -1229,7 +1229,7 @@ int cfg80211_can_use_iftype_chan(struct cfg80211_registered_device *rdev,
 	if (radar_required && !radar_detect)
 		return -EINVAL;
 
-	
+	/* Always allow software iftypes */
 	if (rdev->wiphy.software_iftypes & BIT(iftype)) {
 		if (radar_detect)
 			return -EINVAL;
@@ -1405,7 +1405,7 @@ bool cfg80211_is_gratuitous_arp_unsolicited_na(struct sk_buff *skb)
 
 	switch (eth->h_proto) {
 	case cpu_to_be16(ETH_P_ARP):
-		
+		/* can't say - but will probably be dropped later anyway */
 		if (!pskb_may_pull(skb, sizeof(*eth) + sizeof(*arp)))
 			return false;
 
@@ -1417,7 +1417,7 @@ bool cfg80211_is_gratuitous_arp_unsolicited_na(struct sk_buff *skb)
 			return true;
 		break;
 	case cpu_to_be16(ETH_P_IPV6):
-		
+		/* can't say - but will probably be dropped later anyway */
 		if (!pskb_may_pull(skb, sizeof(*eth) + sizeof(*ipv6) +
 					sizeof(*icmpv6)))
 			return false;

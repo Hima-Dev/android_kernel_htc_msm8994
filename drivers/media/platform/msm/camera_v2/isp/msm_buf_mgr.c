@@ -414,7 +414,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 							mped_info_tmp2->len)
 						&& (mped_info_tmp1->paddr ==
 						mped_info_tmp2->paddr)) {
-						
+						/* found one buf */
 						list_del_init(
 							&temp_buf_info->list);
 						*buf_info = temp_buf_info;
@@ -944,11 +944,11 @@ static int msm_isp_attach_ctx(struct msm_isp_buf_mgr *buf_mgr,
 {
 	int rc, i;
 	if (cmd->security_mode == NON_SECURE_MODE) {
-		
+		/*non secure mode*/
 		for (i = 0; i < buf_mgr->num_iommu_ctx; i++) {
 
 			if (buf_mgr->attach_ref_cnt[NON_SECURE_MODE][i] == 0) {
-				
+				/* attach only once */
 				rc = iommu_attach_device(
 					buf_mgr->iommu_domain,
 					buf_mgr->iommu_ctx[i]);
@@ -962,11 +962,11 @@ static int msm_isp_attach_ctx(struct msm_isp_buf_mgr *buf_mgr,
 			buf_mgr->attach_ref_cnt[NON_SECURE_MODE][i]++;
 		}
 	} else {
-		
+		/*secure mode*/
 		for (i = 0; i < buf_mgr->num_iommu_secure_ctx; i++) {
 
 			if (buf_mgr->attach_ref_cnt[SECURE_MODE][i] == 0) {
-				
+				/* attach only once */
 				rc = iommu_attach_device(
 					buf_mgr->iommu_domain_secure,
 					buf_mgr->iommu_secure_ctx[i]);
@@ -988,9 +988,9 @@ static int msm_isp_detach_ctx(struct msm_isp_buf_mgr *buf_mgr)
 	int i;
 
 	if (buf_mgr->secure_enable == NON_SECURE_MODE) {
-		
+		/*non secure mode*/
 		for (i = 0; i < buf_mgr->num_iommu_ctx; i++) {
-			
+			/*Detach only if ref count is one*/
 			if (buf_mgr->attach_ref_cnt[NON_SECURE_MODE][i] == 1) {
 				iommu_detach_device(buf_mgr->iommu_domain,
 					buf_mgr->iommu_ctx[i]);
@@ -1000,9 +1000,9 @@ static int msm_isp_detach_ctx(struct msm_isp_buf_mgr *buf_mgr)
 				--buf_mgr->attach_ref_cnt[NON_SECURE_MODE][i];
 		}
 	} else {
-		
+		/*secure mode*/
 		for (i = 0; i < buf_mgr->num_iommu_secure_ctx; i++) {
-			
+			/*Detach only if ref count is one*/
 			if (buf_mgr->attach_ref_cnt[SECURE_MODE][i] == 1) {
 				iommu_detach_device(
 						buf_mgr->iommu_domain_secure,

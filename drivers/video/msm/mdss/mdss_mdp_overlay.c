@@ -467,7 +467,7 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 	rc = mdss_mdp_calc_phase_step(src, pipe->dst.w,
 			&pipe->scale.phase_step_x[0]);
 	if (rc == -EOVERFLOW) {
-		
+		/* overflow on horizontal direction is acceptable */
 		rc = 0;
 	} else if (rc) {
 		pr_err("Horizontal scaling calculation failed=%d! %d->%d\n",
@@ -480,10 +480,10 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 			&pipe->scale.phase_step_y[0]);
 
 	if ((rc == -EOVERFLOW) && (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)) {
-		
+		/* overflow on Qseed2 scaler is acceptable */
 		rc = 0;
 	} else if (rc == -EOVERFLOW) {
-		
+		/* overflow expected and should fallback to GPU */
 		rc = -ECANCELED;
 	} else if (rc) {
 		pr_err("Vertical scaling calculation failed=%d! %d->%d\n",
@@ -625,7 +625,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 
 		pipe = mdss_mdp_pipe_alloc(mixer, pipe_type, left_blend_pipe);
 
-		
+		/* RGB pipes can be used instead of DMA */
 		if (IS_ERR_OR_NULL(pipe) &&
 		    (req->pipe_type == PIPE_TYPE_AUTO) &&
 		    (pipe_type == MDSS_MDP_PIPE_TYPE_DMA)) {
@@ -636,7 +636,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 				left_blend_pipe);
 		}
 
-		
+		/* VIG pipes can also support RGB format */
 		if (IS_ERR_OR_NULL(pipe) &&
 		    (req->pipe_type == PIPE_TYPE_AUTO) &&
 		    (pipe_type == MDSS_MDP_PIPE_TYPE_RGB)) {
@@ -941,7 +941,7 @@ exit_fail:
 		mdss_mdp_pipe_destroy(pipe);
 	}
 
-	
+	/* invalidate any overlays in this framebuffer after failure */
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
 		pr_debug("freeing allocations for pipe %d\n", pipe->num);
 		mdss_mdp_smp_unreserve(pipe);
@@ -977,7 +977,7 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 	} else {
 		struct mdss_mdp_pipe *pipe;
 
-		
+		/* userspace zorder start with stage 0 */
 		req->z_order += MDSS_MDP_STAGE_0;
 
 		ret = mdss_mdp_overlay_pipe_setup(mfd, req, &pipe, NULL, false);
@@ -1370,7 +1370,7 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 			}
 		}
 
-		
+		/* ensure pipes are reconfigured after power off/on */
 		if (ctl->play_cnt == 0)
 			pipe->params_changed++;
 
@@ -1378,7 +1378,7 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 			buf->state = MDP_BUF_STATE_ACTIVE;
 			ret = mdss_mdp_data_map(buf);
 		} else if (!pipe->params_changed) {
-			
+			/* nothing to update so continue with next */
 			continue;
 		} else if (buf) {
 			BUG_ON(buf->state != MDP_BUF_STATE_ACTIVE);
@@ -1415,7 +1415,7 @@ static void __overlay_kickoff_requeue(struct msm_fb_data_type *mfd)
 	mdss_mdp_display_commit(ctl, NULL, NULL);
 	mdss_mdp_display_wait4comp(ctl);
 
-	
+	/* unstage any recovery pipes and re-queue used pipes */
 	mdss_mdp_mixer_unstage_all(ctl->mixer_left);
 	mdss_mdp_mixer_unstage_all(ctl->mixer_right);
 
@@ -1467,7 +1467,7 @@ static bool __is_roi_valid(struct mdss_mdp_pipe *pipe,
 	if (mdata->has_src_split && is_right_mixer)
 		dst.x -= left_lm_w;
 
-	
+	/* condition #1 above */
 	if ((pipe->scale.enable_pxl_ext) ||
 	    (pipe->src.w != dst.w) || (pipe->src.h != dst.h)) {
 		struct mdss_rect res;
@@ -1485,7 +1485,7 @@ static bool __is_roi_valid(struct mdss_mdp_pipe *pipe,
 		}
 	}
 
-	
+	/* condition #2 above */
 	if (!mdss_rect_overlap_check(&dst, &roi)) {
 		pr_err("error. pipe%d's output is outside of ROI.\n",
 			pipe->num);
@@ -2383,7 +2383,7 @@ static ssize_t dynamic_fps_sysfs_rda_dfps(struct device *dev,
 	mutex_unlock(&mdp5_data->dfps_lock);
 
 	return ret;
-} 
+} /* dynamic_fps_sysfs_rda_dfps */
 
 static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
@@ -2440,7 +2440,7 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	pdata->panel_info.new_fps = dfps;
 	mutex_unlock(&mdp5_data->dfps_lock);
 	return count;
-} 
+} /* dynamic_fps_sysfs_wta_dfps */
 
 
 static DEVICE_ATTR(dynamic_fps, S_IRUGO | S_IWUSR, dynamic_fps_sysfs_rda_dfps,
@@ -2663,11 +2663,11 @@ static ssize_t mdss_mdp_cmd_autorefresh_store(struct device *dev,
 			return rc;
 
 		if (frame_cnt) {
-			
+			/* enable autorefresh */
 			mfd->mdp_sync_pt_data.threshold = 2;
 			mfd->mdp_sync_pt_data.retire_threshold = 0;
 		} else {
-			
+			/* disable autorefresh */
 			mfd->mdp_sync_pt_data.threshold = 1;
 			mfd->mdp_sync_pt_data.retire_threshold = 1;
 		}
@@ -2740,9 +2740,9 @@ static void mdss_mdp_hw_cursor_setimage(struct mdss_mdp_mixer *mixer,
 	alpha = (img->fg_color & 0xff000000) >> 24;
 
 	if (alpha)
-		calpha_en = 0x0; 
+		calpha_en = 0x0; /* xrgb */
 	else
-		calpha_en = 0x2; 
+		calpha_en = 0x2; /* argb */
 
 	roi_size = (roi->h << 16) | roi->w;
 	size = (img->height << 16) | img->width;
@@ -2955,7 +2955,7 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 			(cursor->hot.y < img->height)) {
 			mixer->cursor_hotx = cursor->hot.x;
 			mixer->cursor_hoty = cursor->hot.y;
-			 
+			 /* Update cursor position */
 			cursor->set |= FB_CUR_SETPOS;
 		} else {
 			pr_err("Invalid cursor hotspot coordinates\n");
@@ -3107,7 +3107,7 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 			(cursor->hot.y < img->height)) {
 			cursor_hot.x = cursor->hot.x;
 			cursor_hot.y = cursor->hot.y;
-			 
+			 /* Update cursor position */
 			cursor->set |= FB_CUR_SETPOS;
 		} else {
 			pr_err("Invalid cursor hotspot coordinates\n");
@@ -3211,7 +3211,7 @@ static int mdss_bl_scale_config(struct msm_fb_data_type *mfd,
 	pr_debug("update scale = %d, min_lvl = %d\n", mfd->bl_scale,
 							mfd->bl_min_lvl);
 
-	
+	/* update current backlight to use new scaling*/
 	mdss_fb_set_backlight(mfd, curr_bl);
 	mutex_unlock(&mfd->bl_lock);
 	return ret;
@@ -3802,7 +3802,7 @@ static int __handle_overlay_prepare(struct msm_fb_data_type *mfd,
 			pipe->num, req->id, req->flags, req->dst_rect.x,
 			left_blend_pipe ? left_blend_pipe->num : -1);
 
-		
+		/* keep track of the new overlays to unset in case of errors */
 		if (pipe->play_cnt == 0)
 			new_reqs |= pipe->ndx;
 
@@ -4080,7 +4080,7 @@ static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 				remove_underrun_vsync_handler);
 
 	if (mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
-		
+		/* enable split display */
 		rc = mdss_mdp_ctl_split_display_setup(ctl, pdata->next);
 		if (rc) {
 			mdss_mdp_ctl_destroy(ctl);
@@ -4258,7 +4258,7 @@ ctl_stop:
 	}
 	mutex_unlock(&mdp5_data->ov_lock);
 
-	
+	/* Release the last reference to the runtime device */
 	rc = pm_runtime_put(&mfd->pdev->dev);
 	if (rc)
 		pr_err("unable to suspend w/pm_runtime_put (%d)\n", rc);
@@ -4286,7 +4286,7 @@ static int __mdss_mdp_ctl_handoff(struct mdss_mdp_ctl *ctl,
 			u32 cfg = j * 3;
 			if ((j == MDSS_MDP_SSPP_VIG3) ||
 			    (j == MDSS_MDP_SSPP_RGB3)) {
-				
+				/* Add 2 to account for Cursor & Border bits */
 				cfg += 2;
 			}
 			if (mixercfg & (0x7 << cfg)) {

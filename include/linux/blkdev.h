@@ -207,12 +207,12 @@ enum blk_queue_state {
 };
 
 struct blk_queue_tag {
-	struct request **tag_index;	
-	unsigned long *tag_map;		
-	int busy;			
-	int max_depth;			
-	int real_max_depth;		
-	atomic_t refcnt;		
+	struct request **tag_index;	/* map of busy tags */
+	unsigned long *tag_map;		/* bit map of free/busy tags */
+	int busy;			/* current depth */
+	int max_depth;			/* what we will send to device */
+	int real_max_depth;		/* what the array can hold */
+	atomic_t refcnt;		/* map can be shared */
 };
 
 #define BLK_SCSI_MAX_CMDS	(256)
@@ -352,32 +352,32 @@ struct request_queue {
 	struct list_head	all_q_node;
 #endif
 #ifdef CONFIG_BLK_DEV_THROTTLING
-	
+	/* Throttle data */
 	struct throtl_data *td;
 #endif
 	struct rcu_head		rcu_head;
 };
 
-#define QUEUE_FLAG_QUEUED	1	
-#define QUEUE_FLAG_STOPPED	2	
-#define	QUEUE_FLAG_SYNCFULL	3	
-#define QUEUE_FLAG_ASYNCFULL	4	
-#define QUEUE_FLAG_DYING	5	
-#define QUEUE_FLAG_BYPASS	6	
-#define QUEUE_FLAG_BIDI		7	
-#define QUEUE_FLAG_NOMERGES     8	
-#define QUEUE_FLAG_SAME_COMP	9	
-#define QUEUE_FLAG_FAIL_IO     10	
-#define QUEUE_FLAG_STACKABLE   11	
-#define QUEUE_FLAG_NONROT      12	
-#define QUEUE_FLAG_VIRT        QUEUE_FLAG_NONROT 
-#define QUEUE_FLAG_IO_STAT     13	
-#define QUEUE_FLAG_DISCARD     14	
-#define QUEUE_FLAG_NOXMERGES   15	
-#define QUEUE_FLAG_ADD_RANDOM  16	
-#define QUEUE_FLAG_SECDISCARD  17	
-#define QUEUE_FLAG_SAME_FORCE  18	
-#define QUEUE_FLAG_DEAD        19	
+#define QUEUE_FLAG_QUEUED	1	/* uses generic tag queueing */
+#define QUEUE_FLAG_STOPPED	2	/* queue is stopped */
+#define	QUEUE_FLAG_SYNCFULL	3	/* read queue has been filled */
+#define QUEUE_FLAG_ASYNCFULL	4	/* write queue has been filled */
+#define QUEUE_FLAG_DYING	5	/* queue being torn down */
+#define QUEUE_FLAG_BYPASS	6	/* act as dumb FIFO queue */
+#define QUEUE_FLAG_BIDI		7	/* queue supports bidi requests */
+#define QUEUE_FLAG_NOMERGES     8	/* disable merge attempts */
+#define QUEUE_FLAG_SAME_COMP	9	/* complete on same CPU-group */
+#define QUEUE_FLAG_FAIL_IO     10	/* fake timeout */
+#define QUEUE_FLAG_STACKABLE   11	/* supports request stacking */
+#define QUEUE_FLAG_NONROT      12	/* non-rotational device (SSD) */
+#define QUEUE_FLAG_VIRT        QUEUE_FLAG_NONROT /* paravirt device */
+#define QUEUE_FLAG_IO_STAT     13	/* do IO stats */
+#define QUEUE_FLAG_DISCARD     14	/* supports DISCARD */
+#define QUEUE_FLAG_NOXMERGES   15	/* No extended merges */
+#define QUEUE_FLAG_ADD_RANDOM  16	/* Contributes to random pool */
+#define QUEUE_FLAG_SECDISCARD  17	/* supports SECDISCARD */
+#define QUEUE_FLAG_SAME_FORCE  18	/* force complete on same CPU */
+#define QUEUE_FLAG_DEAD        19	/* queue tear-down finished */
 
 #define QUEUE_FLAG_DEFAULT	((1 << QUEUE_FLAG_IO_STAT) |		\
 				 (1 << QUEUE_FLAG_STACKABLE)	|	\
@@ -581,7 +581,7 @@ static inline int init_emergency_isa_pool(void)
 static inline void blk_queue_bounce(struct request_queue *q, struct bio **bio)
 {
 }
-#endif 
+#endif /* CONFIG_MMU */
 
 struct rq_map_data {
 	struct page **pages;
@@ -908,7 +908,7 @@ static inline struct request *blk_map_queue_find_tag(struct blk_queue_tag *bqt,
 	return bqt->tag_index[tag];
 }
 
-#define BLKDEV_DISCARD_SECURE  0x01    
+#define BLKDEV_DISCARD_SECURE  0x01    /* secure discard */
 
 extern int blkdev_issue_flush(struct block_device *, gfp_t, sector_t *);
 extern int blkdev_issue_discard(struct block_device *bdev, sector_t sector,
@@ -1065,19 +1065,19 @@ static inline int queue_limit_discard_alignment(struct queue_limits *lim, sector
 	if (!lim->max_discard_sectors)
 		return 0;
 
-	
+	/* Why are these in bytes, not sectors? */
 	alignment = lim->discard_alignment >> 9;
 	granularity = lim->discard_granularity >> 9;
 	if (!granularity)
 		return 0;
 
-	
+	/* Offset of the partition start in 'granularity' sectors */
 	offset = sector_div(sector, granularity);
 
-	
+	/* And why do we do this modulus *again* in blkdev_issue_discard()? */
 	offset = (granularity + alignment - offset) % granularity;
 
-	
+	/* Turn it back into bytes, gaah */
 	return offset << 9;
 }
 
@@ -1204,8 +1204,8 @@ static inline uint64_t rq_io_start_time_ns(struct request *req)
 
 #if defined(CONFIG_BLK_DEV_INTEGRITY)
 
-#define INTEGRITY_FLAG_READ	2	
-#define INTEGRITY_FLAG_WRITE	4	
+#define INTEGRITY_FLAG_READ	2	/* verify data integrity on read */
+#define INTEGRITY_FLAG_WRITE	4	/* generate data integrity on write */
 
 struct blk_integrity_exchg {
 	void			*prot_buf;
@@ -1280,7 +1280,7 @@ queue_max_integrity_segments(struct request_queue *q)
 	return q->limits.max_integrity_segments;
 }
 
-#else 
+#else /* CONFIG_BLK_DEV_INTEGRITY */
 
 struct bio;
 struct block_device;
@@ -1347,7 +1347,7 @@ static inline bool blk_integrity_is_initialized(struct gendisk *g)
 	return 0;
 }
 
-#endif 
+#endif /* CONFIG_BLK_DEV_INTEGRITY */
 
 struct block_device_operations {
 	int (*open) (struct block_device *, fmode_t);
@@ -1403,6 +1403,6 @@ static inline bool blk_needs_flush_plug(struct task_struct *tsk)
 	return false;
 }
 
-#endif 
+#endif /* CONFIG_BLOCK */
 
 #endif

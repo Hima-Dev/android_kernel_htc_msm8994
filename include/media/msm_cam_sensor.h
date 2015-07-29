@@ -867,4 +867,4 @@ struct msm_flash_cfg_data_t32 {
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 13, struct msm_flash_cfg_data_t32)
 #endif
 
-#endif 
+#endif /* __LINUX_MSM_CAM_SENSOR_H */

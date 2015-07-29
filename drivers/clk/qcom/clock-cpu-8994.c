@@ -224,7 +224,7 @@ static struct pll_clk a57_pll1 = {
 		.config_ctl_val = 0x000D6968,
 		.test_ctl_lo_val = 0x00010000,
 	},
-	
+	/* Necessary since we'll be setting a rate before handoff on V1 */
 	.src_rate = 19200000,
 	.min_rate = 1209600000,
 	.max_rate = 1996800000,
@@ -296,7 +296,7 @@ static struct pll_clk a53_pll1 = {
 		.config_ctl_val = 0x000D6968,
 		.test_ctl_lo_val = 0x00010000,
 	},
-	
+	/* Necessary since we'll be setting a rate before handoff on V1 */
 	.src_rate = 19200000,
 	.min_rate = 1209600000,
 	.max_rate = 1996800000,
@@ -347,7 +347,7 @@ static void __cpudiv_set_div(struct div_clk *divclk, int div)
 	else
 		writel_relaxed(regval, *divclk->base + divclk->offset);
 
-	
+	/* Ensure switch request goes through before returning */
 	mb();
 	spin_unlock_irqrestore(&mux_reg_lock, flags);
 }
@@ -631,7 +631,7 @@ static void __plldiv_set_div(struct div_clk *divclk, int div)
 	regval |= (program_div & divclk->mask) << divclk->shift;
 	writel_relaxed(regval, *divclk->base + divclk->offset);
 
-	
+	/* Ensure switch request goes through before returning */
 	mb();
 	udelay(5);
 	spin_unlock_irqrestore(&mux_reg_lock, flags);
@@ -914,7 +914,7 @@ void sanity_check_clock_tree(u32 muxval, struct mux_clk *mux)
 	uv = c->vdd_class->vdd_uv;
 	level = c->vdd_class->cur_level;
 
-	
+	/* Possibly hotplugged out */
 	if (!level || !uv[level])
 		return;
 
@@ -966,7 +966,7 @@ void sanity_check_clock_tree(u32 muxval, struct mux_clk *mux)
 	break;
 	};
 
-	
+	/* One regulator */
 	cur_uv = uv[level];
 	req_uv = uv[find_vdd_level(c, rate)];
 
@@ -1085,8 +1085,8 @@ static struct alpha_pll_clk cci_pll = {
 	.base = &vbases[CCI_PLL_BASE],
 	.vco_tbl = alpha_pll_vco_20nm_p,
 	.num_vco = ARRAY_SIZE(alpha_pll_vco_20nm_p),
-	.enable_config = 0x9, 
-	.post_div_config = 0x100, 
+	.enable_config = 0x9, /* Main and early outputs */
+	.post_div_config = 0x100, /* Div-2 */
 	.c = {
 		.parent = &xo_ao.c,
 		.dbg_name = "cci_pll",
@@ -1354,7 +1354,7 @@ static int cpu_clock_8994_resources_init(struct platform_device *pdev)
 		return PTR_ERR(vdd_a57.regulator[0]);
 	}
 
-	
+	/* Leakage constraints disallow a turbo vote during bootup */
 	vdd_a57.skip_handoff = true;
 
 	vdd_cci.regulator[0] = devm_regulator_get(&pdev->dev, "vdd-cci");
@@ -1403,10 +1403,10 @@ static void perform_v1_fixup(void)
 
 	a53_pll1.c.rate = 1593600000;
 
-	
+	/* Enable the A53 secondary PLL */
 	a53_pll1.c.ops->enable(&a53_pll1.c);
 
-	
+	/* Select the "safe" parent on the secondary mux */
 	__cpu_mux_set_sel(&a53_lf_mux, 1);
 }
 
@@ -1438,7 +1438,7 @@ static int add_opp(struct clk *c, struct device *cpudev, struct device *vregdev,
 	struct opp *oppl;
 
 	rcu_read_lock();
-	
+	/* Check if the regulator driver has already populated OPP tables */
 	oppl = dev_pm_opp_find_freq_exact(vregdev, 2, true);
 	rcu_read_unlock();
 	if (!IS_ERR_OR_NULL(oppl))
@@ -1567,7 +1567,7 @@ static void populate_opp_table(struct platform_device *pdev)
 		}
 	}
 
-	
+	/* One time print during bootup */
 	pr_info("clock-cpu-8994: OPP tables populated (cpu %d and %d)\n",
 		a53_cpu, a57_cpu);
 
@@ -1636,7 +1636,7 @@ struct clkcpu_8994_idle_data {
 	bool idle;
 	bool low_power_mux_switch;
 
-	
+	/* Debug */
 	u64 ipi_sent_time;
 	u64 ipi_notsent_time;
 	u64 ipi_started_time;
@@ -1712,7 +1712,7 @@ static void __low_power_pre_mux_switch(struct mux_clk *mux)
 		}
 	}
 
-	
+	/* Wait for IPI to begin */
 	udelay(WAIT_IPI_HANDLER_BEGIN_US);
 }
 
@@ -1748,9 +1748,9 @@ static void __low_power_mux_set_sel(struct mux_clk *mux, int sel)
 	regval |= (sel & mux->mask) << mux->shift;
 	sanity_check_clock_tree(regval, mux);
 	writel_relaxed(regval, *mux->base + mux->offset);
-	
+	/* Ensure switch request goes through before returning */
 	mb();
-	
+	/* Hardware mandated delay */
 	udelay(5);
 	spin_unlock_irqrestore(&mux_reg_lock, flags);
 
@@ -1961,7 +1961,7 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	
+	/* Keep the secondary PLLs enabled forever on V1 */
 	if (!v2) {
 		clk_prepare_enable(&a53_pll1.c);
 		clk_prepare_enable(&a57_pll1.c);
@@ -2008,7 +2008,7 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 		}
 	}
 
-	
+	/* Set low frequencies until thermal/cpufreq probe. */
 	if (!v2) {
 		clk_set_rate(&a53_clk.c, 384000000);
 		clk_set_rate(&a57_clk.c, 199200000);
@@ -2195,7 +2195,7 @@ int __init cpu_clock_8994_init_a57(void)
 
 	a57_pll1.c.ops->disable(&a57_pll1.c);
 
-	
+	/* Set the main/aux output divider on the A57 primary PLL to 4 */
 	regval = readl_relaxed(vbases[C1_PLL_BASE] + C1_PLLA_USER_CTL);
 	regval &= ~BM(9, 8);
 	regval |= (0x3 << 8);
@@ -2203,7 +2203,7 @@ int __init cpu_clock_8994_init_a57(void)
 
 	a57_pll1.c.ops->set_rate(&a57_pll1.c, 1593600000);
 
-	
+	/* Set the divider on the PLL1 input to the A57 LF MUX (div 2) */
 	regval = readl_relaxed(vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
 	regval |= BIT(6);
 	writel_relaxed(regval, vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
@@ -2212,7 +2212,7 @@ int __init cpu_clock_8994_init_a57(void)
 
 	__cpu_mux_set_sel(&a57_lf_mux, safe_sel);
 
-	
+	/* Set the cached mux selections to match what was programmed above. */
 	a57_lf_mux.en_mask = safe_sel;
 	a57_hf_mux.en_mask = lfmux_sel;
 

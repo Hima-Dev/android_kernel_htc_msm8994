@@ -72,13 +72,13 @@ static void __local_bh_disable(unsigned long ip, unsigned int cnt)
 	if (preempt_count() == cnt)
 		trace_preempt_off(CALLER_ADDR0, get_parent_ip(CALLER_ADDR1));
 }
-#else 
+#else /* !CONFIG_TRACE_IRQFLAGS */
 static inline void __local_bh_disable(unsigned long ip, unsigned int cnt)
 {
 	add_preempt_count(cnt);
 	barrier();
 }
-#endif 
+#endif /* CONFIG_TRACE_IRQFLAGS */
 
 void local_bh_disable(void)
 {
@@ -160,7 +160,7 @@ asmlinkage void __do_softirq(void)
 
 	cpu = smp_processor_id();
 restart:
-	
+	/* Reset the pending bitmask before enabling irqs */
 	set_softirq_pending(0);
 
 	local_irq_enable();
@@ -259,7 +259,7 @@ static inline void tick_irq_exit(void)
 #ifdef CONFIG_NO_HZ_COMMON
 	int cpu = smp_processor_id();
 
-	
+	/* Make sure that timer wheel updates are propagated */
 	if ((idle_cpu(cpu) && !need_resched()) || tick_nohz_full_cpu(cpu)) {
 		if (!in_interrupt())
 			tick_nohz_irq_exit();
@@ -502,7 +502,7 @@ static void __local_trigger(struct call_single_data *cp, int softirq)
 
 	list_add_tail(&cp->list, head);
 
-	
+	/* Trigger the softirq only if the list was previously empty.  */
 	if (head->next == &cp->list)
 		raise_softirq_irqoff(softirq);
 }
@@ -637,11 +637,11 @@ void tasklet_kill_immediate(struct tasklet_struct *t, unsigned int cpu)
 	if (!test_bit(TASKLET_STATE_SCHED, &t->state))
 		return;
 
-	
+	/* CPU is dead, so no lock needed. */
 	for (i = &per_cpu(tasklet_vec, cpu).head; *i; i = &(*i)->next) {
 		if (*i == t) {
 			*i = t->next;
-			
+			/* If this was the tail element, move the tail ptr */
 			if (*i == NULL)
 				per_cpu(tasklet_vec, cpu).tail = i;
 			return;
@@ -652,10 +652,10 @@ void tasklet_kill_immediate(struct tasklet_struct *t, unsigned int cpu)
 
 static void takeover_tasklets(unsigned int cpu)
 {
-	
+	/* CPU is dead, so no lock needed. */
 	local_irq_disable();
 
-	
+	/* Find end, append list for that CPU. */
 	if (&per_cpu(tasklet_vec, cpu).head != per_cpu(tasklet_vec, cpu).tail) {
 		*__this_cpu_read(tasklet_vec.tail) = per_cpu(tasklet_vec, cpu).head;
 		this_cpu_write(tasklet_vec.tail, per_cpu(tasklet_vec, cpu).tail);
@@ -674,7 +674,7 @@ static void takeover_tasklets(unsigned int cpu)
 
 	local_irq_enable();
 }
-#endif 
+#endif /* CONFIG_HOTPLUG_CPU */
 
 static int __cpuinit cpu_callback(struct notifier_block *nfb,
 				  unsigned long action,
@@ -686,7 +686,7 @@ static int __cpuinit cpu_callback(struct notifier_block *nfb,
 	case CPU_DEAD_FROZEN:
 		takeover_tasklets((unsigned long)hcpu);
 		break;
-#endif 
+#endif /* CONFIG_HOTPLUG_CPU */
 	}
 	return NOTIFY_OK;
 }

@@ -281,7 +281,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		
+		/* null terminate the string */
 		nat_mem.dev_name[IPA_RESOURCE_NAME_MAX - 1] = '\0';
 
 		if (allocate_nat_device(&nat_mem)) {
@@ -959,7 +959,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 
-	default:        
+	default:        /* redundant, as cmd was checked against MAXNR */
 		ipa_dec_client_disable_clks();
 		return -ENOTTY;
 	}
@@ -982,7 +982,7 @@ int ipa_setup_dflt_rt_tables(void)
 		IPAERR("fail to alloc mem\n");
 		return -ENOMEM;
 	}
-	
+	/* setup a default v4 route to point to Apps */
 	rt_rule->num_rules = 1;
 	rt_rule->commit = 1;
 	rt_rule->ip = IPA_IP_v4;
@@ -1002,7 +1002,7 @@ int ipa_setup_dflt_rt_tables(void)
 	IPADBG("dflt v4 rt rule hdl=%x\n", rt_rule_entry->rt_rule_hdl);
 	ipa_ctx->dflt_v4_rt_rule_hdl = rt_rule_entry->rt_rule_hdl;
 
-	
+	/* setup a default v6 route to point to A5 */
 	rt_rule->ip = IPA_IP_v6;
 	if (ipa_add_rt_rule(rt_rule)) {
 		IPAERR("fail to add dflt v6 rule\n");
@@ -1025,7 +1025,7 @@ static int ipa_setup_exception_path(void)
 	struct ipa_route route = { 0 };
 	int ret;
 
-	
+	/* install the basic exception header */
 	hdr = kzalloc(sizeof(struct ipa_ioc_add_hdr) + 1 *
 		      sizeof(struct ipa_hdr_add), GFP_KERNEL);
 	if (!hdr) {
@@ -1039,7 +1039,7 @@ static int ipa_setup_exception_path(void)
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
 		strlcpy(hdr_entry->name, IPA_A5_MUX_HDR_NAME,
 				IPA_RESOURCE_NAME_MAX);
-		
+		/* set template for the A5_MUX hdr in header addition block */
 		hdr_entry->hdr_len = IPA_A5_MUX_HEADER_LENGTH;
 	} else if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
 			ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
@@ -1064,7 +1064,7 @@ static int ipa_setup_exception_path(void)
 
 	ipa_ctx->excp_hdr_hdl = hdr_entry->hdr_hdl;
 
-	
+	/* set the route register to pass exception packets to Apps */
 	route.route_def_pipe = ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
 	route.route_frag_def_pipe = ipa_get_ep_mapping(
 		IPA_CLIENT_APPS_LAN_CONS);
@@ -1299,7 +1299,7 @@ static int ipa_q6_clean_q6_tables(void)
 		}
 	}
 
-	
+	/* Need to point v4/v6 modem routing tables to an empty table */
 	for (index = IPA_MEM_PART(v4_modem_rt_index_lo);
 		 index <= IPA_MEM_PART(v4_modem_rt_index_hi);
 		 index++) {
@@ -1385,7 +1385,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 		return -ENOMEM;
 	}
 
-	
+	/* Set the exception path to AP */
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		ep_idx = ipa_get_ep_mapping(client_idx);
 		if (ep_idx == -1)
@@ -1419,7 +1419,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 		}
 	}
 
-	
+	/* Disable AGGR on IPA->Q6 pipes */
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		if (IPA_CLIENT_IS_Q6_CONS(client_idx)) {
 			reg_write = kzalloc(sizeof(*reg_write), GFP_KERNEL);
@@ -1442,12 +1442,12 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 		}
 	}
 
-	
+	/* Will wait 150msecs for IPA tag process completion */
 	retval = ipa_tag_process(desc, num_descs,
 				 msecs_to_jiffies(CLEANUP_TAG_PROCESS_TIMEOUT));
 	if (retval) {
 		IPAERR("TAG process failed! (error %d)\n", retval);
-		
+		/* For timeout error ipa_free_buffer cb will free user1 */
 		if (retval != -ETIME) {
 			for (index = 0; index < num_descs; index++)
 				kfree(desc[index].user1);
@@ -1943,7 +1943,7 @@ static int ipa_setup_apps_pipes(void)
 	struct ipa_sys_connect_params sys_in;
 	int result = 0;
 
-	
+	/* CMD OUT (A5->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_APPS_CMD_PROD;
 	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
@@ -1989,7 +1989,7 @@ static int ipa_setup_apps_pipes(void)
 	}
 	IPADBG("default routing was set\n");
 
-	
+	/* LAN IN (IPA->A5) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_APPS_LAN_CONS;
 	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
@@ -2017,7 +2017,7 @@ static int ipa_setup_apps_pipes(void)
 		goto fail_schedule_delayed_work;
 	}
 
-	
+	/* LAN-WAN OUT (A5->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_APPS_LAN_WAN_PROD;
 	sys_in.desc_fifo_sz = IPA_SYS_TX_DATA_DESC_FIFO_SZ;
@@ -2112,7 +2112,7 @@ long compat_ipa_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		nat_mem.size = (size_t)nat_mem32.size;
 		nat_mem.offset = (off_t)nat_mem32.offset;
 
-		
+		/* null terminate the string */
 		nat_mem.dev_name[IPA_RESOURCE_NAME_MAX - 1] = '\0';
 
 		if (allocate_nat_device(&nat_mem)) {
@@ -2649,20 +2649,20 @@ static void ipa_sps_process_irq(struct work_struct *work)
 	unsigned long flags;
 	int ret;
 
-	
+	/* request IPA clocks */
 	ipa_inc_client_enable_clks();
 
-	
+	/* mark SPS resource as granted */
 	spin_lock_irqsave(&ipa_ctx->sps_pm.lock, flags);
 	ipa_ctx->sps_pm.res_granted = true;
 	IPADBG("IPA is ON, calling sps driver\n");
 
-	
+	/* process bam irq */
 	ret = sps_bam_process_irq(ipa_ctx->bam_handle);
 	if (ret)
 		IPAERR("sps_process_eot_event failed %d\n", ret);
 
-	
+	/* release IPA clocks */
 	ipa_sps_process_irq_schedule_rel();
 	spin_unlock_irqrestore(&ipa_ctx->sps_pm.lock, flags);
 }
@@ -2683,7 +2683,7 @@ static void ipa_sps_release_resource(struct work_struct *work)
 	bool dec_clients = false;
 
 	spin_lock_irqsave(&ipa_ctx->sps_pm.lock, flags);
-	
+	/* check whether still need to decrease client usage */
 	if (ipa_ctx->sps_pm.res_rel_in_prog) {
 		dec_clients = true;
 		ipa_ctx->sps_pm.res_rel_in_prog = false;
@@ -2728,7 +2728,7 @@ static void sps_event_cb(enum sps_callback_case event, void *param)
 	{
 		bool *ready = (bool *)param;
 
-		
+		/* make sure no release will happen */
 		cancel_delayed_work(&ipa_sps_release_resource_work);
 		ipa_ctx->sps_pm.res_rel_in_prog = false;
 
@@ -2786,7 +2786,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->ipa_bam_remote_mode = resource_p->ipa_bam_remote_mode;
 	ipa_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 
-	
+	/* default aggregation parameters */
 	ipa_ctx->aggregation_type = IPA_MBIM_16;
 	ipa_ctx->aggregation_byte_limit = 1;
 	ipa_ctx->aggregation_time_limit = 0;
@@ -2816,7 +2816,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		ipa_ctx->ctrl->msm_bus_data_ptr = bus_scale_table;
 	}
 
-	
+	/* get BUS handle */
 	ipa_ctx->ipa_bus_hdl =
 		msm_bus_scale_register_client(ipa_ctx->ctrl->msm_bus_data_ptr);
 	if (!ipa_ctx->ipa_bus_hdl) {
@@ -2825,21 +2825,21 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_bind;
 	}
 
-	
+	/* get IPA clocks */
 	if (ipa_get_clks(ipa_dev) != 0) {
 		IPAERR(":fail to get clk handle's!\n");
 		result = -ENODEV;
 		goto fail_bind;
 	}
 
-	
+	/* Enable ipa_ctx->enable_clock_scaling */
 	ipa_ctx->enable_clock_scaling = 1;
 	ipa_ctx->curr_ipa_clk_rate = ipa_ctx->ctrl->ipa_clk_rate_hi;
 
-	
+	/* enable IPA clocks explicitly to allow the initialization */
 	ipa_enable_clks();
 
-	
+	/* setup IPA register access */
 	ipa_ctx->mmio = ioremap(resource_p->ipa_mem_base +
 			ipa_ctx->ctrl->ipa_reg_base_ofst,
 			resource_p->ipa_mem_size);
@@ -2874,7 +2874,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	spin_lock_init(&ipa_ctx->ipa_active_clients.spinlock);
 	ipa_ctx->ipa_active_clients.cnt = 1;
 
-	
+	/* Create workqueues for power management */
 	ipa_ctx->power_mgmt_wq =
 		create_singlethread_workqueue("ipa_power_mgmt");
 	if (!ipa_ctx->power_mgmt_wq) {
@@ -2895,7 +2895,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->sps_pm.res_granted = false;
 	ipa_ctx->sps_pm.res_rel_in_prog = false;
 
-	
+	/* register IPA with SPS driver */
 	bam_props.phys_addr = resource_p->bam_mem_base;
 	bam_props.virt_size = resource_p->bam_mem_size;
 	bam_props.irq = resource_p->bam_irq;
@@ -2925,7 +2925,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_flt_rule_cache;
 	}
 
-	
+	/* init the lookaside cache */
 	ipa_ctx->flt_rule_cache = kmem_cache_create("IPA FLT",
 			sizeof(struct ipa_flt_entry), 0, 0, NULL);
 	if (!ipa_ctx->flt_rule_cache) {
@@ -2994,7 +2994,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_rx_pkt_wrapper_cache;
 	}
 
-	
+	/* Setup DMA pool */
 	ipa_ctx->dma_pool = dma_pool_create("ipa_tx", ipa_ctx->pdev,
 		IPA_NUM_DESC_PER_SW_TX * sizeof(struct sps_iovec),
 		0, 0);
@@ -3007,7 +3007,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->glob_flt_tbl[IPA_IP_v4].in_sys = !ipa_ctx->ip4_flt_tbl_lcl;
 	ipa_ctx->glob_flt_tbl[IPA_IP_v6].in_sys = !ipa_ctx->ip6_flt_tbl_lcl;
 
-	
+	/* init the various list heads */
 	INIT_LIST_HEAD(&ipa_ctx->glob_flt_tbl[IPA_IP_v4].head_flt_rule_list);
 	INIT_LIST_HEAD(&ipa_ctx->glob_flt_tbl[IPA_IP_v6].head_flt_rule_list);
 	INIT_LIST_HEAD(&ipa_ctx->hdr_tbl.head_hdr_entry_list);
@@ -3072,7 +3072,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 			ipa_ctx->empty_rt_tbl_mem.size);
 	IPADBG("empty routing table was allocated in system memory");
 
-	
+	/* setup the A5-IPA pipes */
 	if (ipa_setup_apps_pipes()) {
 		IPAERR(":failed to setup IPA-Apps pipes.\n");
 		result = -ENODEV;
@@ -3087,7 +3087,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 	IPADBG("filter block was set with dummy filter rules");
 
-	
+	/* setup the IPA pipe mem pool */
 	if (resource_p->ipa_pipe_mem_size)
 		ipa_pipe_mem_init(resource_p->ipa_pipe_mem_start_ofst,
 				resource_p->ipa_pipe_mem_size);
@@ -3111,7 +3111,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 
 	cdev_init(&ipa_ctx->cdev, &ipa_drv_fops);
 	ipa_ctx->cdev.owner = THIS_MODULE;
-	ipa_ctx->cdev.ops = &ipa_drv_fops;  
+	ipa_ctx->cdev.ops = &ipa_drv_fops;  /* from LDD3 */
 
 	result = cdev_add(&ipa_ctx->cdev, ipa_ctx->dev_num, 1);
 	if (result) {
@@ -3129,7 +3129,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_nat_dev_add;
 	}
 
-	
+	/* Create workqueue for power management */
 	ipa_ctx->power_mgmt_wq =
 		create_singlethread_workqueue("ipa_power_mgmt");
 	if (!ipa_ctx->power_mgmt_wq) {
@@ -3138,7 +3138,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_init_hw;
 	}
 
-	
+	/* Initialize IPA RM (resource manager) */
 	result = ipa_rm_initialize();
 	if (result) {
 		IPAERR("RM initialization failed (%d)\n", -result);
@@ -3154,7 +3154,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_create_apps_resource;
 	}
 
-	
+	/*register IPA IRQ handler*/
 	result = ipa_interrupts_init(resource_p->ipa_irq, 0,
 			ipa_dev);
 	if (result) {
@@ -3163,7 +3163,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_ipa_interrupts_init;
 	}
 
-	
+	/*add handler for suspend interrupt*/
 	result = ipa_add_interrupt_handler(IPA_TX_SUSPEND_IRQ,
 			ipa_suspend_handler, true, NULL);
 	if (result) {
@@ -3173,7 +3173,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 
 	if (ipa_ctx->use_ipa_teth_bridge) {
-		
+		/* Initialize the tethering bridge driver */
 		result = teth_bridge_driver_init();
 		if (result) {
 			IPAERR(":teth_bridge init failed (%d)\n", -result);
@@ -3272,7 +3272,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	int result;
 	struct resource *resource;
 
-	
+	/* initialize ipa_res */
 	ipa_drv_res->ipa_pipe_mem_start_ofst = IPA_PIPE_MEM_START_OFST;
 	ipa_drv_res->ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;
 	ipa_drv_res->ipa_hw_type = 0;
@@ -3280,7 +3280,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_bam_remote_mode = false;
 	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 
-	
+	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
 					&ipa_drv_res->ipa_hw_type);
 	if ((result) || (ipa_drv_res->ipa_hw_type == 0)) {
@@ -3289,7 +3289,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	}
 	IPADBG(": ipa_hw_type = %d", ipa_drv_res->ipa_hw_type);
 
-	
+	/* Get IPA HW mode */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-mode",
 			&ipa_drv_res->ipa_hw_mode);
 	if (result)
@@ -3298,7 +3298,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		IPADBG(": found ipa_drv_res->ipa_hw_mode = %d",
 				ipa_drv_res->ipa_hw_mode);
 
-	
+	/* Get IPA WAN RX pool sizee */
 	result = of_property_read_u32(pdev->dev.of_node,
 			"qcom,wan-rx-ring-size",
 			&ipa_drv_res->wan_rx_ring_size);
@@ -3322,7 +3322,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			ipa_drv_res->ipa_bam_remote_mode
 			? "True" : "False");
 
-	
+	/* Get IPA wrapper address */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 			"ipa-base");
 	if (!resource) {
@@ -3336,7 +3336,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 				ipa_drv_res->ipa_mem_size);
 	}
 
-	
+	/* Get IPA BAM address */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 			"bam-base");
 	if (!resource) {
@@ -3350,7 +3350,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 				ipa_drv_res->bam_mem_size);
 	}
 
-	
+	/* Get IPA pipe mem start ofst */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 			"ipa-pipe-mem");
 	if (!resource) {
@@ -3363,7 +3363,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 				ipa_drv_res->ipa_pipe_mem_size);
 	}
 
-	
+	/* Get IPA IRQ number */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
 			"ipa-irq");
 	if (!resource) {
@@ -3374,7 +3374,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		IPADBG(":ipa-irq = %d\n", ipa_drv_res->ipa_irq);
 	}
 
-	
+	/* Get IPA BAM IRQ number */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
 			"bam-irq");
 	if (!resource) {
@@ -3411,7 +3411,7 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 		return -EOPNOTSUPP;
 	}
 
-	
+	/* Proceed to real initialization */
 	result = ipa_init(&ipa_res, pdev_p);
 	if (result) {
 		IPAERR("ipa_init failed\n");
@@ -3477,7 +3477,7 @@ static int __init ipa_module_init(void)
 {
 	IPADBG("IPA module init\n");
 
-	
+	/* Register as a platform device driver */
 	return platform_driver_register(&ipa_plat_drv);
 }
 subsys_initcall(ipa_module_init);

@@ -103,4 +103,4 @@ extern int __close_fd(struct files_struct *files,
 
 extern struct kmem_cache *files_cachep;
 
-#endif 
+#endif /* __LINUX_FDTABLE_H */

@@ -307,7 +307,7 @@ static int32_t __init msm_buf_mngr_init(void)
 		pr_err("%s: not enough memory", __func__);
 		return -ENOMEM;
 	}
-	
+	/* Sub-dev */
 	v4l2_subdev_init(&msm_buf_mngr_dev->subdev.sd,
 		&msm_buf_mngr_subdev_ops);
 

@@ -83,7 +83,7 @@ int evaluate_cond_node(struct policydb *p, struct cond_node *node)
 		node->cur_state = new_state;
 		if (new_state == -1)
 			printk(KERN_ERR "SELinux: expression result was undefined - disabling all rules.\n");
-		
+		/* turn the rules on or off */
 		for (cur = node->true_list; cur; cur = cur->next) {
 			if (new_state <= 0)
 				cur->node->key.specified &= ~AVTAB_ENABLED;
@@ -92,7 +92,7 @@ int evaluate_cond_node(struct policydb *p, struct cond_node *node)
 		}
 
 		for (cur = node->false_list; cur; cur = cur->next) {
-			
+			/* -1 or 1 */
 			if (new_state)
 				cur->node->key.specified &= ~AVTAB_ENABLED;
 			else
@@ -121,7 +121,7 @@ static void cond_av_list_destroy(struct cond_av_list *list)
 	struct cond_av_list *cur, *next;
 	for (cur = list; cur; cur = next) {
 		next = cur->next;
-		
+		/* the avtab_ptr_t node is destroy by the avtab */
 		kfree(cur);
 	}
 }
@@ -387,7 +387,7 @@ static int cond_read_node(struct policydb *p, struct cond_node *node, void *fp)
 	if (rc)
 		return rc;
 
-	
+	/* expr */
 	len = le32_to_cpu(buf[0]);
 
 	for (i = 0; i < len; i++) {

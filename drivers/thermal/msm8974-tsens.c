@@ -1084,7 +1084,7 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 					tm->sensor[i].sensor_hw_num);
 		}
 	}
-	
+	/* debug */
 	idx = tmdev->tsens_thread_iq_dbg.idx;
 	tmdev->tsens_thread_iq_dbg.dbg_count[idx%10]++;
 	tmdev->tsens_thread_iq_dbg.time_stmp[idx%10] = sched_clock();
@@ -3203,7 +3203,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 		goto fail_tmdev;
 	}
 
-	
+	/* TSENS register region */
 	tmdev->res_tsens_mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "tsens_physical");
 	if (!tmdev->res_tsens_mem) {
@@ -3230,7 +3230,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 		goto fail_unmap_tsens_region;
 	}
 
-	
+	/* TSENS calibration region */
 	tmdev->res_calib_mem = platform_get_resource_byname(pdev,
 				IORESOURCE_MEM, "tsens_eeprom_physical");
 	if (!tmdev->res_calib_mem) {

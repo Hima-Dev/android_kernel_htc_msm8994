@@ -274,7 +274,7 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 
 	INIT_LIST_HEAD(&tx_pkt->link);
 	tx_pkt->type = desc->type;
-	tx_pkt->cnt = 1;    
+	tx_pkt->cnt = 1;    /* only 1 desc in this "set" */
 
 	tx_pkt->mem.phys_base = dma_address;
 	tx_pkt->mem.base = desc->pyld;
@@ -426,7 +426,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 
 		if (i == (num_desc - 1)) {
 			iovec->flags |= SPS_IOVEC_FLAG_EOT;
-			
+			/* "mark" the last desc */
 			tx_pkt->cnt = IPA_LAST_DESC_CNT;
 		}
 	}
@@ -452,7 +452,7 @@ failure:
 		tx_pkt = next_pkt;
 	}
 	if (i < num_desc)
-		
+		/* last desc failed */
 		if (fail_dma_wrap)
 			kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 	if (transfer.iovec_phys) {
@@ -856,7 +856,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		IPADBG("skipping ep configuration\n");
 	}
 
-	
+	/* Default Config */
 	ep->ep_hdl = sps_alloc_endpoint();
 	if (ep->ep_hdl == NULL) {
 		IPAERR("SPS EP allocation failed.\n");
@@ -869,7 +869,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		goto fail_sps_cfg;
 	}
 
-	
+	/* Specific Config */
 	if (IPA_CLIENT_IS_CONS(sys_in->client)) {
 		ep->connect.mode = SPS_MODE_SRC;
 		ep->connect.destination = SPS_DEV_HANDLE_MEM;
@@ -1096,7 +1096,7 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	}
 
 	if (dst_ep_idx != -1) {
-		
+		/* SW data path */
 		cmd = kzalloc(sizeof(struct ipa_ip_packet_init), GFP_ATOMIC);
 		if (!cmd) {
 			IPAERR("failed to alloc immediate command object\n");
@@ -1132,7 +1132,7 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		}
 		IPA_STATS_INC_CNT(ipa_ctx->stats.tx_sw_pkts);
 	} else {
-		
+		/* HW data path */
 		desc[0].pyld = skb->data;
 		desc[0].len = skb->len;
 		desc[0].type = IPA_DATA_DESC_SKB;
@@ -1386,7 +1386,20 @@ fail_kmem_cache_alloc:
 	return;
 }
 
-
+/**
+ * ipa_replenish_rx_cache() - Replenish the Rx packets cache.
+ *
+ * The function allocates buffers in the rx_pkt_wrapper_cache cache until there
+ * are IPA_RX_POOL_CEIL buffers in the cache.
+ *   - Allocate a buffer in the cache
+ *   - Initialized the packets link
+ *   - Initialize the packets work struct
+ *   - Allocate the packets socket buffer (skb)
+ *   - Fill the packets skb with data
+ *   - Make the packet DMAable
+ *   - Add the packet to the system pipe linked list
+ *   - Initiate a SPS transfer so that SPS driver will use this packet later.
+ */
 static void ipa_replenish_rx_cache(struct ipa_sys_context *sys)
 {
 	void *ptr;
@@ -1751,11 +1764,11 @@ begin:
 						IPA_PKT_STATUS_SIZE);
 				}
 			}
-			
+			/* TX comp */
 			ipa_wq_write_done_status(src_pipe);
 			IPADBG("tx comp imp for %d\n", src_pipe);
 		} else {
-			
+			/* TX comp */
 			ipa_wq_write_done_status(status->endp_src_idx);
 			IPADBG("tx comp exp for %d\n", status->endp_src_idx);
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
@@ -2361,7 +2374,7 @@ static void ipa_tx_client_rx_notify_release(void *user1, int user2)
 	atomic_inc(&ipa_ctx->ep[ep_idx].avail_fifo_desc);
 	ipa_ctx->ep[ep_idx].wstats.rx_pkts_status_rcvd++;
 
-  
+  /* wlan host driver waits till tx complete before unload */
 	IPADBG("ep=%d fifo_desc_free_count=%d\n",
 		ep_idx, atomic_read(&ipa_ctx->ep[ep_idx].avail_fifo_desc));
 	IPADBG("calling client notify callback with priv:%p\n",
@@ -2381,11 +2394,29 @@ static void ipa_tx_client_rx_pkt_status(void *user1, int user2)
 	ipa_ctx->ep[ep_idx].wstats.rx_pkts_status_rcvd++;
 }
 
-
+/**
+ * ipa_tx_dp_mul() - Data-path tx handler for multiple packets
+ * @src: [in] - Client that is sending data
+ * @ipa_tx_data_desc:	[in] data descriptors from wlan
+ *
+ * this is used for to transfer data descriptors that received
+ * from WLAN1_PROD pipe to IPA HW
+ *
+ * The function will send data descriptors from WLAN1_PROD (one
+ * at a time) using sps_transfer_one. Will set EOT flag for last
+ * descriptor Once this send was done from SPS point-of-view the
+ * IPA driver will get notified by the supplied callback -
+ * ipa_sps_irq_tx_no_aggr_notify()
+ *
+ * ipa_sps_irq_tx_no_aggr_notify will call to the user supplied
+ * callback (from ipa_connect)
+ *
+ * Returns:	0 on success, negative on failure
+ */
 int ipa_tx_dp_mul(enum ipa_client_type src,
 			struct ipa_tx_data_desc *data_desc)
 {
-	
+	/* The second byte in wlan header holds qmap id */
 #define IPA_WLAN_HDR_QMAP_ID_OFFSET 1
 	struct ipa_tx_data_desc *entry;
 	struct ipa_sys_context *sys;
@@ -2411,7 +2442,7 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 	}
 	sys->ep->wstats.rx_hd_rcvd++;
 
-	
+	/* Calculate the number of descriptors */
 	num_desc = 0;
 	list_for_each_entry(entry, &data_desc->link, link) {
 		num_desc++;
@@ -2423,7 +2454,7 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 		goto fail_send;
 	}
 
-	
+	/* Assign callback only for last data descriptor */
 	cnt = 0;
 	list_for_each_entry(entry, &data_desc->link, link) {
 		IPADBG("Parsing data desc :%d\n", cnt);
@@ -2438,7 +2469,7 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 		IPADBG("priv:%p pyld_buf:0x%p pyld_len:%d\n",
 			entry->priv, desc.pyld, desc.len);
 
-		
+		/* In case of last descriptor populate callback */
 		if (cnt == num_desc) {
 			IPADBG("data desc:%p\n", data_desc);
 			desc.callback = ipa_tx_client_rx_notify_release;

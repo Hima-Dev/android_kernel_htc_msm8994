@@ -161,7 +161,7 @@ static size_t snd_compr_calc_avail(struct snd_compr_stream *stream,
 {
 	memset(avail, 0, sizeof(*avail));
 	snd_compr_update_tstamp(stream, &avail->tstamp);
-	
+	/* Still need to return avail even if tstamp can't be filled in */
 
 	if (stream->runtime->total_bytes_available == 0 &&
 			stream->runtime->state == SNDRV_PCM_STATE_SETUP &&
@@ -220,7 +220,7 @@ static int snd_compr_write_data(struct snd_compr_stream *stream,
 	void *dstn;
 	size_t copy;
 	struct snd_compr_runtime *runtime = stream->runtime;
-	
+	/* 64-bit Modulus */
 	u64 app_pointer = div64_u64(runtime->total_bytes_available,
 				    runtime->buffer_size);
 	app_pointer = runtime->total_bytes_available -
@@ -258,7 +258,7 @@ static ssize_t snd_compr_write(struct file *f, const char __user *buf,
 
 	stream = &data->stream;
 	mutex_lock(&stream->device->lock);
-	
+	/* write is allowed when stream is running or has been steup */
 	if (stream->runtime->state != SNDRV_PCM_STATE_SETUP &&
 			stream->runtime->state != SNDRV_PCM_STATE_RUNNING) {
 		mutex_unlock(&stream->device->lock);
@@ -267,7 +267,7 @@ static ssize_t snd_compr_write(struct file *f, const char __user *buf,
 
 	avail = snd_compr_get_avail(stream);
 	pr_debug("avail returned %zu\n", avail);
-	
+	/* calculate how much we can write to buffer */
 	if (avail > count)
 		avail = count;
 
@@ -316,7 +316,7 @@ static ssize_t snd_compr_read(struct file *f, char __user *buf,
 
 	avail = snd_compr_get_avail(stream);
 	pr_debug("avail returned %zu\n", avail);
-	
+	/* calculate how much we can read from buffer */
 	if (avail > count)
 		avail = count;
 
@@ -460,12 +460,12 @@ static int snd_compr_allocate_buffer(struct snd_compr_stream *stream,
 
 static int snd_compress_check_input(struct snd_compr_params *params)
 {
-	
+	/* first let's check the buffer parameter's */
 	if (params->buffer.fragment_size == 0 ||
 			params->buffer.fragments > SIZE_MAX / params->buffer.fragment_size)
 		return -EINVAL;
 
-	
+	/* now codec parameters */
 	if (params->codec.id == 0 || params->codec.id > SND_AUDIOCODEC_MAX)
 		return -EINVAL;
 
@@ -703,7 +703,7 @@ static int snd_compr_partial_drain(struct snd_compr_stream *stream)
 		return -EPERM;
 	}
 	mutex_unlock(&stream->device->lock);
-	
+	/* stream can be drained only when next track has been signalled */
 	if (stream->next_track == false)
 		return -EPERM;
 
@@ -890,7 +890,7 @@ static int snd_compress_dev_register(struct snd_device *device)
 	snprintf(str, sizeof(str), "comprC%iD%i", compr->card->number, compr->device); 
 	pr_debug("reg %s for device %s, direction %d\n", str, compr->name,
 			compr->direction);
-	
+	/* register compressed device */
 	ret = snd_register_device(SNDRV_DEVICE_TYPE_COMPRESS, compr->card,
 			compr->device, &snd_compr_file_ops, compr, str);
 	if (ret < 0) {
@@ -940,7 +940,7 @@ static int snd_compress_add_device(struct snd_compr *device)
 	if (!device->card)
 		return -EINVAL;
 
-	
+	/* register the card */
 	ret = snd_card_register(device->card);
 	if (ret)
 		goto out;
@@ -976,7 +976,7 @@ int snd_compress_register(struct snd_compr *device)
 
 	mutex_init(&device->lock);
 
-	
+	/* register a compressed card */
 	mutex_lock(&device_mutex);
 	retval = snd_compress_add_device(device);
 	mutex_unlock(&device_mutex);

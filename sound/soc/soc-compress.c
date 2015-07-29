@@ -122,14 +122,14 @@ static int soc_compr_open_fe(struct snd_compr_stream *cstream)
 			fe->dai_link->name, stream ? "capture" : "playback");
 	}
 
-	
+	/* calculate valid and active FE <-> BE dpcms */
 	dpcm_process_paths(fe, stream, &list, 1);
 
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
 
 	ret = dpcm_be_dai_startup(fe, stream);
 	if (ret < 0) {
-		
+		/* clean up all links */
 		list_for_each_entry(dpcm, &fe->dpcm[stream].be_clients, list_be)
 			dpcm->state = SND_SOC_DPCM_LINK_STATE_FREE;
 
@@ -185,7 +185,7 @@ static void close_delayed_work(struct work_struct *work)
 		 codec_dai->playback_active ? "active" : "inactive",
 		 rtd->pop_wait ? "yes" : "no");
 
-	
+	/* are we waiting on this codec DAI stream */
 	if (rtd->pop_wait == 1) {
 		rtd->pop_wait = 0;
 		snd_soc_dapm_stream_event(rtd, SNDRV_PCM_STREAM_PLAYBACK,
@@ -245,7 +245,7 @@ static int soc_compr_free(struct snd_compr_stream *cstream)
 				msecs_to_jiffies(rtd->pmdown_time));
 		}
 	} else {
-		
+		/* capture streams can be powered down now */
 		snd_soc_dapm_stream_event(rtd,
 			SNDRV_PCM_STREAM_CAPTURE,
 			SND_SOC_DAPM_STREAM_STOP);
@@ -294,7 +294,7 @@ static int soc_compr_free_fe(struct snd_compr_stream *cstream)
 
 	ret = dpcm_be_dai_shutdown(fe, stream);
 
-	
+	/* mark FE's links ready to prune */
 	list_for_each_entry(dpcm, &fe->dpcm[stream].be_clients, list_be)
 		dpcm->state = SND_SOC_DPCM_LINK_STATE_FREE;
 
@@ -312,7 +312,7 @@ static int soc_compr_free_fe(struct snd_compr_stream *cstream)
 
 	if (platform->driver->compr_ops && platform->driver->compr_ops->free)
 		platform->driver->compr_ops->free(cstream);
-	
+	/*cpu_dai->runtime = NULL;*/
 
 	mutex_unlock(&fe->card->mutex);
 	return 0;
@@ -436,7 +436,7 @@ static int soc_compr_set_params(struct snd_compr_stream *cstream,
 		snd_soc_dapm_stream_event(rtd, SNDRV_PCM_STREAM_CAPTURE,
 					SND_SOC_DAPM_STREAM_START);
 
-	
+	/* cancel any delayed stream shutdown that is pending */
 	rtd->pop_wait = 0;
 	mutex_unlock(&rtd->pcm_mutex);
 
@@ -709,7 +709,7 @@ static int soc_compr_config_effect(struct snd_compr_stream *cstream, void *data,
        ret = platform->driver->compr_ops->config_effect(cstream, data, payload);
    return ret;
 }
-
+/* ASoC Compress operations */
 static struct snd_compr_ops soc_compr_ops = {
 	.open		= soc_compr_open,
 	.free		= soc_compr_free,
@@ -751,7 +751,7 @@ int soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num)
 	char new_name[64];
 	int ret = 0, direction = 0;
 
-	
+	/* check client and interface hw capabilities */
 	snprintf(new_name, sizeof(new_name), "%s %s-%d",
 			rtd->dai_link->stream_name, codec_dai->name, num);
 
@@ -809,7 +809,7 @@ int soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num)
 		goto compr_err;
 	}
 
-	
+	/* DAPM dai link stream work */
 	INIT_DELAYED_WORK(&rtd->delayed_work, close_delayed_work);
 
 	rtd->compr = compr;

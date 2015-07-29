@@ -233,7 +233,7 @@ SYSCALL_DEFINE4(sync_file_range, int, fd, loff_t, offset, loff_t, nbytes,
 	if (nbytes == 0)
 		endbyte = LLONG_MAX;
 	else
-		endbyte--;		
+		endbyte--;		/* inclusive */
 
 	ret = -EBADF;
 	f = fdget(fd);

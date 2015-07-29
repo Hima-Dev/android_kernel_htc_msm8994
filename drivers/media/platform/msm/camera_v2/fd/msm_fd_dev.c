@@ -272,11 +272,11 @@ static int msm_fd_open(struct file *file)
 
 	ctx->fd_device = device;
 
-	
+	/* Initialize work buffer handler */
 	ctx->work_buf.pool = NULL;
 	ctx->work_buf.fd = -1;
 
-	
+	/* Set ctx defaults */
 	ctx->settings.speed = ctx->fd_device->clk_rates_num;
 	ctx->settings.angle_index = MSM_FD_DEF_ANGLE_IDX;
 	ctx->settings.direction_index = MSM_FD_DEF_DIR_IDX;
@@ -530,7 +530,7 @@ static int msm_fd_s_fmt_vid_out(struct file *file,
 	ctx->format.bytesperline = f->fmt.pix.bytesperline;
 	ctx->format.sizeimage = f->fmt.pix.sizeimage;
 
-	
+	/* Initialize crop */
 	ctx->format.crop.top = 0;
 	ctx->format.crop.left = 0;
 	ctx->format.crop.width = fd_size[index].width;
@@ -848,7 +848,7 @@ static int msm_fd_s_crop(struct file *file, void *fh,
 		return -EINVAL;
 	}
 
-	
+	/* First check that crop is valid */
 	min_face_size = msm_fd_min_size[ctx->settings.min_size_index];
 
 	if (crop->c.width < min_face_size || crop->c.height < min_face_size)
@@ -928,34 +928,34 @@ static void msm_fd_wq_handler(struct work_struct *work)
 
 	active_buf = msm_fd_hw_get_active_buffer(fd);
 	if (!active_buf) {
-		
+		/* This should never happen, something completely wrong */
 		dev_err(fd->dev, "Oops no active buffer empty queue\n");
 		return;
 	}
 	ctx = vb2_get_drv_priv(active_buf->vb.vb2_queue);
 
-	
+	/* Increment sequence number, 0 means sequence is not valid */
 	ctx->sequence++;
 	if (unlikely(!ctx->sequence))
 		ctx->sequence = 1;
 
-	
+	/* Fill face detection statistics */
 	stats = &ctx->stats[ctx->sequence % MSM_FD_MAX_RESULT_BUFS];
 
-	
+	/* First mark stats as invalid */
 	atomic_set(&stats->frame_id, 0);
 
 	stats->face_cnt = msm_fd_hw_get_face_count(fd);
 	for (i = 0; i < stats->face_cnt; i++)
 		msm_fd_fill_results(fd, &stats->face_data[i], i);
 
-	
+	/* Stats are ready, set correct frame id */
 	atomic_set(&stats->frame_id, ctx->sequence);
 
-	
+	/* We have the data from fd hw, we can start next processing */
 	msm_fd_hw_schedule_next_buffer(fd);
 
-	
+	/* Sent event */
 	memset(&event, 0x00, sizeof(event));
 	event.type = MSM_EVENT_FD;
 	fd_event = (struct msm_fd_event *)event.u.data;
@@ -998,7 +998,7 @@ static int fd_probe(struct platform_device *pdev)
 	spin_lock_init(&fd->slock);
 	fd->dev = &pdev->dev;
 
-	
+	/* Get resources */
 	ret = msm_fd_hw_get_mem_resources(pdev, fd);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Fail get resources\n");
@@ -1049,7 +1049,7 @@ static int fd_probe(struct platform_device *pdev)
 	INIT_WORK(&fd->work, msm_fd_wq_handler);
 	INIT_LIST_HEAD(&fd->buf_queue);
 
-	
+	/* v4l2 device */
 	ret = v4l2_device_register(&pdev->dev, &fd->v4l2_dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to register v4l2 device\n");

@@ -799,12 +799,12 @@ static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 
 	udelay(labibb->lab_vreg.soft_start);
 
-	
+	/* total delay time */
 	dly = labibb->lab_vreg.soft_start + labibb->ibb_vreg.soft_start
 				+ labibb->ibb_vreg.pwrup_dly;
 	usleep_range(dly, dly + 100);
 
-	
+	/* after this delay, lab should be enabled */
 	rc = qpnp_labibb_read(labibb, &val,
 			labibb->lab_base + REG_LAB_STATUS1, 1);
 	if (rc) {
@@ -822,7 +822,7 @@ static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 		goto err_out;
 	}
 
-	
+	/* poll IBB_STATUS to make sure ibb had been enabled */
 	dly = labibb->ibb_vreg.soft_start + labibb->ibb_vreg.pwrup_dly;
 	retries = 10;
 	while (retries--) {
@@ -877,7 +877,7 @@ static int qpnp_labibb_regulator_disable(struct qpnp_labibb *labibb)
 		return rc;
 	}
 
-	
+	/* poll IBB_STATUS to make sure ibb had been disabled */
 	dly = labibb->ibb_vreg.pwrdn_dly;
 	retries = 2;
 	while (retries--) {

@@ -102,12 +102,12 @@ enum cpp_iommu_state {
 };
 
 enum msm_queue {
-	MSM_CAM_Q_CTRL,     
-	MSM_CAM_Q_VFE_EVT,  
-	MSM_CAM_Q_VFE_MSG,  
-	MSM_CAM_Q_V4L2_REQ, 
-	MSM_CAM_Q_VPE_MSG,  
-	MSM_CAM_Q_PP_MSG,  
+	MSM_CAM_Q_CTRL,     /* control command or control command status */
+	MSM_CAM_Q_VFE_EVT,  /* adsp event */
+	MSM_CAM_Q_VFE_MSG,  /* adsp message */
+	MSM_CAM_Q_V4L2_REQ, /* v4l2 request */
+	MSM_CAM_Q_VPE_MSG,  /* vpe message */
+	MSM_CAM_Q_PP_MSG,  /* pp message */
 };
 
 struct msm_queue_cmd {
@@ -201,7 +201,7 @@ struct cpp_device {
 	uint32_t num_clk;
 	uint32_t min_clk_rate;
 
-	
+	/* Reusing proven tasklet from msm isp */
 	atomic_t irq_cnt;
 	uint8_t taskletq_idx;
 	spinlock_t  tasklet_lock;
@@ -222,4 +222,4 @@ struct cpp_device {
 	uint32_t num_buffq;
 	struct v4l2_subdev *buf_mgr_subdev;
 };
-#endif 
+#endif /* __MSM_CPP_H__ */

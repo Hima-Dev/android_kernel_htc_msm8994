@@ -33,7 +33,7 @@ struct persistent_ram_buffer {
 	uint8_t     data[0];
 };
 
-#define PERSISTENT_RAM_SIG (0x43474244) 
+#define PERSISTENT_RAM_SIG (0x43474244) /* DBGC */
 
 static inline size_t buffer_size(struct persistent_ram_zone *prz)
 {
@@ -82,7 +82,7 @@ static void notrace persistent_ram_encode_rs8(struct persistent_ram_zone *prz,
 	int i;
 	uint16_t par[prz->ecc_info.ecc_size];
 
-	
+	/* Initialize the parity buffer */
 	memset(par, 0, sizeof(par));
 	encode_rs8(prz->rs_decoder, data, len, par, 0);
 	for (i = 0; i < prz->ecc_info.ecc_size; i++)

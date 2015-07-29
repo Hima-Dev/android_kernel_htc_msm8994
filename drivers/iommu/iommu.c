@@ -494,7 +494,7 @@ int bus_set_iommu(struct bus_type *bus, struct iommu_ops *ops)
 
 	bus->iommu_ops = ops;
 
-	
+	/* Do IOMMU specific setup for this bus-type */
 	iommu_bus_init(bus, ops);
 
 	return 0;
@@ -649,27 +649,27 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 		unsigned long pgsize, addr_merge = iova | paddr;
 		unsigned int pgsize_idx;
 
-		
+		/* Max page size that still fits into 'size' */
 		pgsize_idx = __fls(size);
 
-		
+		/* need to consider alignment requirements ? */
 		if (likely(addr_merge)) {
-			
+			/* Max page size allowed by both iova and paddr */
 			unsigned int align_pgsize_idx = __ffs(addr_merge);
 
 			pgsize_idx = min(pgsize_idx, align_pgsize_idx);
 		}
 
-		
+		/* build a mask of acceptable page sizes */
 		pgsize = (1UL << (pgsize_idx + 1)) - 1;
 
-		
+		/* throw away page sizes not supported by the hardware */
 		pgsize &= domain->ops->pgsize_bitmap;
 
-		
+		/* make sure we're still sane */
 		BUG_ON(!pgsize);
 
-		
+		/* pick the biggest page */
 		pgsize_idx = __fls(pgsize);
 		pgsize = 1UL << pgsize_idx;
 
@@ -685,7 +685,7 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 		size -= pgsize;
 	}
 
-	
+	/* unroll mapping in case something went wrong */
 	if (ret)
 		iommu_unmap(domain, orig_iova, orig_size - size);
 

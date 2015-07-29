@@ -218,7 +218,7 @@ static enum hrtimer_restart row_idle_hrtimer_fn(struct hrtimer *hr_timer)
 
 	row_log_rowq(rd, rd->rd_idle_data.idling_queue_idx,
 			 "Performing delayed work");
-	
+	/* Mark idling process as done */
 	rd->row_queues[rd->rd_idle_data.idling_queue_idx].
 			idle_data.begin_idling = false;
 	rd->rd_idle_data.idling_queue_idx = ROWQ_MAX_PRIO;
@@ -263,7 +263,7 @@ static void row_add_request(struct request_queue *q,
 	list_add_tail(&rq->queuelist, &rqueue->fifo);
 	rd->nr_reqs[rq_data_dir(rq)]++;
 	rqueue->nr_req++;
-	rq_set_fifo_time(rq, jiffies); 
+	rq_set_fifo_time(rq, jiffies); /* for statistics*/
 
 	if (rq->cmd_flags & REQ_URGENT) {
 		WARN_ON(1);
@@ -304,7 +304,7 @@ static void row_add_request(struct request_queue *q,
 	}
 	if (row_queues_def[rqueue->prio].is_urgent &&
 	    !rd->pending_urgent_rq && !rd->urgent_in_flight) {
-		
+		/* Handle High Priority queues */
 		if (rqueue->prio < ROWQ_REG_PRIO_IDX &&
 		    rd->last_served_ioprio_class != IOPRIO_CLASS_RT &&
 		    queue_was_empty) {
@@ -313,7 +313,7 @@ static void row_add_request(struct request_queue *q,
 			rq->cmd_flags |= REQ_URGENT;
 			rd->pending_urgent_rq = rq;
 		} else  if (row_rowq_unserved(rd, rqueue->prio)) {
-			
+			/* Handle Regular priotity queues */
 			row_log_rowq(rd, rqueue->prio,
 				"added urgent request (total on queue=%d)",
 				rqueue->nr_req);
@@ -455,7 +455,7 @@ static int row_get_ioprio_class_to_serve(struct row_data *rd, int force)
 		goto check_idling;
 	}
 
-	
+	/* First, go over the high priority queues */
 	for (i = 0; i < ROWQ_REG_PRIO_IDX; i++) {
 		if (!list_empty(&rd->row_queues[i].fifo)) {
 			if (hrtimer_active(&rd->rd_idle_data.hr_timer)) {
@@ -566,7 +566,7 @@ static int row_get_next_queue(struct request_queue *q, struct row_data *rd,
 
 			i++;
 			if (i == end_idx && restart) {
-				
+				/* Restart cycle for this priority class */
 				row_restart_cycle(rd, start_idx, end_idx);
 				i = start_idx;
 				restart = false;
@@ -666,7 +666,7 @@ static int row_dispatch_requests(struct request_queue *q, int force)
 
 	currq = row_get_next_queue(q, rd, start_idx, end_idx);
 
-	
+	/* Dispatch */
 	if (currq >= 0) {
 		row_dispatch_insert(rd,
 			rq_entry_fifo(rd->row_queues[currq].fifo.next));

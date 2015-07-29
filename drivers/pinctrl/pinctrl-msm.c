@@ -128,7 +128,7 @@ static int msm_pmx_gpio_request(struct pinctrl_dev *pctldev,
 	dd = pinctrl_dev_get_drvdata(pctldev);
 	pindesc = dd->msm_pindesc;
 	pinfo = pindesc[pin].pin_info;
-	
+	/* All TLMM versions use function 0 for gpio function */
 	pinfo->prg_func(pin, 0, true, pinfo);
 	return 0;
 }
@@ -238,9 +238,9 @@ static struct msm_pintype_info *msm_pgrp_to_pintype(struct device_node *nd,
 	struct msm_pintype_info *pinfo = NULL;
 	int idx = 0;
 
-	
+	/*Extract pin type node from parent node */
 	ptype_nd = of_parse_phandle(nd, "qcom,pins", 0);
-	
+	/* find the pin type info for this pin type node */
 	for (idx = 0; idx < dd->num_pintypes; idx++) {
 		pinfo = &dd->msm_pintype[idx];
 		if (ptype_nd == pinfo->node) {
@@ -283,27 +283,27 @@ static int msm_dt_node_to_map(struct pinctrl_dev *pctldev,
 
 	map_cnt = cfg_cnt + func_cnt;
 
-	
+	/* Allocate memory for pin-map entries */
 	map = kzalloc(sizeof(*map) * map_cnt, GFP_KERNEL);
 	if (!map)
 		return -ENOMEM;
 	*nmaps = 0;
 
-	
+	/* Get group name from node */
 	of_property_read_string(parent, "label", &grp_name);
-	
+	/* create the config map entry */
 	map[*nmaps].data.configs.group_or_pin = grp_name;
 	map[*nmaps].data.configs.configs = cfg;
 	map[*nmaps].data.configs.num_configs = cfg_cnt;
 	map[*nmaps].type = PIN_MAP_TYPE_CONFIGS_GROUP;
 	*nmaps += 1;
 
-	
+	/* If there is no function specified in device tree return */
 	if (func_cnt == 0) {
 		*maps = map;
 		goto no_func;
 	}
-	
+	/* Get function mapping */
 	of_property_read_u32(parent, "qcom,pin-func", &val);
 	fn_name = kzalloc(strlen(grp_name) + strlen("-func"),
 						GFP_KERNEL);
@@ -469,7 +469,7 @@ static int msm_pinctrl_dt_parse_pins(struct device_node *dev_node,
 		curr_grp->num_pins = num_pins;
 		curr_grp->name = grp_name;
 		grp_index++;
-		
+		/* Check if func specified */
 		if (!of_find_property(pgrp_np, "qcom,pin-func", NULL))
 			continue;
 		curr_func = pmx_funcs + func_index;
@@ -568,14 +568,14 @@ static int msm_pinctrl_dt_parse_pintype(struct device_node *dev_node,
 				continue;
 			of_node_get(pt_node);
 			pintype->node = pt_node;
-			
+			/* determine number of pins of given pin type */
 			ret = of_property_read_u32(pt_node, "qcom,num-pins",
 								&num_pins);
 			if (ret) {
 				dev_err(dd->dev, "num pins not specified\n");
 				goto fail;
 			}
-			
+			/* determine pin number range for given pin type */
 			pintype->num_pins = num_pins;
 			pintype->pin_start = curr_pins;
 			pintype->pin_end = curr_pins + num_pins;

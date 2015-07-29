@@ -116,13 +116,13 @@ static ssize_t cpu_release_store(struct device *dev,
 
 static DEVICE_ATTR(probe, S_IWUSR, NULL, cpu_probe_store);
 static DEVICE_ATTR(release, S_IWUSR, NULL, cpu_release_store);
-#endif 
+#endif /* CONFIG_ARCH_CPU_PROBE_RELEASE */
 
-#else 
+#else /* ... !CONFIG_HOTPLUG_CPU */
 static inline void register_cpu_control(struct cpu *cpu)
 {
 }
-#endif 
+#endif /* CONFIG_HOTPLUG_CPU */
 
 #ifdef CONFIG_KEXEC
 #include <linux/kexec.h>
@@ -391,14 +391,14 @@ static ssize_t print_cpus_offline(struct device *dev,
 	int n = 0, len = PAGE_SIZE-2;
 	cpumask_var_t offline;
 
-	
+	/* display offline cpus < nr_cpu_ids */
 	if (!alloc_cpumask_var(&offline, GFP_KERNEL))
 		return -ENOMEM;
 	cpumask_andnot(offline, cpu_possible_mask, cpu_online_mask);
 	n = cpulist_scnprintf(buf, len, offline);
 	free_cpumask_var(offline);
 
-	
+	/* display offline cpus >= nr_cpu_ids */
 	if (total_cpus && nr_cpu_ids < total_cpus) {
 		if (n && n < len)
 			buf[n++] = ',';

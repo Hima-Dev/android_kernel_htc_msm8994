@@ -481,7 +481,7 @@ struct usb_gadget_driver {
 	void			(*suspend)(struct usb_gadget *);
 	void			(*resume)(struct usb_gadget *);
 
-	
+	/* FIXME support safe rmmod */
 	struct device_driver	driver;
 
 	u8			usb_core_id;
@@ -577,4 +577,4 @@ extern struct usb_ep *usb_ep_autoconfig_ss(struct usb_gadget *,
 
 extern void usb_ep_autoconfig_reset(struct usb_gadget *);
 
-#endif 
+#endif /* __LINUX_USB_GADGET_H */
