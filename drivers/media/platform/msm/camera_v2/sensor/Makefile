@@ -9,3 +9,14 @@ obj-$(CONFIG_MT9M114) += mt9m114.o
 obj-$(CONFIG_OV5645) += ov5645.o
 obj-$(CONFIG_OV5645) += ov7695.o
 obj-$(CONFIG_GC0310) += gc0310.o
+obj-$(CONFIG_T4KA7) += t4ka7.o
+obj-$(CONFIG_IMX220) += imx220.o
+obj-$(CONFIG_VD6869) += vd6869.o
+obj-$(CONFIG_OV13850_FRONT) += ov13850_front.o
+obj-$(CONFIG_OV4688_FRONT) += ov4688_front.o
+#obj-$(CONFIG_OV2722) += ov2722.o
+obj-$(CONFIG_OV2722) += ov2722-subcam.o
+#HTC_CAMERA+
+#obj-$(CONFIG_ARCH_MSM8994) += htc_awb_cal.o
+obj-y += htc_awb_cal.o
+#HTC_CAMERA-
