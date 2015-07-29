@@ -51,8 +51,6 @@ struct debug_bus {
 	u32 test_id;
 };
 
-void mdss_dump_debug_bus(void);
-
 #define MDSS_XLOG(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_DEFAULT, \
 		##__VA_ARGS__, DATA_LIMITER)
 

@@ -26,6 +26,14 @@
 #include "msm-pcm-routing-v2.h"
 #include <sound/audio_cal_utils.h>
 
+#define klocwork_check_q6audio_get_port_index(index) {\
+	if (index < 0 || index > AFE_MAX_PORTS) {\
+		pr_err("%s: AFE port index[%d] invalid!\n",\
+				__func__, index);\
+		return -EINVAL;\
+	}\
+}
+
 #define WAKELOCK_TIMEOUT	5000
 enum {
 	AFE_COMMON_RX_CAL = 0,
