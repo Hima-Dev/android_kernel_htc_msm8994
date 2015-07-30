@@ -14,6 +14,11 @@
 #include <asm/div64.h>
 #include "msm_isp_util.h"
 #include "msm_isp_axi_util.h"
+#include <linux/time.h>
+#define SENSOR_ISP_MAX 2
+int g_subcam_SOF = 0;
+extern int g_subcam_vfe_intf;
+extern int g_subcam_no_ack;
 
 #define SRC_TO_INTF(src) \
 	((src < RDI_INTF_0 || src == VFE_AXI_SRC_MAX) ? VFE_PIX_0 : \
