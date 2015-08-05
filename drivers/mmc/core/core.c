@@ -1730,17 +1730,17 @@ u32 mmc_vddrange_to_ocrmask(int vdd_min, int vdd_max)
 	if (vdd_max < vdd_min)
 		return 0;
 
-	
+	/* Prefer high bits for the boundary vdd_max values. */
 	vdd_max = mmc_vdd_to_ocrbitnum(vdd_max, false);
 	if (vdd_max < 0)
 		return 0;
 
-	
+	/* Prefer low bits for the boundary vdd_min values. */
 	vdd_min = mmc_vdd_to_ocrbitnum(vdd_min, true);
 	if (vdd_min < 0)
 		return 0;
 
-	
+	/* Fill the mask, from max bit to min bit. */
 	while (vdd_max >= vdd_min)
 		mask |= 1 << vdd_max--;
 
@@ -1994,7 +1994,7 @@ void mmc_power_up(struct mmc_host *host)
 
 	mmc_host_clk_hold(host);
 
-	
+	/* If ocr is set, we use it */
 	if (host->ocr)
 		bit = ffs(host->ocr) - 1;
 	else
@@ -2409,7 +2409,7 @@ static int mmc_do_erase(struct mmc_card *card, unsigned int from,
 		cmd.opcode = MMC_SEND_STATUS;
 		cmd.arg = card->rca << 16;
 		cmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
-		
+		/* Do not retry else we can't see errors */
 		err = mmc_wait_for_cmd(card->host, &cmd, 0);
 		if (err || (cmd.resp[0] & 0xFDF92000)) {
 			pr_err("error %d requesting status %#x\n",
@@ -2500,7 +2500,7 @@ int mmc_erase(struct mmc_card *card, unsigned int from, unsigned int nr,
 	if (to <= from)
 		return -EINVAL;
 
-	
+	/* 'from' and 'to' are inclusive */
 	to -= 1;
 
 	return mmc_do_erase(card, from, to, arg);
@@ -2577,7 +2577,7 @@ static unsigned int mmc_do_calc_max_discard(struct mmc_card *card,
 	else
 		max_qty = UINT_MAX / card->erase_size;
 
-	
+	/* Find the largest qty with an OK timeout */
 	do {
 		y = 0;
 		for (x = 1; x && x <= max_qty && max_qty - x >= qty; x <<= 1) {
@@ -2598,7 +2598,22 @@ static unsigned int mmc_do_calc_max_discard(struct mmc_card *card,
 	if (qty == 1)
 		return 1;
 
-	
+	/*
+	 * qty is used to calculate the erase timeout which depends on how many
+	 * erase groups (or allocation units in SD terminology) are affected.
+	 * We count erasing part of an erase group as one erase group.
+	 * For SD, the allocation units are always a power of 2.  For MMC, the
+	 * erase group size is almost certainly also power of 2, but it does not
+	 * seem to insist on that in the JEDEC standard, so we fall back to
+	 * division in that case.  SD may not specify an allocation unit size,
+	 * in which case the timeout is based on the number of write blocks.
+	 *
+	 * Note that the timeout for secure trim 2 will only be correct if the
+	 * number of erase groups specified is the same as the total of all
+	 * preceding secure trim 1 commands.  Since the power may have been
+	 * lost since the secure trim 1 commands occurred, it is generally
+	 * impossible to calculate the secure trim 2 timeout correctly.
+	 */
 	if (card->erase_shift)
 		max_discard = --qty << card->erase_shift;
 	else if (mmc_card_sd(card))
@@ -2709,7 +2724,7 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 	else
 		mmc_power_cycle(host);
 
-	
+	/* If the reset has happened, then a status command will fail */
 	if (check) {
 		struct mmc_command cmd = {0};
 		int err;
@@ -2850,7 +2865,7 @@ static void mmc_clk_scale_work(struct work_struct *work)
 
 	mmc_rpm_hold(host, &host->card->dev);
 	if (!mmc_try_claim_host(host)) {
-		
+		/* retry after a timer tick */
 		queue_delayed_work(system_nrt_wq, &host->clk_scaling.work, 1);
 		goto out;
 	}
@@ -2925,7 +2940,7 @@ static int mmc_clk_update_freq(struct mmc_host *host,
 	}
 error:
 	if (err) {
-		
+		/* restore previous state */
 		if (host->ops->notify_load)
 			host->ops->notify_load(host, host->clk_scaling.state);
 	}
@@ -2950,7 +2965,7 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 		goto out;
 	}
 
-	
+	/* Check if the clocks are already gated. */
 	if (!host->ios.clock)
 		goto out;
 
@@ -2958,11 +2973,11 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 			msecs_to_jiffies(host->clk_scaling.polling_delay_ms)))
 		goto out;
 
-	
+	/* handle time wrap */
 	total_time_ms = jiffies_to_msecs((long)jiffies -
 			(long)host->clk_scaling.window_time);
 
-	
+	/* Check if we re-enter during clock switching */
 	if (unlikely(host->clk_scaling.in_progress))
 		goto out;
 
@@ -3172,7 +3187,7 @@ void mmc_rescan(struct work_struct *work)
 		return;
 	}
 
-	
+	/* If there is a non-removable card registered, only scan once */
 	if ((host->caps & MMC_CAP_NONREMOVABLE) && host->rescan_entered)
 		return;
 	host->rescan_entered = 1;
@@ -3266,12 +3281,12 @@ void mmc_stop_host(struct mmc_host *host)
 
 	mmc_flush_scheduled_work();
 
-	
+	/* clear pm flags now and let card drivers set them as needed */
 	host->pm_flags = 0;
 
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
-		
+		/* Calling bus_ops->remove() with a claimed host can deadlock */
 		if (host->bus_ops->remove)
 			host->bus_ops->remove(host);
 

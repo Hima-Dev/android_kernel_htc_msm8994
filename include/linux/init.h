@@ -206,7 +206,7 @@ void __init parse_early_options(char *cmdline);
 #define __INIT_OR_MODULE __INIT
 #define __INITDATA_OR_MODULE __INITDATA
 #define __INITRODATA_OR_MODULE __INITRODATA
-#endif 
+#endif /*CONFIG_MODULES*/
 
 #ifdef MODULE
 #define __exit_p(x) x
@@ -214,4 +214,4 @@ void __init parse_early_options(char *cmdline);
 #define __exit_p(x) NULL
 #endif
 
-#endif 
+#endif /* _LINUX_INIT_H */

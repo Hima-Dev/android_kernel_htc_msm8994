@@ -110,7 +110,7 @@ void __jbd2_log_wait_for_space(journal_t *journal)
 			if (chkpt) {
 				jbd2_log_do_checkpoint(journal);
 			} else if (jbd2_cleanup_journal_tail(journal) == 0) {
-				
+				/* We were able to recover space; yay! */
 				;
 			} else if (tid) {
 				jbd2_log_wait_commit(journal, tid);
@@ -153,7 +153,7 @@ static int __wait_cp_io(journal_t *journal, transaction_t *transaction)
 
 	this_tid = transaction->t_tid;
 restart:
-	
+	/* Did somebody clean up the transaction in the meanwhile? */
 	if (journal->j_checkpoint_transactions != transaction ||
 			transaction->t_tid != this_tid)
 		return ret;
@@ -164,7 +164,7 @@ restart:
 		if (buffer_locked(bh)) {
 			spin_unlock(&journal->j_list_lock);
 			wait_on_buffer(bh);
-			
+			/* the journal_head may have gone by now */
 			BUFFER_TRACE(bh, "brelse");
 			__brelse(bh);
 			spin_lock(&journal->j_list_lock);
@@ -222,7 +222,7 @@ static int __process_buffer(journal_t *journal, struct journal_head *jh,
 		get_bh(bh);
 		spin_unlock(&journal->j_list_lock);
 		wait_on_buffer(bh);
-		
+		/* the journal_head may have gone by now */
 		BUFFER_TRACE(bh, "brelse");
 		__brelse(bh);
 		ret = 1;
@@ -380,7 +380,15 @@ int jbd2_cleanup_journal_tail(journal_t *journal)
 	return 0;
 }
 
-
+/*
+ * We've finished with this transaction structure: adios...
+ *
+ * The transaction must have no links except for the checkpoint by this
+ * point.
+ *
+ * Called with the journal locked.
+ * Called with j_list_lock held.
+ */
 
 /*
  * journal_clean_one_cp_list
@@ -530,7 +538,7 @@ void __jbd2_journal_insert_checkpoint(struct journal_head *jh,
 	J_ASSERT_JH(jh, buffer_dirty(jh2bh(jh)) || buffer_jbddirty(jh2bh(jh)));
 	J_ASSERT_JH(jh, jh->b_cp_transaction == NULL);
 
-	
+	/* Get reference for checkpointing transaction */
 	jbd2_journal_grab_journal_head(jh2bh(jh));
 	jh->b_cp_transaction = transaction;
 

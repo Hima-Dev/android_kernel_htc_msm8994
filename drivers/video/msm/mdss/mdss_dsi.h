@@ -23,7 +23,7 @@
 #include "mdss_panel.h"
 #include "mdss_dsi_cmd.h"
 
-#define MMSS_SERDES_BASE_PHY 0x04f01000 
+#define MMSS_SERDES_BASE_PHY 0x04f01000 /* mmss (De)Serializer CFG */
 
 #define MIPI_OUTP(addr, data) writel_relaxed((data), (addr))
 #define MIPI_INP(addr) readl_relaxed(addr)
@@ -45,18 +45,18 @@
 #define MIPI_DSI_PANEL_720P_PT	8
 #define DSI_PANEL_MAX	8
 
-#define MDSS_DSI_HW_REV_100		0x10000000	
-#define MDSS_DSI_HW_REV_100_1		0x10000001	
-#define MDSS_DSI_HW_REV_100_2		0x10000002	
-#define MDSS_DSI_HW_REV_101		0x10010000	
-#define MDSS_DSI_HW_REV_101_1		0x10010001	
-#define MDSS_DSI_HW_REV_102		0x10020000	
-#define MDSS_DSI_HW_REV_103		0x10030000	
-#define MDSS_DSI_HW_REV_103_1		0x10030001	
+#define MDSS_DSI_HW_REV_100		0x10000000	/* 8974    */
+#define MDSS_DSI_HW_REV_100_1		0x10000001	/* 8x26    */
+#define MDSS_DSI_HW_REV_100_2		0x10000002	/* 8x26v2  */
+#define MDSS_DSI_HW_REV_101		0x10010000	/* 8974v2  */
+#define MDSS_DSI_HW_REV_101_1		0x10010001	/* 8974Pro */
+#define MDSS_DSI_HW_REV_102		0x10020000	/* 8084    */
+#define MDSS_DSI_HW_REV_103		0x10030000	/* 8994    */
+#define MDSS_DSI_HW_REV_103_1		0x10030001	/* 8916/8936 */
 
 #define NONE_PANEL "none"
 
-enum {		
+enum {		/* mipi dsi panel */
 	DSI_VIDEO_MODE,
 	DSI_CMD_MODE,
 };
@@ -203,8 +203,8 @@ struct dsiphy_pll_divider_config {
 	u32 clk_rate;
 	u32 fb_divider;
 	u32 ref_divider_ratio;
-	u32 bit_clk_divider;	
-	u32 byte_clk_divider;	
+	u32 bit_clk_divider;	/* oCLK1 */
+	u32 byte_clk_divider;	/* oCLK2 */
 	u32 analog_posDiv;
 	u32 digital_posDiv;
 };
@@ -314,7 +314,7 @@ enum BACKLIGHT_TO_BRIGHTNESS_HTC_V1 {
 #define DSI_EV_MDP_BUSY_RELEASE		0x80000000
 
 struct mdss_dsi_ctrl_pdata {
-	int ndx;	
+	int ndx;	/* panel_num */
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
 	int (*low_power_config) (struct mdss_panel_data *pdata, int enable);
@@ -355,7 +355,7 @@ struct mdss_dsi_ctrl_pdata {
 	int disp_en_gpio;
 	int bklt_en_gpio;
 	int mode_gpio;
-	int bklt_ctrl;	
+	int bklt_ctrl;	/* backlight ctrl */
 	bool pwm_pmi;
 	int pwm_period;
 	int pwm_pmic_gpio;
@@ -378,7 +378,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_drv_cm_data *shared_ctrl_data;
 	u32 pclk_rate;
 	u32 byte_clk_rate;
-	bool refresh_clk_rate; 
+	bool refresh_clk_rate; /* flag to recalculate clk_rate */
 	struct dss_module_power power_data[DSI_MAX_PM];
 	u32 dsi_irq_mask;
 	struct mdss_hw *dsi_hw;
@@ -407,8 +407,8 @@ struct mdss_dsi_ctrl_pdata {
 	int mdp_busy;
 	struct mutex mutex;
 	struct mutex cmd_mutex;
-	struct regulator *lab; 
-	struct regulator *ibb; 
+	struct regulator *lab; /* vreg handle */
+	struct regulator *ibb; /* vreg handle */
 	struct mutex clk_lane_mutex;
 
 	u32 ulps_clamp_ctrl_off;
@@ -657,4 +657,4 @@ static inline bool mdss_dsi_cmp_panel_reg(struct dsi_buf status_buf,
 	return status_buf.data[i] == status_val[i];
 }
 
-#endif 
+#endif /* MDSS_DSI_H */

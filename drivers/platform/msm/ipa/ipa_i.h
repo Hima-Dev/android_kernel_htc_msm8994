@@ -320,7 +320,7 @@ struct ipa_ep_context {
 	struct ipa_wlan_stats wstats;
 	u32 wdi_state;
 
-	
+	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
 };
 
@@ -670,7 +670,7 @@ struct ipa_context {
 	enum ipa_hw_mode ipa_hw_mode;
 	bool use_ipa_teth_bridge;
 	bool ipa_bam_remote_mode;
-	
+	/* featurize if memory footprint becomes a concern */
 	struct ipa_stats stats;
 	void *smem_pipe_mem;
 	u32 ipa_bus_hdl;
@@ -1012,4 +1012,4 @@ int ipa_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected);
 int ipa_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
-#endif 
+#endif /* _IPA_I_H_ */

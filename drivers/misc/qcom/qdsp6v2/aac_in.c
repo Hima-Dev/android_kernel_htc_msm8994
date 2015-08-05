@@ -46,7 +46,7 @@ static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 
 		enc_cfg = audio->enc_cfg;
 		aac_config = audio->codec_cfg;
-		
+		/* ENCODE CFG (after new set of API's are published )bharath*/
 		pr_debug("%s:session id %d: default buf alloc[%d]\n", __func__,
 				audio->ac->session, audio->buf_alloc);
 		if (audio->enabled == 1) {
@@ -376,7 +376,7 @@ struct msm_audio_aac_enc_config32 {
 struct msm_audio_aac_config32 {
 	s16 format;
 	u16 audio_object;
-	u16 ep_config;       
+	u16 ep_config;       /* 0 ~ 3 useful only obj = ERLC */
 	u16 aac_section_data_resilience_flag;
 	u16 aac_scalefactor_data_resilience_flag;
 	u16 aac_spectral_data_resilience_flag;
@@ -539,7 +539,7 @@ static int aac_in_open(struct inode *inode, struct file *file)
 				"driver\n", __func__);
 		return -ENOMEM;
 	}
-	
+	/* Allocate memory for encoder config param */
 	audio->enc_cfg = kzalloc(sizeof(struct msm_audio_aac_enc_config),
 				GFP_KERNEL);
 	if (audio->enc_cfg == NULL) {
@@ -575,7 +575,7 @@ static int aac_in_open(struct inode *inode, struct file *file)
 	enc_cfg->sample_rate = 8000;
 	enc_cfg->channels = 1;
 	enc_cfg->bit_rate = 16000;
-	enc_cfg->stream_format = 0x00;
+	enc_cfg->stream_format = 0x00;/* 0:ADTS, 3:RAW */
 	audio->buf_cfg.meta_info_enable = 0x01;
 	audio->buf_cfg.frames_per_buf   = 0x01;
 	audio->pcm_cfg.buffer_count = PCM_BUF_COUNT;
@@ -597,7 +597,7 @@ static int aac_in_open(struct inode *inode, struct file *file)
 		kfree(audio);
 		return -ENOMEM;
 	}
-	
+	/* open aac encoder in tunnel mode */
 	audio->buf_cfg.frames_per_buf = 0x01;
 
 	if ((file->f_mode & FMODE_WRITE) &&
@@ -626,7 +626,7 @@ static int aac_in_open(struct inode *inode, struct file *file)
 			rc = -ENODEV;
 			goto fail;
 		}
-		
+		/* register for tx overflow (valid for tunnel mode only) */
 		rc = q6asm_reg_tx_overflow(audio->ac, 0x01);
 		if (rc < 0) {
 			pr_err("%s:session id %d: TX Overflow registration"

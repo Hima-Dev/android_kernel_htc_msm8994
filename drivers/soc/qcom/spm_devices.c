@@ -268,13 +268,13 @@ int msm_spm_turn_on_cpu_rail(struct device_node *vctl_node,
 	if (dev && (dev->cpu_vdd != VDD_DEFAULT))
 		return 0;
 
-	
+	/* Set the CPU supply regulator voltage */
 	val = (val & 0xFF);
 	writel_relaxed(val, base + vctl_offset);
 	mb();
 	udelay(timeout);
 
-	
+	/* Enable the CPU supply regulator*/
 	val = 0x30080;
 	writel_relaxed(val, base + vctl_offset);
 	mb();
@@ -536,7 +536,7 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	if (!ret)
 		spm_data.vctl_timeout_us = val;
 
-	
+	/* SAW start address */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		ret = -EFAULT;
@@ -563,7 +563,7 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	key = "qcom,pfm-port";
 	of_property_read_u32(node, key, &spm_data.pfm_port);
 
-	
+	/* Q2S (QChannel-2-SPM) register */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) {
 		dev->q2s_reg = devm_ioremap(&pdev->dev, res->start,

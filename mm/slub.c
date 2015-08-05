@@ -351,7 +351,7 @@ static void set_track(struct kmem_cache *s, void *object,
 		trace.skip = 3;
 		save_stack_trace(&trace);
 
-		
+		/* See rant in lockdep.c */
 		if (trace.nr_entries != 0 &&
 		    trace.entries[trace.nr_entries - 1] == ULONG_MAX)
 			trace.nr_entries--;
@@ -452,7 +452,7 @@ static void slab_fix(struct kmem_cache *s, char *fmt, ...)
 
 static void print_trailer(struct kmem_cache *s, struct page *page, u8 *p)
 {
-	unsigned int off;	
+	unsigned int off;	/* Offset of last byte */
 	u8 *addr = page_address(page);
 
 	print_tracking(s, p);
@@ -480,7 +480,7 @@ static void print_trailer(struct kmem_cache *s, struct page *page, u8 *p)
 		off += 2 * sizeof(struct track);
 
 	if (off != s->size)
-		
+		/* Beginning of the filler is the free pointer */
 		print_section("Padding ", p + off, s->size - off);
 
 	dump_stack();
@@ -860,7 +860,7 @@ static noinline int alloc_debug_processing(struct kmem_cache *s, struct page *pa
 	if (!check_object(s, page, object, SLUB_RED_INACTIVE))
 		goto bad;
 
-	
+	/* Success perform special debug activities for allocs */
 	if (s->flags & SLAB_STORE_USER)
 		set_track(s, object, TRACK_ALLOC, addr);
 	trace(s, page, object, 1);
@@ -1850,7 +1850,7 @@ redo:
 		goto new_slab;
 	}
 
-	
+	/* must check again c->freelist in case of cpu migration or IRQ */
 	freelist = c->freelist;
 	if (freelist)
 		goto load_freelist;
@@ -1898,9 +1898,9 @@ new_slab:
 	if (likely(!kmem_cache_debug(s) && pfmemalloc_match(page, gfpflags)))
 		goto load_freelist;
 
-	
+	/* Only entered in the debug case */
 	if (kmem_cache_debug(s) && !alloc_debug_processing(s, page, freelist, addr))
-		goto new_slab;	
+		goto new_slab;	/* Slab failed checks. Next slab needed */
 
 	deactivate_slab(s, page, get_freepointer(s, freelist));
 	c->page = NULL;
@@ -2519,7 +2519,10 @@ int __kmem_cache_shutdown(struct kmem_cache *s)
 
 	return rc;
 }
-
+/*
+ * Generate lists of code addresses where slabcache objects are allocated
+ * and freed.
+ */
 
 static int __init setup_slub_min_order(char *str)
 {
@@ -2655,7 +2658,7 @@ bool verify_mem_not_deleted(const void *x)
 
 	page = virt_to_head_page(x);
 	if (unlikely(!PageSlab(page))) {
-		
+		/* maybe it was from stack? */
 		rv = true;
 		goto out_unlock;
 	}
@@ -2840,7 +2843,81 @@ static struct notifier_block slab_memory_callback_nb = {
 	.priority = SLAB_CALLBACK_PRI,
 };
 
-
+/*
+ * Lock order:
+ *   1. slab_mutex (Global Mutex)
+ *   2. node->list_lock
+ *   3. slab_lock(page) (Only on some arches and for debugging)
+ *
+ *   slab_mutex
+ *
+ *   The role of the slab_mutex is to protect the list of all the slabs
+ *   and to synchronize major metadata changes to slab cache structures.
+ *
+ *   The slab_lock is only used for debugging and on arches that do not
+ *   have the ability to do a cmpxchg_double. It only protects the second
+ *   double word in the page struct. Meaning
+ *	A. page->freelist	-> List of object free in a page
+ *	B. page->counters	-> Counters of objects
+ *	C. page->frozen		-> frozen state
+ *
+ *   If a slab is frozen then it is exempt from list management. It is not
+ *   on any list. The processor that froze the slab is the one who can
+ *   perform list operations on the page. Other processors may put objects
+ *   onto the freelist but the processor that froze the slab is the only
+ *   one that can retrieve the objects from the page's freelist.
+ *
+ *   The list_lock protects the partial and full list on each node and
+ *   the partial slab counter. If taken then no new slabs may be added or
+ *   removed from the lists nor make the number of partial slabs be modified.
+ *   (Note that the total number of slabs is an atomic value that may be
+ *   modified without taking the list lock).
+ *
+ *   The list_lock is a centralized lock and thus we avoid taking it as
+ *   much as possible. As long as SLUB does not have to handle partial
+ *   slabs, operations can continue without any centralized lock. F.e.
+ *   allocating a long series of objects that fill up slabs does not require
+ *   the list lock.
+ *   Interrupts are disabled during allocation and deallocation in order to
+ *   make the slab allocator safe to use in the context of an irq. In addition
+ *   interrupts are disabled to ensure that the processor does not change
+ *   while handling per_cpu slabs, due to kernel preemption.
+ *
+ * SLUB assigns one slab for allocation to each processor.
+ * Allocations only occur from these slabs called cpu slabs.
+ *
+ * Slabs with free elements are kept on a partial list and during regular
+ * operations no list for full slabs is used. If an object in a full slab is
+ * freed then the slab will show up again on the partial lists.
+ * We track full slabs for debugging purposes though because otherwise we
+ * cannot scan all objects.
+ *
+ * Slabs are freed when they become empty. Teardown and setup is
+ * minimal so we rely on the page allocators per cpu caches for
+ * fast frees and allocs.
+ *
+ * Overloading of page flags that are otherwise used for LRU management.
+ *
+ * PageActive 		The slab is frozen and exempt from list processing.
+ * 			This means that the slab is dedicated to a purpose
+ * 			such as satisfying allocations for a specific
+ * 			processor. Objects may be freed in the slab while
+ * 			it is frozen but slab_free will then skip the usual
+ * 			list operations. It is up to the processor holding
+ * 			the slab to integrate the slab into the slab lists
+ * 			when the slab is no longer needed.
+ *
+ * 			One use of this flag is to mark slabs that are
+ * 			used for allocations. Then such a slab becomes a cpu
+ * 			slab. The cpu slab may be equipped with an additional
+ * 			freelist that allows lockless access to
+ * 			free objects in addition to the regular freelist
+ * 			that requires the slab lock.
+ *
+ * PageError		Slab requires special handling due to debug
+ * 			options set. This moves	slab handling out of
+ * 			the fast path and disables lockless freelists.
+ */
 
 static struct kmem_cache * __init bootstrap(struct kmem_cache *static_cache)
 {
@@ -2884,7 +2961,7 @@ void __init kmem_cache_init(void)
 
 	register_hotmemory_notifier(&slab_memory_callback_nb);
 
-	
+	/* Able to allocate the per node structures */
 	slab_state = PARTIAL;
 
 	create_boot_cache(kmem_cache, "kmem_cache",
@@ -2998,7 +3075,7 @@ int __kmem_cache_create(struct kmem_cache *s, unsigned long flags)
 	if (err)
 		return err;
 
-	
+	/* Mutex is not taken during early boot */
 	if (slab_state <= UP)
 		return 0;
 
@@ -3061,7 +3138,7 @@ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, unsigned long caller)
 
 	ret = slab_alloc(s, gfpflags, caller);
 
-	
+	/* Honor the call site pointer we received. */
 	trace_kmalloc(caller, ret, size, s->size, gfpflags);
 
 	return ret;
@@ -3091,7 +3168,7 @@ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
 
 	ret = slab_alloc_node(s, gfpflags, node, caller);
 
-	
+	/* Honor the call site pointer we received. */
 	trace_kmalloc_node(caller, ret, size, s->size, gfpflags, node);
 
 	return ret;
@@ -3121,7 +3198,7 @@ static int validate_slab(struct kmem_cache *s, struct page *page,
 			!on_freelist(s, page, NULL))
 		return 0;
 
-	
+	/* Now we know that a valid freelist exists */
 	bitmap_zero(map, page->objects);
 
 	get_map(s, page, map);
@@ -3345,7 +3422,7 @@ static int list_locations(struct kmem_cache *s, char *buf,
 		kfree(map);
 		return sprintf(buf, "Out of memory\n");
 	}
-	
+	/* Push back cpu slabs */
 	flush_all(s);
 
 	for_each_node_state(node, N_NORMAL_MEMORY) {
@@ -3437,7 +3514,7 @@ static void resiliency_test(void)
 
 	validate_slab_cache(kmalloc_caches[4]);
 
-	
+	/* Hmmm... The next two are dangerous */
 	p = kzalloc(32, GFP_KERNEL);
 	p[32 + sizeof(void *)] = 0x34;
 	printk(KERN_ERR "\n2. kmalloc-32: Clobber next pointer/next slab"
@@ -3483,11 +3560,11 @@ static void resiliency_test(void) {};
 
 #ifdef CONFIG_SYSFS
 enum slab_stat_type {
-	SL_ALL,			
-	SL_PARTIAL,		
-	SL_CPU,			
-	SL_OBJECTS,		
-	SL_TOTAL		
+	SL_ALL,			/* All slabs */
+	SL_PARTIAL,		/* Only partially allocated slabs */
+	SL_CPU,			/* Only slabs used for cpu caches */
+	SL_OBJECTS,		/* Determine allocated objects not slabs */
+	SL_TOTAL		/* Determine object capacity not slabs */
 };
 
 #define SO_ALL		(1 << SL_ALL)
@@ -4396,7 +4473,7 @@ static int sysfs_slab_add(struct kmem_cache *s)
 	}
 	kobject_uevent(&s->kobj, KOBJ_ADD);
 	if (!unmergeable) {
-		
+		/* Setup first alias */
 		sysfs_slab_alias(s, s->name);
 		kfree(name);
 	}
@@ -4521,4 +4598,4 @@ ssize_t slabinfo_write(struct file *file, const char __user *buffer,
 {
 	return -EIO;
 }
-#endif 
+#endif /* CONFIG_SLABINFO */

@@ -101,9 +101,9 @@ struct mtp_dev {
 	struct timeval st0;
 	struct timeval st1;
 
-	
+	/* synchronize access to our device file */
 	atomic_t open_excl;
-	
+	/* to enforce only one ioctl at a time */
 	atomic_t ioctl_excl;
 
 	struct list_head tx_idle;
@@ -167,9 +167,9 @@ static struct usb_ss_ep_comp_descriptor mtp_superspeed_in_comp_desc = {
 	.bLength =		sizeof mtp_superspeed_in_comp_desc,
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
-	
+	/* the following 2 values can be tweaked if necessary */
 	.bMaxBurst =		2,
-	
+	/* .bmAttributes =	0, */
 };
 
 static struct usb_endpoint_descriptor mtp_superspeed_out_desc = {
@@ -184,9 +184,9 @@ static struct usb_ss_ep_comp_descriptor mtp_superspeed_out_comp_desc = {
 	.bLength =		sizeof mtp_superspeed_out_comp_desc,
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
-	
+	/* the following 2 values can be tweaked if necessary */
 	 .bMaxBurst =		2,
-	
+	/* .bmAttributes =	0, */
 };
 
 static struct usb_endpoint_descriptor mtp_highspeed_in_desc = {
@@ -232,9 +232,9 @@ static struct usb_ss_ep_comp_descriptor mtp_superspeed_intr_comp_desc = {
 	.bLength =		sizeof mtp_superspeed_intr_comp_desc,
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
-	
-	
-	
+	/* the following 3 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
 	.wBytesPerInterval =	cpu_to_le16(INTR_BUFFER_SIZE),
 };
 
@@ -293,13 +293,13 @@ static struct usb_descriptor_header *ss_ptp_descs[] = {
 };
 
 static struct usb_string mtp_string_defs[] = {
-	
+	/* Naming interface "MTP" so libmtp will recognize us */
 	[INTERFACE_STRING_INDEX].s	= "MTP",
-	{  },	
+	{  },	/* end of list */
 };
 
 static struct usb_gadget_strings mtp_string_table = {
-	.language		= 0x0409,	
+	.language		= 0x0409,	/* en-US */
 	.strings		= mtp_string_defs,
 };
 
@@ -432,7 +432,7 @@ static struct usb_request *mtp_request_new(struct usb_ep *ep, int buffer_size)
 	if (!req)
 		return NULL;
 
-	
+	/* now allocate buffers for the requests */
 	req->buf = kmalloc(buffer_size, GFP_KERNEL);
 	if (!req->buf) {
 		usb_ep_free_request(ep, req);
@@ -553,7 +553,7 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 		return -ENODEV;
 	}
 	DBG(cdev, "usb_ep_autoconfig for ep_in got %s\n", ep->name);
-	ep->driver_data = dev;		
+	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_in = ep;
 
 	ep = usb_ep_autoconfig(cdev->gadget, out_desc);
@@ -562,7 +562,7 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 		return -ENODEV;
 	}
 	DBG(cdev, "usb_ep_autoconfig for mtp ep_out got %s\n", ep->name);
-	ep->driver_data = dev;		
+	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_out = ep;
 
 	ep = usb_ep_autoconfig(cdev->gadget, intr_desc);
@@ -571,14 +571,14 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 		return -ENODEV;
 	}
 	DBG(cdev, "usb_ep_autoconfig for mtp ep_intr got %s\n", ep->name);
-	ep->driver_data = dev;		
+	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_intr = ep;
 
 retry_tx_alloc:
 	if (mtp_tx_req_len > MTP_BULK_BUFFER_SIZE)
 		mtp_tx_reqs = 4;
 
-	
+	/* now allocate requests for our endpoints */
 	for (i = 0; i < mtp_tx_reqs; i++) {
 		req = mtp_request_new(dev->ep_in, mtp_tx_req_len);
 		if (!req) {
@@ -640,7 +640,7 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 	if (mtp_lock(&dev->read_excl))
 		return -EBUSY;
 
-	
+	/* we will block until we're online */
 	DBG(cdev, "mtp_read: waiting for online state\n");
 	ret = wait_event_interruptible(dev->read_wq,
 		dev->state != STATE_OFFLINE);
@@ -650,7 +650,7 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 	}
 	spin_lock_irq(&dev->lock);
 	if (dev->state == STATE_CANCELED) {
-		
+		/* report cancelation to userspace */
 		dev->state = STATE_READY;
 		spin_unlock_irq(&dev->lock);
 		r = -ECANCELED;
@@ -796,7 +796,7 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 
 	spin_lock_irq(&dev->lock);
 	if (dev->state == STATE_CANCELED) {
-		
+		/* report cancelation to userspace */
 		dev->state = STATE_READY;
 		spin_unlock_irq(&dev->lock);
 		return -ECANCELED;
@@ -822,7 +822,7 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 			break;
 		}
 
-		
+		/* get an idle tx request to use */
 		req = 0;
 		ret = wait_event_interruptible(dev->write_wq,
 			((req = mtp_req_get(dev, &dev->tx_idle))
@@ -852,7 +852,7 @@ static ssize_t mtp_write(struct file *fp, const char __user *buf,
 		buf += xfer;
 		count -= xfer;
 
-		
+		/* zero this so we don't try to free it on error exit */
 		req = 0;
 	}
 
@@ -884,7 +884,7 @@ static void send_file_work(struct work_struct *data)
 	int r = 0;
 	int sendZLP = 0;
 
-	
+	/* read our parameters */
 	smp_rmb();
 	filp = dev->xfer_file;
 	offset = dev->xfer_file_offset;
@@ -927,10 +927,10 @@ static void send_file_work(struct work_struct *data)
 			xfer = count;
 
 		if (hdr_size) {
-			
+			/* prepend MTP data header */
 			header = (struct mtp_data_header *)req->buf;
 			header->length = __cpu_to_le32(count);
-			header->type = __cpu_to_le16(2); 
+			header->type = __cpu_to_le16(2); /* data packet */
 			header->command = __cpu_to_le16(dev->xfer_command);
 			header->transaction_id =
 					__cpu_to_le32(dev->xfer_transaction_id);
@@ -957,7 +957,7 @@ static void send_file_work(struct work_struct *data)
 
 		count -= xfer;
 
-		
+		/* zero this so we don't try to free it on error exit */
 		req = 0;
 	}
 
@@ -986,7 +986,7 @@ static void receive_file_work(struct work_struct *data)
 	int ret;
 	int r = 0, xfer, times = 0, file_xfer_zlp_flag = 0;
 
-	
+	/* read our parameters */
 	smp_rmb();
 	filp = dev->xfer_file;
 	offset = dev->xfer_file_offset;
@@ -1103,7 +1103,7 @@ done:
 #endif
 
 	DBG(cdev, "receive_file_work returning %d\n", r);
-	
+	/* write the result */
 	dev->xfer_result = r;
 	smp_wmb();
 }
@@ -1152,7 +1152,7 @@ static long mtp_send_receive_ioctl(struct file *fp, unsigned code,
 
 	spin_lock_irq(&dev->lock);
 	if (dev->state == STATE_CANCELED) {
-		
+		/* report cancelation to userspace */
 		dev->state = STATE_READY;
 		spin_unlock_irq(&dev->lock);
 		ret = -ECANCELED;
@@ -1166,14 +1166,14 @@ static long mtp_send_receive_ioctl(struct file *fp, unsigned code,
 	dev->state = STATE_BUSY;
 	spin_unlock_irq(&dev->lock);
 
-	
+	/* hold a reference to the file while we are working with it */
 	filp = fget(mfr->fd);
 	if (!filp) {
 		ret = -EBADF;
 		goto fail;
 	}
 
-	
+	/* write the parameters */
 	dev->xfer_file = filp;
 	dev->xfer_file_offset = mfr->offset;
 	dev->xfer_file_length = mfr->length;
@@ -1196,7 +1196,7 @@ static long mtp_send_receive_ioctl(struct file *fp, unsigned code,
 	flush_workqueue(dev->wq);
 	fput(filp);
 
-	
+	/* read our parameters */
 	smp_rmb();
 	ret = dev->xfer_result;
 
@@ -1358,7 +1358,7 @@ static int mtp_open(struct inode *ip, struct file *fp)
 	if (mtp_lock(&_mtp_dev->open_excl))
 		return -EBUSY;
 
-	
+	/* clear any error condition */
 	if (_mtp_dev->state != STATE_OFFLINE)
 		_mtp_dev->state = STATE_READY;
 
@@ -1430,7 +1430,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 			ctrl->bRequestType, ctrl->bRequest,
 			w_value, w_index, w_length);
 
-	
+	/* Handle MTP OS string */
 	if (ctrl->bRequestType ==
 			(USB_DIR_IN | USB_TYPE_STANDARD | USB_RECIP_DEVICE)
 			&& ctrl->bRequest == USB_REQ_GET_DESCRIPTOR
@@ -1440,7 +1440,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 				? w_length : sizeof(mtp_os_string));
 		memcpy(cdev->req->buf, mtp_os_string, value);
 	} else if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_VENDOR) {
-		
+		/* Handle MTP OS descriptor */
 		DBG(cdev, "vendor request: %d index: %d value: %d length: %d\n",
 			ctrl->bRequest, w_index, w_value, w_length);
 
@@ -1489,7 +1489,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 		}
 	}
 
-	
+	/* respond with data transfer or status phase? */
 	if (value >= 0) {
 		int rc;
 		cdev->req->zero = value < w_length;
@@ -1512,19 +1512,19 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	dev->cdev = cdev;
 	DBG(cdev, "mtp_function_bind dev: %p\n", dev);
 
-	
+	/* allocate interface ID(s) */
 	id = usb_interface_id(c, f);
 	if (id < 0)
 		return id;
 	mtp_interface_desc.bInterfaceNumber = id;
 
-	
+	/* allocate endpoints */
 	ret = mtp_create_bulk_endpoints(dev, &mtp_fullspeed_in_desc,
 			&mtp_fullspeed_out_desc, &mtp_intr_desc);
 	if (ret)
 		return ret;
 
-	
+	/* support high speed hardware */
 	if (gadget_is_dualspeed(c->cdev->gadget)) {
 		mtp_highspeed_in_desc.bEndpointAddress =
 			mtp_fullspeed_in_desc.bEndpointAddress;
@@ -1532,7 +1532,7 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 			mtp_fullspeed_out_desc.bEndpointAddress;
 	}
 
-	
+	/* support super speed hardware */
 	if (gadget_is_superspeed(c->cdev->gadget)) {
 		mtp_superspeed_in_desc.bEndpointAddress =
 			mtp_fullspeed_in_desc.bEndpointAddress;
@@ -1618,7 +1618,7 @@ static int mtp_function_set_alt(struct usb_function *f,
 	}
 	dev->state = STATE_READY;
 
-	
+	/* readers may be blocked waiting for us to go online */
 	wake_up(&dev->read_wq);
 	return 0;
 }
@@ -1634,7 +1634,7 @@ static void mtp_function_disable(struct usb_function *f)
 	usb_ep_disable(dev->ep_out);
 	usb_ep_disable(dev->ep_intr);
 
-	
+	/* readers may be blocked waiting for us to go online */
 	wake_up(&dev->read_wq);
 
 	VDBG(cdev, "%s disabled\n", dev->function.name);
@@ -1647,7 +1647,7 @@ static int mtp_bind_config(struct usb_configuration *c, bool ptp_config)
 
 	printk(KERN_INFO "mtp_bind_config\n");
 
-	
+	/* allocate a string ID for our interface */
 	if (mtp_string_defs[INTERFACE_STRING_INDEX].id == 0) {
 		ret = usb_string_id(c->cdev);
 		if (ret < 0)

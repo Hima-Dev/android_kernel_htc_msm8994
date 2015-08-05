@@ -619,8 +619,8 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_ALPHA_COMPONENT:		return "Alpha Component";
 	case V4L2_CID_COLORFX_CBCR:		return "Color Effects, CbCr";
 
-	
-	
+	/* MPEG controls */
+	/* Keep the order of the 'case's the same as in videodev2.h! */
 	case V4L2_CID_MPEG_CLASS:		return "MPEG Encoder Controls";
 	case V4L2_CID_MPEG_STREAM_TYPE:		return "Stream Type";
 	case V4L2_CID_MPEG_STREAM_PID_PMT:	return "Stream PMT Program ID";
@@ -742,8 +742,8 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
 		return "HEVC Tier and Level";
 
-	
-	
+	/* CAMERA controls */
+	/* Keep the order of the 'case's the same as in videodev2.h! */
 	case V4L2_CID_CAMERA_CLASS:		return "Camera Controls";
 	case V4L2_CID_EXPOSURE_AUTO:		return "Auto Exposure";
 	case V4L2_CID_EXPOSURE_ABSOLUTE:	return "Exposure Time, Absolute";
@@ -777,8 +777,8 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_AUTO_FOCUS_STATUS:	return "Auto Focus, Status";
 	case V4L2_CID_AUTO_FOCUS_RANGE:		return "Auto Focus, Range";
 
-	
-	
+	/* FM Radio Modulator control */
+	/* Keep the order of the 'case's the same as in videodev2.h! */
 	case V4L2_CID_FM_TX_CLASS:		return "FM Radio Modulator Controls";
 	case V4L2_CID_RDS_TX_DEVIATION:		return "RDS Signal Deviation";
 	case V4L2_CID_RDS_TX_PI:		return "RDS Program ID";
@@ -800,7 +800,7 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_TUNE_POWER_LEVEL:		return "Tune Power Level";
 	case V4L2_CID_TUNE_ANTENNA_CAPACITOR:	return "Tune Antenna Capacitor";
 
-	
+	/* Flash controls */
 	case V4L2_CID_FLASH_CLASS:		return "Flash Controls";
 	case V4L2_CID_FLASH_LED_MODE:		return "LED Mode";
 	case V4L2_CID_FLASH_STROBE_SOURCE:	return "Strobe Source";
@@ -815,27 +815,27 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_FLASH_CHARGE:		return "Charge";
 	case V4L2_CID_FLASH_READY:		return "Ready to Strobe";
 
-	
-	
+	/* JPEG encoder controls */
+	/* Keep the order of the 'case's the same as in videodev2.h! */
 	case V4L2_CID_JPEG_CLASS:		return "JPEG Compression Controls";
 	case V4L2_CID_JPEG_CHROMA_SUBSAMPLING:	return "Chroma Subsampling";
 	case V4L2_CID_JPEG_RESTART_INTERVAL:	return "Restart Interval";
 	case V4L2_CID_JPEG_COMPRESSION_QUALITY:	return "Compression Quality";
 	case V4L2_CID_JPEG_ACTIVE_MARKER:	return "Active Markers";
 
-	
+	/* Image source controls */
 	case V4L2_CID_IMAGE_SOURCE_CLASS:	return "Image Source Controls";
 	case V4L2_CID_VBLANK:			return "Vertical Blanking";
 	case V4L2_CID_HBLANK:			return "Horizontal Blanking";
 	case V4L2_CID_ANALOGUE_GAIN:		return "Analogue Gain";
 
-	
+	/* Image processing controls */
 	case V4L2_CID_IMAGE_PROC_CLASS:		return "Image Processing Controls";
 	case V4L2_CID_LINK_FREQ:		return "Link Frequency";
 	case V4L2_CID_PIXEL_RATE:		return "Pixel Rate";
 	case V4L2_CID_TEST_PATTERN:		return "Test Pattern";
 
-	
+	/* DV controls */
 	case V4L2_CID_DV_CLASS:			return "Digital Video Controls";
 	case V4L2_CID_DV_TX_HOTPLUG:		return "Hotplug Present";
 	case V4L2_CID_DV_TX_RXSENSE:		return "RxSense Present";
@@ -985,7 +985,7 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 	case V4L2_CID_DV_CLASS:
 	case V4L2_CID_FM_RX_CLASS:
 		*type = V4L2_CTRL_TYPE_CTRL_CLASS;
-		
+		/* You can neither read not write these */
 		*flags |= V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_WRITE_ONLY;
 		*min = *max = *step = *def = 0;
 		break;
@@ -998,7 +998,7 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 	*type = V4L2_CTRL_TYPE_INTEGER;
 		*step = 1;
 		*min = 0;
-		
+		/* Max is calculated as RGB888 that is 2^24 */
 		*max = 0xFFFFFF;
 		break;
 	case V4L2_CID_FLASH_FAULT:
@@ -1019,7 +1019,7 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 	case V4L2_CID_MPEG_VIDEO_DEC_FRAME:
 	case V4L2_CID_MPEG_VIDEO_DEC_PTS:
 		*flags |= V4L2_CTRL_FLAG_VOLATILE;
-		
+		/* Fall through */
 	case V4L2_CID_PIXEL_RATE:
 		*type = V4L2_CTRL_TYPE_INTEGER64;
 		*flags |= V4L2_CTRL_FLAG_READ_ONLY;
@@ -1239,7 +1239,7 @@ static void new_to_cur(struct v4l2_fh *fh, struct v4l2_ctrl *ctrl, u32 ch_flags)
 		changed = true;
 		break;
 	case V4L2_CTRL_TYPE_STRING:
-		
+		/* strings are always 0-terminated */
 		changed = strcmp(ctrl->string, ctrl->cur.string);
 		strcpy(ctrl->cur.string, ctrl->string);
 		break;
@@ -1253,7 +1253,7 @@ static void new_to_cur(struct v4l2_fh *fh, struct v4l2_ctrl *ctrl, u32 ch_flags)
 		break;
 	}
 	if (ch_flags & V4L2_EVENT_CTRL_CH_FLAGS) {
-		
+		/* Note: CH_FLAGS is only set for auto clusters. */
 		ctrl->flags &=
 			~(V4L2_CTRL_FLAG_INACTIVE | V4L2_CTRL_FLAG_VOLATILE);
 		if (!is_cur_manual(ctrl->cluster[0])) {
@@ -1303,10 +1303,10 @@ static int cluster_changed(struct v4l2_ctrl *master)
 			continue;
 		switch (ctrl->type) {
 		case V4L2_CTRL_TYPE_BUTTON:
-			
+			/* Button controls are always 'different' */
 			return 1;
 		case V4L2_CTRL_TYPE_STRING:
-			
+			/* strings are always 0-terminated */
 			diff = strcmp(ctrl->string, ctrl->cur.string);
 			break;
 		case V4L2_CTRL_TYPE_INTEGER64:
@@ -1327,7 +1327,7 @@ static int check_range(enum v4l2_ctrl_type type,
 	case V4L2_CTRL_TYPE_BOOLEAN:
 		if (step != 1 || max > 1 || min < 0)
 			return -ERANGE;
-		
+		/* fall through */
 	case V4L2_CTRL_TYPE_INTEGER:
 		if (step <= 0 || min > max || def < min || def > max)
 			return -ERANGE;
@@ -1361,7 +1361,7 @@ static int validate_new(const struct v4l2_ctrl *ctrl,
 
 	switch (ctrl->type) {
 	case V4L2_CTRL_TYPE_INTEGER:
-		
+		/* Round towards the closest legal value */
 		val = c->value + ctrl->step / 2;
 		val = clamp(val, ctrl->minimum, ctrl->maximum);
 		offset = val - ctrl->minimum;
@@ -1448,12 +1448,12 @@ void v4l2_ctrl_handler_free(struct v4l2_ctrl_handler *hdl)
 		return;
 
 	mutex_lock(hdl->lock);
-	
+	/* Free all nodes */
 	list_for_each_entry_safe(ref, next_ref, &hdl->ctrl_refs, node) {
 		list_del(&ref->node);
 		kfree(ref);
 	}
-	
+	/* Free all controls owned by the handler */
 	list_for_each_entry_safe(ctrl, next_ctrl, &hdl->ctrls, node) {
 		list_del(&ctrl->node);
 		list_for_each_entry_safe(sev, next_sev, &ctrl->ev_subs, node)
@@ -1541,9 +1541,9 @@ static int handler_new_ref(struct v4l2_ctrl_handler *hdl,
 	struct v4l2_ctrl_ref *new_ref;
 	u32 id = ctrl->id;
 	u32 class_ctrl = V4L2_CTRL_ID2CLASS(id) | 1;
-	int bucket = id % hdl->nr_of_buckets;	
+	int bucket = id % hdl->nr_of_buckets;	/* which bucket to use */
 
-	
+	/* Automatically add the control class if it is not yet present. */
 	if (id != class_ctrl && find_ref_lock(hdl, class_ctrl) == NULL)
 		if (!v4l2_ctrl_new_std(hdl, NULL, class_ctrl, 0, 0, 0, 0))
 			return hdl->error;
@@ -1583,7 +1583,7 @@ static int handler_new_ref(struct v4l2_ctrl_handler *hdl,
 	}
 
 insert_in_hash:
-	
+	/* Insert the control node in the hash */
 	new_ref->next = hdl->buckets[bucket];
 	hdl->buckets[bucket] = new_ref;
 
@@ -1606,7 +1606,7 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
 	if (hdl->error)
 		return NULL;
 
-	
+	/* Sanity checks */
 	if (id == 0 || name == NULL || id >= V4L2_CID_PRIVATE_BASE ||
 	    (type == V4L2_CTRL_TYPE_MENU && qmenu == NULL) ||
 	    (type == V4L2_CTRL_TYPE_INTEGER_MENU && qmenu_int == NULL)) {
@@ -1821,7 +1821,7 @@ int v4l2_ctrl_add_handler(struct v4l2_ctrl_handler *hdl,
 	struct v4l2_ctrl_ref *ref;
 	int ret = 0;
 
-	
+	/* Do nothing if either handler is NULL or if they are the same */
 	if (!hdl || !add || hdl == add)
 		return 0;
 	if (hdl->error)
@@ -1830,13 +1830,13 @@ int v4l2_ctrl_add_handler(struct v4l2_ctrl_handler *hdl,
 	list_for_each_entry(ref, &add->ctrl_refs, node) {
 		struct v4l2_ctrl *ctrl = ref->ctrl;
 
-		
+		/* Skip handler-private controls. */
 		if (ctrl->is_private)
 			continue;
-		
+		/* And control classes */
 		if (ctrl->type == V4L2_CTRL_TYPE_CTRL_CLASS)
 			continue;
-		
+		/* Filter any unwanted controls */
 		if (filter && !filter(ctrl))
 			continue;
 		ret = handler_new_ref(hdl, ctrl);
@@ -1944,10 +1944,10 @@ void v4l2_ctrl_grab(struct v4l2_ctrl *ctrl, bool grabbed)
 
 	v4l2_ctrl_lock(ctrl);
 	if (grabbed)
-		
+		/* set V4L2_CTRL_FLAG_GRABBED */
 		old = test_and_set_bit(1, &ctrl->flags);
 	else
-		
+		/* clear V4L2_CTRL_FLAG_GRABBED */
 		old = test_and_clear_bit(1, &ctrl->flags);
 	if (old != grabbed)
 		send_event(NULL, ctrl, V4L2_EVENT_CTRL_CH_FLAGS);
@@ -2048,8 +2048,8 @@ int v4l2_ctrl_handler_setup(struct v4l2_ctrl_handler *hdl)
 		struct v4l2_ctrl *master = ctrl->cluster[0];
 		int i;
 
-		
-		
+		/* Skip if this control was already handled by a cluster. */
+		/* Skip button controls and read-only controls. */
 		if (ctrl->done || ctrl->type == V4L2_CTRL_TYPE_BUTTON ||
 		    (ctrl->flags & V4L2_CTRL_FLAG_READ_ONLY))
 			continue;
@@ -2141,7 +2141,7 @@ int v4l2_querymenu(struct v4l2_ctrl_handler *hdl, struct v4l2_querymenu *qm)
 		return -EINVAL;
 
 	qm->reserved = 0;
-	
+	/* Sanity checks */
 	switch (ctrl->type) {
 	case V4L2_CTRL_TYPE_MENU:
 		if (ctrl->qmenu == NULL)
@@ -2158,10 +2158,10 @@ int v4l2_querymenu(struct v4l2_ctrl_handler *hdl, struct v4l2_querymenu *qm)
 	if (i < ctrl->minimum || i > ctrl->maximum)
 		return -EINVAL;
 
-	
+	/* Use mask to see if this menu item should be skipped */
 	if (ctrl->menu_skip_mask & (1 << i))
 		return -EINVAL;
-	
+	/* Empty menu items should also be skipped */
 	if (ctrl->type == V4L2_CTRL_TYPE_MENU) {
 		if (ctrl->qmenu[i] == NULL || ctrl->qmenu[i][0] == '\0')
 			return -EINVAL;
@@ -2179,9 +2179,47 @@ int v4l2_subdev_querymenu(struct v4l2_subdev *sd, struct v4l2_querymenu *qm)
 }
 EXPORT_SYMBOL(v4l2_subdev_querymenu);
 
+/* Some general notes on the atomic requirements of VIDIOC_G/TRY/S_EXT_CTRLS:
 
+   It is not a fully atomic operation, just best-effort only. After all, if
+   multiple controls have to be set through multiple i2c writes (for example)
+   then some initial writes may succeed while others fail. Thus leaving the
+   system in an inconsistent state. The question is how much effort you are
+   willing to spend on trying to make something atomic that really isn't.
 
+   From the point of view of an application the main requirement is that
+   when you call VIDIOC_S_EXT_CTRLS and some values are invalid then an
+   error should be returned without actually affecting any controls.
 
+   If all the values are correct, then it is acceptable to just give up
+   in case of low-level errors.
+
+   It is important though that the application can tell when only a partial
+   configuration was done. The way we do that is through the error_idx field
+   of struct v4l2_ext_controls: if that is equal to the count field then no
+   controls were affected. Otherwise all controls before that index were
+   successful in performing their 'get' or 'set' operation, the control at
+   the given index failed, and you don't know what happened with the controls
+   after the failed one. Since if they were part of a control cluster they
+   could have been successfully processed (if a cluster member was encountered
+   at index < error_idx), they could have failed (if a cluster member was at
+   error_idx), or they may not have been processed yet (if the first cluster
+   member appeared after error_idx).
+
+   It is all fairly theoretical, though. In practice all you can do is to
+   bail out. If error_idx == count, then it is an application bug. If
+   error_idx < count then it is only an application bug if the error code was
+   EBUSY. That usually means that something started streaming just when you
+   tried to set the controls. In all other cases it is a driver/hardware
+   problem and all you can do is to retry or bail out.
+
+   Note that these rules do not apply to VIDIOC_TRY_EXT_CTRLS: since that
+   never modifies controls the error_idx is just set to whatever control
+   has an invalid value.
+ */
+
+/* Prepare for the extended g/s/try functions.
+   Find the controls in the control array and do some basic checks. */
 static int prepare_ext_ctrls(struct v4l2_ctrl_handler *hdl,
 			     struct v4l2_ext_controls *cs,
 			     struct v4l2_ctrl_helper *helpers)
@@ -2252,7 +2290,7 @@ static int class_check(struct v4l2_ctrl_handler *hdl, u32 ctrl_class)
 }
 
 
-
+/* Get extended controls. Allocates the helpers array if needed. */
 int v4l2_g_ext_ctrls(struct v4l2_ctrl_handler *hdl, struct v4l2_ext_controls *cs)
 {
 	struct v4l2_ctrl_helper helper[4];
@@ -2296,7 +2334,7 @@ int v4l2_g_ext_ctrls(struct v4l2_ctrl_handler *hdl, struct v4l2_ext_controls *cs
 
 		v4l2_ctrl_lock(master);
 
-		
+		/* g_volatile_ctrl will update the new control values */
 		if ((master->flags & V4L2_CTRL_FLAG_VOLATILE) ||
 			(master->has_volatiles && !is_cur_manual(master))) {
 			for (j = 0; j < master->ncontrols; j++)
@@ -2341,7 +2379,7 @@ static int get_ctrl(struct v4l2_ctrl *ctrl, struct v4l2_ext_control *c)
 		return -EACCES;
 
 	v4l2_ctrl_lock(master);
-	
+	/* g_volatile_ctrl will update the current control values */
 	if (ctrl->flags & V4L2_CTRL_FLAG_VOLATILE) {
 		for (i = 0; i < master->ncontrols; i++)
 			cur_to_new(master->cluster[i]);
@@ -2378,7 +2416,7 @@ s32 v4l2_ctrl_g_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct v4l2_ext_control c;
 
-	
+	/* It's a driver bug if this happens. */
 	WARN_ON(!type_is_int(ctrl));
 	c.value = 0;
 	get_ctrl(ctrl, &c);
@@ -2390,7 +2428,7 @@ s64 v4l2_ctrl_g_ctrl_int64(struct v4l2_ctrl *ctrl)
 {
 	struct v4l2_ext_control c;
 
-	
+	/* It's a driver bug if this happens. */
 	WARN_ON(ctrl->type != V4L2_CTRL_TYPE_INTEGER64);
 	c.value = 0;
 	get_ctrl(ctrl, &c);
@@ -2398,7 +2436,9 @@ s64 v4l2_ctrl_g_ctrl_int64(struct v4l2_ctrl *ctrl)
 }
 EXPORT_SYMBOL(v4l2_ctrl_g_ctrl_int64);
 
-
+/* Core function that calls try/s_ctrl and ensures that the new value is
+   copied to the current value on a set.
+   Must be called with ctrl->handler->lock held. */
 static int try_or_set_cluster(struct v4l2_fh *fh, struct v4l2_ctrl *master,
 			      bool set, u32 ch_flags)
 {
@@ -2546,7 +2586,7 @@ static int try_set_ext_ctrls(struct v4l2_fh *fh, struct v4l2_ctrl_handler *hdl,
 		if (!ret)
 			ret = try_or_set_cluster(fh, master, set, 0);
 
-		
+		/* Copy the new values back to userspace. */
 		if (!ret) {
 			idx = i;
 			do {
@@ -2655,7 +2695,7 @@ int v4l2_ctrl_s_ctrl(struct v4l2_ctrl *ctrl, s32 val)
 {
 	struct v4l2_ext_control c;
 
-	
+	/* It's a driver bug if this happens. */
 	WARN_ON(!type_is_int(ctrl));
 	c.value = val;
 	return set_ctrl_lock(NULL, ctrl, &c);
@@ -2666,7 +2706,7 @@ int v4l2_ctrl_s_ctrl_int64(struct v4l2_ctrl *ctrl, s64 val)
 {
 	struct v4l2_ext_control c;
 
-	
+	/* It's a driver bug if this happens. */
 	WARN_ON(ctrl->type != V4L2_CTRL_TYPE_INTEGER64);
 	c.value64 = val;
 	return set_ctrl_lock(NULL, ctrl, &c);

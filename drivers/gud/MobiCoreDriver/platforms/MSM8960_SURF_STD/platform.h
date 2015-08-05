@@ -99,4 +99,4 @@ static inline int smc_fastcall(void *fc_generic, size_t size)
 #define MC_USE_DEVICE_TREE
 #endif
 
-#endif 
+#endif /* _MC_PLATFORM_H_ */

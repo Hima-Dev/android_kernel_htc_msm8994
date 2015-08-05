@@ -78,7 +78,7 @@ int diag_mux_register(int proc, int ctx, struct diag_mux_ops *ops)
 	if (proc < 0 || proc >= NUM_MUX_PROC)
 		return 0;
 
-	
+	/* Register with USB logger */
 	usb_logger.ops[proc] = ops;
 	err = diag_usb_register(proc, ctx, ops);
 	if (err) {

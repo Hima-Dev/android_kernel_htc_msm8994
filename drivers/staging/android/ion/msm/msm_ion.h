@@ -96,6 +96,6 @@ static inline uintptr_t msm_ion_heap_meminfo(const bool is_total)
 	return 0;
 }
 
-#endif 
+#endif /* CONFIG_ION */
 
 #endif

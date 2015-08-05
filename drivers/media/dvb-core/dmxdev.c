@@ -257,11 +257,11 @@ static int dvb_dmxdev_add_event(struct dmxdev_events_queue *events,
 	int new_write_index;
 	int data_event;
 
-	
+	/* Check if the event is disabled */
 	if (events->event_mask.disable_mask & event->type)
 		return 0;
 
-	
+	/* Check if we are adding an event that user already read its data */
 	if (events->bytes_read_no_event) {
 		data_event = 1;
 
@@ -503,7 +503,7 @@ static ssize_t dvb_dmxdev_buffer_read(struct dmxdev_filter *filter,
 		buf += ret;
 	}
 
-	if (count - todo) 
+	if (count - todo) /* some data was read? */
 		wake_up_all(&src->queue);
 
 	return (count - todo) ? (count - todo) : ret;
@@ -569,7 +569,7 @@ static int dvb_dvr_feed_cmd(struct dmxdev *dmxdev, struct dvr_command *dvr_cmd)
 		tsp_size = 188;
 
 	while (todo >= tsp_size) {
-		
+		/* wait for input */
 		ret = wait_event_interruptible(
 			src->queue,
 			(dvb_ringbuffer_avail(src) >= tsp_size) ||
@@ -673,7 +673,7 @@ static int dvr_input_thread_entry(void *arg)
 	int ret;
 
 	while (1) {
-		
+		/* wait for input */
 		ret = wait_event_interruptible(
 			cmdbuf->queue,
 			(!cmdbuf->data) ||
@@ -929,7 +929,7 @@ static int dvb_dvr_release(struct inode *inode, struct file *file)
 			vfree(mem);
 		}
 	}
-	
+	/* TODO */
 	dvbdev->users--;
 	if (dvbdev->users == 1 && dmxdev->exit == 1) {
 		fops_put(file->f_op);
@@ -980,7 +980,7 @@ static int dvb_dvr_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	vma_size = vma->vm_end - vma->vm_start;
 
-	
+	/* Make sure requested mapping is not larger than buffer size */
 	buffer_size = buffer->size + (PAGE_SIZE-1);
 	buffer_size = buffer_size & ~(PAGE_SIZE-1);
 
@@ -1010,7 +1010,7 @@ static void dvb_dvr_queue_data_feed(struct dmxdev *dmxdev, size_t count)
 
 	spin_lock(&dmxdev->dvr_in_lock);
 
-	
+	/* Peek at the last DVR command queued, try to coalesce FEED commands */
 	if (dvb_ringbuffer_avail(cmdbuf) >= sizeof(*dvr_cmd)) {
 		last_dvr_cmd = cmdbuf->pwrite - sizeof(*dvr_cmd);
 		if (last_dvr_cmd < 0)
@@ -1350,7 +1350,7 @@ static int dvb_dvr_set_buffer_size(struct dmxdev *dmxdev,
 	buf->data = newmem;
 	buf->size = size;
 
-	
+	/* reset and not flush in case the buffer shrinks */
 	dvb_ringbuffer_reset(buf);
 
 	spin_unlock_irq(lock);
@@ -1403,7 +1403,7 @@ static int dvb_dvr_set_buffer_mode(struct dmxdev *dmxdev,
 	*buffer_mode = mode;
 
 	if (mode == DMX_BUFFER_MODE_INTERNAL) {
-		
+		/* switched from external to internal */
 		if (*buff_handle) {
 			dmxdev->demux->unmap_buffer(dmxdev->demux,
 				*buff_handle);
@@ -1413,10 +1413,10 @@ static int dvb_dvr_set_buffer_mode(struct dmxdev *dmxdev,
 		if (is_protected)
 			*is_protected = 0;
 
-		
+		/* set default internal buffer */
 		dvb_dvr_set_buffer_size(dmxdev, f_flags, DVR_BUFFER_SIZE);
 	} else if (oldmem) {
-		
+		/* switched from internal to external */
 		vfree(oldmem);
 	}
 
@@ -1650,7 +1650,7 @@ static int dvb_dmxdev_set_buffer_size(struct dmxdev_filter *dmxdevfilter,
 	buf->data = newmem;
 	buf->size = size;
 
-	
+	/* reset and not flush in case the buffer shrinks */
 	dvb_ringbuffer_reset(buf);
 	spin_unlock_irq(&dmxdevfilter->dev->lock);
 
@@ -1687,14 +1687,14 @@ static int dvb_dmxdev_set_buffer_mode(struct dmxdev_filter *dmxdevfilter,
 	dmxdevfilter->buffer_mode = mode;
 
 	if (mode == DMX_BUFFER_MODE_INTERNAL) {
-		
+		/* switched from external to internal */
 		if (dmxdevfilter->priv_buff_handle) {
 			dmxdev->demux->unmap_buffer(dmxdev->demux,
 				dmxdevfilter->priv_buff_handle);
 			dmxdevfilter->priv_buff_handle = NULL;
 		}
 	} else if (oldmem) {
-		
+		/* switched from internal to external */
 		vfree(oldmem);
 	}
 
@@ -1808,7 +1808,7 @@ static int dvb_dmxdev_reuse_decoder_buf(struct dmxdev_filter *dmxdevfilter,
 			DMX_EVENT_NEW_ES_DATA))
 		return -EPERM;
 
-	
+	/* Only one feed should be in the list in case of decoder */
 	feed = list_first_entry(&dmxdevfilter->feed.ts,
 				struct dmxdev_feed, next);
 	if (feed && feed->ts && feed->ts->reuse_decoder_buffer)
@@ -2367,7 +2367,7 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 	int res;
 	spin_lock_irq(&dmxdevfilter->dev->lock);
 
-	
+	/* Check first for filter overflow */
 	if (dmxdevfilter->buffer.error == -EOVERFLOW) {
 		event->type = DMX_EVENT_BUFFER_OVERFLOW;
 	} else {
@@ -2378,7 +2378,7 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 		}
 	}
 
-	
+	/* clear buffer error now that user was notified */
 	if (event->type == DMX_EVENT_BUFFER_OVERFLOW ||
 		event->type == DMX_EVENT_SECTION_TIMEOUT)
 		dmxdevfilter->buffer.error = 0;
@@ -2456,7 +2456,7 @@ static int dvb_dmxdev_section_callback(const u8 *buffer1, size_t buffer1_len,
 		return 0;
 	}
 
-	
+	/* Discard section data if event cannot be notified */
 	if (!(dmxdevfilter->events.event_mask.disable_mask &
 		DMX_EVENT_NEW_SECTION) &&
 		dvb_dmxdev_events_is_full(&dmxdevfilter->events)) {
@@ -2466,7 +2466,7 @@ static int dvb_dmxdev_section_callback(const u8 *buffer1, size_t buffer1_len,
 
 	if ((buffer1_len + buffer2_len) == 0) {
 		if (DMX_CRC_ERROR == success) {
-			
+			/* Section was dropped due to CRC error */
 			event.type = DMX_EVENT_SECTION_CRC_ERROR;
 			dvb_dmxdev_add_event(&dmxdevfilter->events, &event);
 
@@ -2484,7 +2484,7 @@ static int dvb_dmxdev_section_callback(const u8 *buffer1, size_t buffer1_len,
 
 	del_timer(&dmxdevfilter->timer);
 
-	
+	/* Verify output buffer has sufficient space, or report overflow */
 	free = dvb_ringbuffer_free(&dmxdevfilter->buffer);
 	if (free < (buffer1_len + buffer2_len)) {
 		pr_debug("%s: section filter overflow (pid=%u)\n",
@@ -2579,7 +2579,7 @@ static int dvb_dmxdev_ts_callback(const u8 *buffer1, size_t buffer1_len,
 			event.params.pes.continuity_error_counter = 0;
 			event.params.pes.ts_packets_num = 0;
 
-			
+			/* Do not report zero length PES */
 			if (event.params.pes.total_length)
 				dvb_dmxdev_add_event(events, &event);
 			events->current_event_data_size = 0;
@@ -2588,7 +2588,7 @@ static int dvb_dmxdev_ts_callback(const u8 *buffer1, size_t buffer1_len,
 		events->current_event_start_offset = buffer->pwrite;
 	}
 
-	
+	/* Verify output buffer has sufficient space, or report overflow */
 	free = dvb_ringbuffer_free(buffer);
 	if (free < (buffer1_len + buffer2_len)) {
 		pr_debug("%s: buffer overflow error, pid=%u\n",
@@ -2652,7 +2652,7 @@ static int dvb_dmxdev_section_event_cb(struct dmx_section_filter *filter,
 
 	if (dmx_data_ready->data_length == 0) {
 		if (DMX_CRC_ERROR == dmx_data_ready->status) {
-			
+			/* Section was dropped due to CRC error */
 			event.type = DMX_EVENT_SECTION_CRC_ERROR;
 			dvb_dmxdev_add_event(&dmxdevfilter->events, &event);
 
@@ -2679,7 +2679,7 @@ static int dvb_dmxdev_section_event_cb(struct dmx_section_filter *filter,
 		} else if (dmx_data_ready->status == DMX_OVERRUN_ERROR) {
 			pr_debug("dmxdev: section filter overflow (pid=%u)\n",
 				dmxdevfilter->params.sec.pid);
-			
+			/* Set buffer error to notify user overflow occurred */
 			dmxdevfilter->buffer.error = -EOVERFLOW;
 			spin_unlock(&dmxdevfilter->dev->lock);
 			wake_up_all(&dmxdevfilter->buffer.queue);
@@ -2754,7 +2754,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 			dmxdevfilter->params.pes.output == DMX_OUT_DECODER ?
 				"decoder" : "",
 			dmxdevfilter->params.pes.pid);
-		
+		/* Set buffer error to notify user overflow occurred */
 		buffer->error = -EOVERFLOW;
 		spin_unlock(&dmxdevfilter->dev->lock);
 		wake_up_all(&buffer->queue);
@@ -2762,7 +2762,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 	}
 
 	if (dmx_data_ready->status == DMX_OK_EOS) {
-		
+		/* Report partial recording chunk */
 		if ((dmxdevfilter->params.pes.output == DMX_OUT_TS_TAP ||
 			dmxdevfilter->params.pes.output == DMX_OUT_TSDEMUX_TAP)
 			&& events->current_event_data_size) {
@@ -2913,7 +2913,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 			event.params.pes.ts_packets_num =
 				dmx_data_ready->pes_end.ts_packets_num;
 
-			
+			/* Do not report zero length PES */
 			if (event.params.pes.total_length)
 				dvb_dmxdev_add_event(events, &event);
 
@@ -3087,7 +3087,7 @@ static void dvb_dmxdev_delete_pids(struct dmxdev_filter *dmxdevfilter)
 {
 	struct dmxdev_feed *feed, *tmp;
 
-	
+	/* delete all PIDs */
 	list_for_each_entry_safe(feed, tmp, &dmxdevfilter->feed.ts, next) {
 		list_del(&feed->next);
 		kfree(feed);
@@ -3239,7 +3239,7 @@ static int dvb_filter_external_buffer_only(struct dmxdev *dmxdev,
 		if (filter->type == DMXDEV_TYPE_SEC)
 			flags = caps.section.flags;
 		else if (filter->params.pes.output == DMX_OUT_DECODER)
-			
+			/* For decoder filters dmxdev buffer is not required */
 			flags = 0;
 		else if (filter->params.pes.output == DMX_OUT_TAP)
 			flags = caps.pes.flags;
@@ -3314,7 +3314,7 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 		*secfilter = NULL;
 		*secfeed = NULL;
 
-		
+		/* find active filter/feed with same PID */
 		for (i = 0; i < dmxdev->filternum; i++) {
 			if (dmxdev->filter[i].state >= DMXDEV_STATE_GO &&
 			    dmxdev->filter[i].type == DMXDEV_TYPE_SEC &&
@@ -3324,7 +3324,7 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 			}
 		}
 
-		
+		/* if no feed found, try to allocate new one */
 		if (!*secfeed) {
 			ret = dmxdev->demux->allocate_section_feed(dmxdev->demux,
 						secfeed,
@@ -3418,7 +3418,7 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 			filter->params.pes.rec_chunk_size =
 				filter->buffer.size >> 2;
 
-		
+		/* Align rec-chunk based on output format */
 		if (filter->dmx_tsp_format == DMX_TSP_FORMAT_188)
 			tsp_size = 188;
 		else
@@ -3452,7 +3452,7 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 		if (!ret)
 			break;
 
-		
+		/* cleanup feeds that were started before the failure */
 		list_for_each_entry(feed, &filter->feed.ts, next) {
 			if (!feed->ts)
 				continue;
@@ -3613,7 +3613,7 @@ static int dvb_dmxdev_add_pid(struct dmxdev *dmxdev,
 	    (filter->state < DMXDEV_STATE_SET))
 		return -EINVAL;
 
-	
+	/* only TS packet filters may have multiple PIDs */
 	if ((filter->params.pes.output != DMX_OUT_TSDEMUX_TAP) &&
 	    (!list_empty(&filter->feed.ts)))
 		return -EINVAL;
@@ -3842,12 +3842,12 @@ static int dvb_dmxdev_set_decoder_buffer(struct dmxdev *dmxdev,
 		return -EINVAL;
 
 	if (0 == buffs->buffers_num) {
-		
+		/* Internal mode - linear buffers not supported in this mode */
 		if (!(caps.decoder.flags & DMX_BUFFER_INTERNAL_SUPPORT) ||
 			buffs->is_linear)
 			return -EINVAL;
 	} else {
-		
+		/* External buffer(s) mode */
 		if ((!(caps.decoder.flags & DMX_BUFFER_LINEAR_GROUP_SUPPORT) &&
 			buffs->buffers_num > 1) ||
 			!(caps.decoder.flags & DMX_BUFFER_EXTERNAL_SUPPORT) ||
@@ -4317,7 +4317,7 @@ static long dvb_demux_compat_ioctl(struct file *file, unsigned int cmd,
 		ret = -ENOIOCTLCMD;
 		break;
 	default:
-		
+		/* use regular ioctl */
 		ret = dvb_usercopy(file, cmd, arg, dvb_demux_do_ioctl);
 	}
 
@@ -4384,7 +4384,7 @@ static int dvb_demux_mmap(struct file *filp, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-	
+	/* Make sure requested mapping is not larger than buffer size */
 	buffer_size = dmxdevfilter->buffer.size + (PAGE_SIZE-1);
 	buffer_size = buffer_size & ~(PAGE_SIZE-1);
 
@@ -4579,7 +4579,9 @@ static struct dvb_device dvbdev_dvr = {
 	.fops = &dvb_dvr_fops
 };
 
-
+/**
+ * debugfs service to print active filters information.
+ */
 static int dvb_dmxdev_dbgfs_print(struct seq_file *s, void *p)
 {
 	int i;
@@ -4693,7 +4695,7 @@ int dvb_dmxdev_init(struct dmxdev *dmxdev, struct dvb_adapter *dvb_adapter)
 	dvb_ringbuffer_init(&dmxdev->dvr_buffer, NULL, 8192);
 	dvb_ringbuffer_init(&dmxdev->dvr_input_buffer, NULL, 8192);
 
-	
+	/* Disable auto buffer flushing if plugin does not allow it */
 	if (dmxdev->demux->get_caps) {
 		dmxdev->demux->get_caps(dmxdev->demux, &caps);
 		if (!(caps.caps & DMX_CAP_AUTO_BUFFER_FLUSH))

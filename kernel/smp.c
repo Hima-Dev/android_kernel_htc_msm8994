@@ -197,7 +197,7 @@ int smp_call_function_single(int cpu, smp_call_func_t func, void *info,
 			csd->info = info;
 			generic_exec_single(cpu, csd, wait);
 		} else {
-			err = -ENXIO;	
+			err = -ENXIO;	/* CPU not online */
 		}
 	}
 
@@ -214,12 +214,12 @@ int smp_call_function_any(const struct cpumask *mask,
 	const struct cpumask *nodemask;
 	int ret;
 
-	
+	/* Try for same CPU (cheapest) */
 	cpu = get_cpu();
 	if (cpumask_test_cpu(cpu, mask))
 		goto call;
 
-	
+	/* Try for same node. */
 	nodemask = cpumask_of_node(cpu_to_node(cpu));
 	for (cpu = cpumask_first_and(nodemask, mask); cpu < nr_cpu_ids;
 	     cpu = cpumask_next_and(cpu, nodemask, mask)) {
@@ -227,7 +227,7 @@ int smp_call_function_any(const struct cpumask *mask,
 			goto call;
 	}
 
-	
+	/* Any online will do: smp_call_function_single handles nr_cpu_ids. */
 	cpu = cpumask_any_and(mask, cpu_online_mask);
 call:
 	ret = smp_call_function_single(cpu, func, info, wait);
@@ -312,7 +312,7 @@ void smp_call_function_many(const struct cpumask *mask,
 		raw_spin_unlock_irqrestore(&dst->lock, flags);
 	}
 
-	
+	/* Send a message to all CPUs in the map */
 	arch_send_call_function_ipi_mask(cfd->cpumask_ipi);
 
 	if (wait) {

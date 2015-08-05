@@ -308,7 +308,7 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 			return rc;
 	}
 
-	
+	/* sync */
 	reg = QPNP_WLED_SYNC;
 	rc = qpnp_wled_write_reg(wled, &reg,
 		QPNP_WLED_SYNC_REG(wled->sink_base));
@@ -360,7 +360,7 @@ static ssize_t qpnp_wled_ramp_store(struct device *dev,
 		}
 	}
 
-	
+	/* ramp up */
 	for (i = 0; i <= wled->cdev.max_brightness;) {
 		rc = qpnp_wled_set_level(wled, i);
 		if (rc) {
@@ -382,7 +382,7 @@ static ssize_t qpnp_wled_ramp_store(struct device *dev,
 			i = wled->cdev.max_brightness;
 	}
 
-	
+	/* ramp down */
 	for (i = wled->cdev.max_brightness; i >= 0;) {
 		rc = qpnp_wled_set_level(wled, i);
 		if (rc) {
@@ -407,7 +407,7 @@ static ssize_t qpnp_wled_ramp_store(struct device *dev,
 	dev_info(&wled->spmi->dev, "wled ramp complete\n");
 
 restore_brightness:
-	
+	/* restore the old brightness */
 	qpnp_wled_set_level(wled, wled->cdev.brightness);
 	if (!wled->cdev.brightness) {
 		rc = qpnp_wled_module_en(wled, wled->ctrl_base, false);
@@ -603,7 +603,7 @@ int qpnp_ibb_enable(bool state)
 		return -EAGAIN;
 	}
 
-	
+	/* enable lab */
 	if (gwled->ibb_bias_active) {
 		rc = qpnp_wled_module_en(gwled, gwled->lab_base, state);
 		if (rc < 0)
@@ -748,7 +748,7 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 	int rc;
 	u8 reg;
 
-	
+	/* display type */
 	rc = qpnp_wled_read_reg(wled, &reg,
 			QPNP_WLED_DISP_SEL_REG(base_addr));
 	if (rc < 0)
@@ -792,7 +792,7 @@ static irqreturn_t qpnp_wled_ovp_irq(int irq, void *_wled)
 	return IRQ_HANDLED;
 }
 
-
+/* short circuit irq handler */
 static irqreturn_t qpnp_wled_sc_irq(int irq, void *_wled)
 {
 	struct qpnp_wled *wled = _wled;
@@ -829,7 +829,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	
+	/* Configure the VREF register */
 	if (wled->vref_mv < QPNP_WLED_VREF_MIN_MV)
 		wled->vref_mv = QPNP_WLED_VREF_MIN_MV;
 	else if (wled->vref_mv > QPNP_WLED_VREF_MAX_MV)
@@ -847,7 +847,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	
+	/* Configure the ILIM register */
 	if (wled->ilim_ma < QPNP_WLED_ILIM_MIN_MA)
 		wled->ilim_ma = QPNP_WLED_ILIM_MIN_MA;
 	else if (wled->ilim_ma > QPNP_WLED_ILIM_MAX_MA)
@@ -868,7 +868,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 			return rc;
 	}
 
-	
+	/* Configure the MAX BOOST DUTY register */
 	if (wled->boost_duty_ns < QPNP_WLED_BOOST_DUTY_MIN_NS)
 		wled->boost_duty_ns = QPNP_WLED_BOOST_DUTY_MIN_NS;
 	else if (wled->boost_duty_ns > QPNP_WLED_BOOST_DUTY_MAX_NS)
@@ -885,7 +885,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	
+	/* Configure the SWITCHING FREQ register */
 	if (wled->switch_freq_khz == QPNP_WLED_SWITCH_FREQ_1600_KHZ)
 		temp = QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE;
 	else
@@ -902,7 +902,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	
+	/* Configure the OVP register */
 	if (wled->ovp_mv <= QPNP_WLED_OVP_17800_MV) {
 		wled->ovp_mv = QPNP_WLED_OVP_17800_MV;
 		temp = 3;
@@ -928,7 +928,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	
+	/* Configure the MODULATION register */
 	if (wled->mod_freq_khz <= QPNP_WLED_MOD_FREQ_1200_KHZ) {
 		wled->mod_freq_khz = QPNP_WLED_MOD_FREQ_1200_KHZ;
 		temp = 3;
@@ -977,7 +977,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	
+	/* Configure the HYBRID THRESHOLD register */
 	if (wled->hyb_thres < QPNP_WLED_HYB_THRES_MIN)
 		wled->hyb_thres = QPNP_WLED_HYB_THRES_MIN;
 	else if (wled->hyb_thres > QPNP_WLED_HYB_THRES_MAX)
@@ -995,7 +995,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	
+	/* Configure TEST5 register */
 	if (wled->dim_mode == QPNP_WLED_DIM_DIGITAL)
 		reg = QPNP_WLED_SINK_TEST5_DIG;
 	else
@@ -1009,7 +1009,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	
+	/* disable all current sinks and enable selected strings */
 	reg = 0x00;
 	rc = qpnp_wled_write_reg(wled, &reg,
 			QPNP_WLED_CURR_SINK_REG(wled->sink_base));
@@ -1020,7 +1020,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 			return -EINVAL;
 		}
 
-		
+		/* MODULATOR */
 		rc = qpnp_wled_read_reg(wled, &reg,
 				QPNP_WLED_MOD_EN_REG(wled->sink_base,
 						wled->strings[i]));
@@ -1040,7 +1040,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		if (rc)
 			return rc;
 
-		
+		/* SYNC DELAY */
 		if (wled->sync_dly_us < QPNP_WLED_SYNC_DLY_MIN_US)
 			wled->sync_dly_us = QPNP_WLED_SYNC_DLY_MIN_US;
 		else if (wled->sync_dly_us > QPNP_WLED_SYNC_DLY_MAX_US)
@@ -1060,7 +1060,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		if (rc)
 			return rc;
 
-		
+		/* FULL SCALE CURRENT */
 		if (wled->fs_curr_ua < QPNP_WLED_FS_CURR_MIN_UA)
 			wled->fs_curr_ua = QPNP_WLED_FS_CURR_MIN_UA;
 		else if (wled->fs_curr_ua > QPNP_WLED_FS_CURR_MAX_UA)
@@ -1080,7 +1080,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		if (rc)
 			return rc;
 
-		
+		/* CABC */
 		rc = qpnp_wled_read_reg(wled, &reg,
 				QPNP_WLED_CABC_REG(wled->sink_base,
 						wled->strings[i]));
@@ -1094,7 +1094,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 		if (rc)
 			return rc;
 
-		
+		/* Enable CURRENT SINK */
 		rc = qpnp_wled_read_reg(wled, &reg,
 				QPNP_WLED_CURR_SINK_REG(wled->sink_base));
 		if (rc < 0)
@@ -1107,7 +1107,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 			return rc;
 	}
 
-	
+	/* LAB fast precharge */
 	rc = qpnp_wled_read_reg(wled, &reg,
 			QPNP_WLED_LAB_FAST_PC_REG(wled->lab_base));
 	if (rc < 0)
@@ -1119,17 +1119,17 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	
+	/* Configure lab display type */
 	rc = qpnp_wled_set_disp(wled, wled->lab_base);
 	if (rc < 0)
 		return rc;
 
-	
+	/* make LAB module ready */
 	rc = qpnp_wled_mod_rdy(wled, wled->lab_base, true);
 	if (rc < 0)
 		return rc;
 
-	
+	/* IBB active bias */
 	if (wled->ibb_pwrup_dly_ms < QPNP_WLED_IBB_PWRUP_DLY_MIN_MS)
 		wled->ibb_pwrup_dly_ms = QPNP_WLED_IBB_PWRUP_DLY_MIN_MS;
 	else if (wled->ibb_pwrup_dly_ms > QPNP_WLED_IBB_PWRUP_DLY_MAX_MS)
@@ -1155,17 +1155,17 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
-	
+	/* Configure ibb display type */
 	rc = qpnp_wled_set_disp(wled, wled->ibb_base);
 	if (rc < 0)
 		return rc;
 
-	
+	/* make IBB module ready */
 	rc = qpnp_wled_mod_rdy(wled, wled->ibb_base, true);
 	if (rc < 0)
 		return rc;
 
-	
+	/* setup ovp and sc irqs */
 	if (wled->ovp_irq >= 0) {
 		rc = devm_request_threaded_irq(&wled->spmi->dev, wled->ovp_irq,
 			NULL, qpnp_wled_ovp_irq,

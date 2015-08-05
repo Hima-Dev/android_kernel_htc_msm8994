@@ -92,7 +92,7 @@ static void ccm_calculate_auth_mac(struct aead_request *req, u8 mac[])
 	u32 len = req->assoclen;
 	u32 macp = 0;
 
-	
+	/* prepend the AAD with a length tag */
 	if (len < 0xff00) {
 		ltag.l = cpu_to_be16(len);
 		ltag.len = 2;
@@ -145,7 +145,7 @@ static int ccm_encrypt(struct aead_request *req)
 	if (req->assoclen)
 		ccm_calculate_auth_mac(req, mac);
 
-	
+	/* preserve the original iv for the final round */
 	memcpy(buf, req->iv, AES_BLOCK_SIZE);
 
 	blkcipher_walk_init(&walk, req->dst, req->src, len);
@@ -173,7 +173,7 @@ static int ccm_encrypt(struct aead_request *req)
 	if (err)
 		return err;
 
-	
+	/* copy authtag to end of dst */
 	scatterwalk_map_and_copy(mac, req->dst, req->cryptlen,
 				 crypto_aead_authsize(aead), 1);
 
@@ -201,7 +201,7 @@ static int ccm_decrypt(struct aead_request *req)
 	if (req->assoclen)
 		ccm_calculate_auth_mac(req, mac);
 
-	
+	/* preserve the original iv for the final round */
 	memcpy(buf, req->iv, AES_BLOCK_SIZE);
 
 	blkcipher_walk_init(&walk, req->dst, req->src, len);
@@ -229,7 +229,7 @@ static int ccm_decrypt(struct aead_request *req)
 	if (err)
 		return err;
 
-	
+	/* compare calculated auth tag with the stored one */
 	scatterwalk_map_and_copy(buf, req->src, req->cryptlen - authsize,
 				 authsize, 0);
 

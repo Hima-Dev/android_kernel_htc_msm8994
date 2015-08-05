@@ -324,7 +324,7 @@ static int getpath(int src, int dest)
 
 	while ((!found && !list_empty(&traverse_list))) {
 		struct msm_bus_node_device_type *bus_node = NULL;
-		
+		/* Locate dest_id in the traverse list */
 		list_for_each_entry(bus_node, &traverse_list, link) {
 			if (bus_node->node_info->id == dest) {
 				found = 1;
@@ -334,9 +334,9 @@ static int getpath(int src, int dest)
 
 		if (!found) {
 			unsigned int i;
-			
+			/* Setup the new edge list */
 			list_for_each_entry(bus_node, &traverse_list, link) {
-				
+				/* Setup list of black-listed nodes */
 				setup_bl_list(bus_node, &black_list);
 
 				for (i = 0; i < bus_node->node_info->
@@ -365,15 +365,15 @@ static int getpath(int src, int dest)
 				}
 			}
 
-			
+			/* Keep tabs of the previous search list */
 			search_node = kzalloc(sizeof(struct bus_search_type),
 					 GFP_KERNEL);
 			INIT_LIST_HEAD(&search_node->node_list);
 			list_splice_init(&traverse_list,
 					 &search_node->node_list);
-			
+			/* Add the previous search list to a route list */
 			list_add_tail(&search_node->link, &route_list);
-			
+			/* Advancing the list depth */
 			depth_index++;
 			list_splice_init(&edge_list, &traverse_list);
 		}
@@ -417,7 +417,7 @@ static uint64_t arbitrate_bus_req(struct msm_bus_node_device_type *bus_dev,
 		max_ib = msm_bus_div64(vrail_comp, max_ib);
 	}
 
-	
+	/* Account for multiple channels if any */
 	if (bus_dev->node_info->num_aggports > 1)
 		sum_ab = msm_bus_div64(bus_dev->node_info->num_aggports,
 					sum_ab);

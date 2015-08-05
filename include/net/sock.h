@@ -49,7 +49,7 @@
 #include <linux/bitops.h>
 #include <linux/lockdep.h>
 #include <linux/netdevice.h>
-#include <linux/skbuff.h>	
+#include <linux/skbuff.h>	/* struct sk_buff */
 #include <linux/mm.h>
 #include <linux/security.h>
 #include <linux/slab.h>
@@ -126,7 +126,7 @@ struct sock_common {
 		unsigned int	skc_hash;
 		__u16		skc_u16hashes[2];
 	};
-	
+	/* skc_dport && skc_num must be grouped as well */
 	union {
 		__portpair	skc_portpair;
 		struct {
@@ -224,7 +224,7 @@ struct sock {
 	kmemcheck_bitfield_end(flags);
 	int			sk_wmem_queued;
 	gfp_t			sk_allocation;
-	u32			sk_pacing_rate; 
+	u32			sk_pacing_rate; /* bytes per second */
 	netdev_features_t	sk_route_caps;
 	netdev_features_t	sk_route_nocaps;
 	int			sk_gso_type;
@@ -390,7 +390,7 @@ static inline bool sk_del_node_init(struct sock *sk)
 	bool rc = __sk_del_node_init(sk);
 
 	if (rc) {
-		
+		/* paranoid for a while -acme */
 		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
 		__sock_put(sk);
 	}
@@ -412,7 +412,7 @@ static inline bool sk_nulls_del_node_init_rcu(struct sock *sk)
 	bool rc = __sk_nulls_del_node_init_rcu(sk);
 
 	if (rc) {
-		
+		/* paranoid for a while -acme */
 		WARN_ON(atomic_read(&sk->sk_refcnt) == 1);
 		__sock_put(sk);
 	}
@@ -491,27 +491,30 @@ enum sock_flags {
 	SOCK_BROADCAST,
 	SOCK_TIMESTAMP,
 	SOCK_ZAPPED,
-	SOCK_USE_WRITE_QUEUE, 
-	SOCK_DBG, 
-	SOCK_RCVTSTAMP, 
-	SOCK_RCVTSTAMPNS, 
-	SOCK_LOCALROUTE, 
-	SOCK_QUEUE_SHRUNK, 
-	SOCK_MEMALLOC, 
-	SOCK_TIMESTAMPING_TX_HARDWARE,  
-	SOCK_TIMESTAMPING_TX_SOFTWARE,  
-	SOCK_TIMESTAMPING_RX_HARDWARE,  
-	SOCK_TIMESTAMPING_RX_SOFTWARE,  
-	SOCK_TIMESTAMPING_SOFTWARE,     
-	SOCK_TIMESTAMPING_RAW_HARDWARE, 
-	SOCK_TIMESTAMPING_SYS_HARDWARE, 
-	SOCK_FASYNC, 
+	SOCK_USE_WRITE_QUEUE, /* whether to call sk->sk_write_space in sock_wfree */
+	SOCK_DBG, /* %SO_DEBUG setting */
+	SOCK_RCVTSTAMP, /* %SO_TIMESTAMP setting */
+	SOCK_RCVTSTAMPNS, /* %SO_TIMESTAMPNS setting */
+	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
+	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
+	SOCK_MEMALLOC, /* VM depends on this socket for swapping */
+	SOCK_TIMESTAMPING_TX_HARDWARE,  /* %SOF_TIMESTAMPING_TX_HARDWARE */
+	SOCK_TIMESTAMPING_TX_SOFTWARE,  /* %SOF_TIMESTAMPING_TX_SOFTWARE */
+	SOCK_TIMESTAMPING_RX_HARDWARE,  /* %SOF_TIMESTAMPING_RX_HARDWARE */
+	SOCK_TIMESTAMPING_RX_SOFTWARE,  /* %SOF_TIMESTAMPING_RX_SOFTWARE */
+	SOCK_TIMESTAMPING_SOFTWARE,     /* %SOF_TIMESTAMPING_SOFTWARE */
+	SOCK_TIMESTAMPING_RAW_HARDWARE, /* %SOF_TIMESTAMPING_RAW_HARDWARE */
+	SOCK_TIMESTAMPING_SYS_HARDWARE, /* %SOF_TIMESTAMPING_SYS_HARDWARE */
+	SOCK_FASYNC, /* fasync() active */
 	SOCK_RXQ_OVFL,
-	SOCK_ZEROCOPY, 
-	SOCK_WIFI_STATUS, 
-	SOCK_NOFCS, 
-	SOCK_FILTER_LOCKED, 
-	SOCK_SELECT_ERR_QUEUE, 
+	SOCK_ZEROCOPY, /* buffers from userspace */
+	SOCK_WIFI_STATUS, /* push wifi status to userspace */
+	SOCK_NOFCS, /* Tell NIC not to do the Ethernet FCS.
+		     * Will use last 4 bytes of packet sent from
+		     * user-space instead.
+		     */
+	SOCK_FILTER_LOCKED, /* Filter cannot be changed anymore */
+	SOCK_SELECT_ERR_QUEUE, /* Wake select on error queue */
 };
 
 static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
@@ -861,11 +864,11 @@ static inline void sk_refcnt_debug_release(const struct sock *sk)
 		printk(KERN_DEBUG "Destruction of the %s socket %p delayed, refcnt=%d\n",
 		       sk->sk_prot->name, sk, atomic_read(&sk->sk_refcnt));
 }
-#else 
+#else /* SOCK_REFCNT_DEBUG */
 #define sk_refcnt_debug_inc(sk) do { } while (0)
 #define sk_refcnt_debug_dec(sk) do { } while (0)
 #define sk_refcnt_debug_release(sk) do { } while (0)
-#endif 
+#endif /* SOCK_REFCNT_DEBUG */
 
 #if defined(CONFIG_MEMCG_KMEM) && defined(CONFIG_NET)
 extern struct static_key memcg_socket_limit_enabled;
@@ -989,7 +992,7 @@ sk_memory_allocated_add(struct sock *sk, int amt, int *parent_status)
 
 	if (mem_cgroup_sockets_enabled && sk->sk_cgrp) {
 		memcg_memory_allocated_add(sk->sk_cgrp, amt, parent_status);
-		
+		/* update the root cgroup regardless */
 		atomic_long_add_return(amt, prot->memory_allocated);
 		return memcg_memory_allocated_read(sk->sk_cgrp);
 	}
@@ -1078,7 +1081,9 @@ static inline void sock_prot_inuse_add(struct net *net, struct proto *prot,
 }
 #endif
 
-
+/* With per-bucket locks this operation is not-atomic, so that
+ * this version is not worse.
+ */
 static inline void __sk_prot_rehash(struct sock *sk)
 {
 	sk->sk_prot->unhash(sk);
@@ -1152,7 +1157,7 @@ static inline int sk_mem_pages(int amt)
 
 static inline bool sk_has_account(struct sock *sk)
 {
-	
+	/* return true if protocol supports memory accounting */
 	return !!sk->sk_prot->memory_allocated;
 }
 
@@ -1852,4 +1857,4 @@ extern __u32 sysctl_rmem_default;
 int sockev_register_notify(struct notifier_block *nb);
 int sockev_unregister_notify(struct notifier_block *nb);
 
-#endif	
+#endif	/* _SOCK_H */

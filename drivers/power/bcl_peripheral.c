@@ -734,7 +734,7 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 	const __be32 *prop = NULL;
 	struct device_node *dev_node = spmi->dev.of_node;
 
-	
+	/* Get SPMI peripheral address */
 	resource = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
 	if (!resource) {
 		pr_err("No base address defined\n");
@@ -758,7 +758,7 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 		pr_debug("pon_spare@%04x\n", bcl_perph->pon_spare_addr);
 	}
 
-	
+	/* Register SPMI peripheral interrupt */
 	irq_num = spmi_get_irq_byname(spmi, NULL,
 			BCL_VBAT_INT_NAME);
 	if (irq_num < 0) {
@@ -776,7 +776,7 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 	}
 	bcl_perph->param[BCL_PARAM_CURRENT].irq_num = irq_num;
 
-	
+	/* Get VADC and IADC scaling factor */
 	key = "qcom,vbat-scaling-factor";
 	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
 		bcl_perph->param[BCL_PARAM_VOLTAGE].scaling_factor);

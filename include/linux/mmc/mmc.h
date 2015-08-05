@@ -108,11 +108,11 @@ struct _mmc_csd {
 	u8  vdd_w_curr_max;
 	u8  c_size_mult;
 	union {
-		struct { 
+		struct { /* MMC system specification version 3.1 */
 			u8  erase_grp_size;
 			u8  erase_grp_mult;
 		} v31;
-		struct { 
+		struct { /* MMC system specification version 2.2 */
 			u8  sector_size;
 			u8  erase_grp_size;
 		} v22;

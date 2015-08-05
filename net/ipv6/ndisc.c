@@ -242,7 +242,7 @@ int ndisc_mc_map(const struct in6_addr *addr, char *buf, struct net_device *dev,
 {
 	switch (dev->type) {
 	case ARPHRD_ETHER:
-	case ARPHRD_IEEE802:	
+	case ARPHRD_IEEE802:	/* Not sure. Check it later. --ANK */
 	case ARPHRD_FDDI:
 		ipv6_eth_mc_map(addr, buf);
 		return 0;
@@ -453,7 +453,7 @@ static void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
 	struct nd_msg *msg;
 	int optlen = 0;
 
-	
+	/* for anycast or proxy, solicited_addr != src_addr */
 	ifp = ipv6_get_ifaddr(dev_net(dev), solicited_addr, dev, 1);
 	if (ifp) {
 		src_addr = solicited_addr;
@@ -509,9 +509,9 @@ static void ndisc_send_unsol_na(struct net_device *dev)
 	read_lock_bh(&idev->lock);
 	list_for_each_entry(ifa, &idev->addr_list, if_list) {
 		ndisc_send_na(dev, NULL, &in6addr_linklocal_allnodes, &ifa->addr,
-			       !!idev->cnf.forwarding,
-			       false,  true,
-			       true);
+			      /*router=*/ !!idev->cnf.forwarding,
+			      /*solicited=*/ false, /*override=*/ true,
+			      /*inc_opt=*/ true);
 	}
 	read_unlock_bh(&idev->lock);
 
@@ -733,7 +733,7 @@ static void ndisc_recv_ns(struct sk_buff *skb)
 
 		idev = in6_dev_get(dev);
 		if (!idev) {
-			
+			/* XXX: count this drop? */
 			return;
 		}
 
@@ -1054,7 +1054,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 
 #ifdef CONFIG_IPV6_ROUTER_PREF
 	pref = ra_msg->icmph.icmp6_router_pref;
-	
+	/* 10b is handled as if it were 00b (medium) */
 	if (pref == ICMPV6_ROUTER_PREF_INVALID ||
 	    !in6_dev->cnf.accept_ra_rtr_pref)
 		pref = ICMPV6_ROUTER_PREF_MEDIUM;
@@ -1197,7 +1197,7 @@ skip_routeinfo:
 #endif
 
 #ifdef CONFIG_IPV6_NDISC_NODETYPE
-	
+	/* skip link-specific ndopts from interior routers */
 	if (skb->ndisc_nodetype == NDISC_NODETYPE_NODEFAULT)
 		goto out;
 #endif
@@ -1576,7 +1576,7 @@ static int __net_init ndisc_net_init(struct net *net)
 
 	np = inet6_sk(sk);
 	np->hop_limit = 255;
-	
+	/* Do not loopback ndisc messages */
 	np->mc_loop = 0;
 
 	return 0;

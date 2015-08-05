@@ -279,7 +279,7 @@ setup_affinity(unsigned int irq, struct irq_desc *desc, struct cpumask *mask)
 	if (node != NUMA_NO_NODE) {
 		const struct cpumask *nodemask = cpumask_of_node(node);
 
-		
+		/* make sure at least one of the cpus in nodemask is online */
 		if (cpumask_intersects(mask, nodemask))
 			cpumask_and(mask, mask, nodemask);
 	}
@@ -359,7 +359,7 @@ void __enable_irq(struct irq_desc *desc, unsigned int irq, bool resume)
 				return;
 			if (!(desc->action->flags & IRQF_FORCE_RESUME))
 				return;
-			
+			/* Pretend that it got disabled ! */
 			desc->depth++;
 		}
 		desc->istate &= ~IRQS_SUSPENDED;
@@ -504,7 +504,7 @@ int __irq_set_trigger(struct irq_desc *desc, unsigned int irq,
 			unmask = 1;
 	}
 
-	
+	/* caller masked out all except trigger mode flags */
 	ret = chip->irq_set_type(&desc->irq_data, flags);
 
 	switch (ret) {
@@ -846,7 +846,7 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	if (!shared) {
 		init_waitqueue_head(&desc->wait_for_threads);
 
-		
+		/* Setup the type (level, edge polarity) if configured: */
 		if (new->flags & IRQF_TRIGGER_MASK) {
 			ret = __irq_set_trigger(desc, irq,
 					new->flags & IRQF_TRIGGER_MASK);
@@ -870,16 +870,16 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 		if (irq_settings_can_autoenable(desc))
 			irq_startup(desc, true);
 		else
-			
+			/* Undo nested disables: */
 			desc->depth = 1;
 
-		
+		/* Exclude IRQ from balancing if requested */
 		if (new->flags & IRQF_NOBALANCING) {
 			irq_settings_set_no_balancing(desc);
 			irqd_set(&desc->irq_data, IRQD_NO_BALANCING);
 		}
 
-		
+		/* Set default affinity mask once everything is setup */
 		setup_affinity(irq, desc, mask);
 
 	} else if (new->flags & IRQF_TRIGGER_MASK) {
@@ -887,7 +887,7 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 		unsigned int omsk = irq_settings_get_trigger_mask(desc);
 
 		if (nmsk != omsk)
-			
+			/* hope the handler works with current  trigger mode */
 			pr_warning("irq %d uses trigger mode %u; requested %u\n",
 				   irq, nmsk, omsk);
 	}
@@ -987,14 +987,14 @@ static struct irqaction *__free_irq(unsigned int irq, void *dev_id)
 		action_ptr = &action->next;
 	}
 
-	
+	/* Found it - now remove it from the list of entries: */
 	*action_ptr = action->next;
 
-	
+	/* If this was the last handler, shut down the IRQ line: */
 	if (!desc->action) {
 		irq_shutdown(desc);
 
-		
+		/* Explicitly mask the interrupt */
 		if (desc->irq_data.chip->irq_mask)
 			desc->irq_data.chip->irq_mask(&desc->irq_data);
 		else if (desc->irq_data.chip->irq_mask_ack)
@@ -1002,7 +1002,7 @@ static struct irqaction *__free_irq(unsigned int irq, void *dev_id)
 	}
 
 #ifdef CONFIG_SMP
-	
+	/* make sure affinity_hint is cleaned up */
 	if (WARN_ON_ONCE(desc->affinity_hint))
 		desc->affinity_hint = NULL;
 #endif
@@ -1220,7 +1220,7 @@ static struct irqaction *__free_percpu_irq(unsigned int irq, void __percpu *dev_
 		goto bad;
 	}
 
-	
+	/* Found it - now remove it from the list of entries: */
 	desc->action = NULL;
 
 	raw_spin_unlock_irqrestore(&desc->lock, flags);

@@ -497,7 +497,7 @@ static int handle_rmv_server(struct qmi_handle *handle,
 	svc_addr = (struct msm_ipc_addr *)(handle->dest_info);
 	if (svc_addr->addr.port_addr.node_id == ctl_msg->srv.node_id &&
 	    svc_addr->addr.port_addr.port_id == ctl_msg->srv.port_id) {
-		
+		/* Wakeup any threads waiting for the response */
 		handle->handle_reset = 1;
 		clean_txn_info(handle);
 
@@ -543,7 +543,7 @@ static void handle_ctl_msg(struct work_struct *work)
 		if (handle->handle_reset)
 			break;
 
-		
+		/* Read the messages */
 		rc = msm_ipc_router_read_msg(
 			(struct msm_ipc_port *)(handle->ctl_port),
 			&src_addr, (unsigned char **)&ctl_msg, &ctl_msg_len);
@@ -591,7 +591,7 @@ struct qmi_handle *qmi_handle_create(
 		goto handle_create_err1;
 	}
 
-	
+	/* Initialize common elements */
 	temp_handle->handle_type = QMI_CLIENT_HANDLE;
 	temp_handle->next_txn_id = 1;
 	mutex_init(&temp_handle->handle_lock);
@@ -602,11 +602,11 @@ struct qmi_handle *qmi_handle_create(
 	INIT_DELAYED_WORK(&temp_handle->resume_tx_work, clnt_resume_tx_worker);
 	INIT_DELAYED_WORK(&temp_handle->ctl_work, handle_ctl_msg);
 
-	
+	/* Initialize client specific elements */
 	INIT_LIST_HEAD(&temp_handle->txn_list);
 	INIT_LIST_HEAD(&temp_handle->pending_txn_list);
 
-	
+	/* Initialize service specific elements */
 	INIT_LIST_HEAD(&temp_handle->conn_list);
 
 	port_ptr = msm_ipc_router_create_port(qmi_event_notify,
@@ -747,7 +747,7 @@ static int qmi_encode_and_send_req(struct qmi_txn **ret_txn_handle,
 		return -ENETRESET;
 	}
 
-	
+	/* Allocate Transaction Info */
 	txn_handle = kzalloc(sizeof(struct qmi_txn), GFP_KERNEL);
 	if (!txn_handle) {
 		pr_err("%s: Failed to allocate txn handle\n", __func__);
@@ -758,7 +758,7 @@ static int qmi_encode_and_send_req(struct qmi_txn **ret_txn_handle,
 	INIT_LIST_HEAD(&txn_handle->list);
 	init_waitqueue_head(&txn_handle->wait_q);
 
-	
+	/* Cache the parameters passed & mark it as sync*/
 	txn_handle->handle = handle;
 	txn_handle->resp_desc = resp_desc;
 	txn_handle->resp = resp;
@@ -769,7 +769,7 @@ static int qmi_encode_and_send_req(struct qmi_txn **ret_txn_handle,
 	txn_handle->enc_data = NULL;
 	txn_handle->enc_data_len = 0;
 
-	
+	/* Encode the request msg */
 	encoded_req_len = req_desc->max_msg_len + QMI_HEADER_SIZE;
 	encoded_req = kmalloc(encoded_req_len, GFP_KERNEL);
 	if (!encoded_req) {
@@ -786,7 +786,7 @@ static int qmi_encode_and_send_req(struct qmi_txn **ret_txn_handle,
 	}
 	encoded_req_len = rc;
 
-	
+	/* Encode the header & Add to the txn_list */
 	if (!handle->next_txn_id)
 		handle->next_txn_id++;
 	txn_handle->txn_id = handle->next_txn_id++;
@@ -803,7 +803,7 @@ static int qmi_encode_and_send_req(struct qmi_txn **ret_txn_handle,
 	list_add_tail(&txn_handle->list, &handle->txn_list);
 	qmi_log(handle, QMI_REQUEST_CONTROL_FLAG, txn_handle->txn_id,
 			req_desc->msg_id, encoded_req_len);
-	
+	/* Send the request */
 	rc = msm_ipc_router_send_msg((struct msm_ipc_port *)(handle->src_port),
 		(struct msm_ipc_addr *)handle->dest_info,
 		encoded_req, encoded_req_len);
@@ -850,7 +850,7 @@ int qmi_send_req_wait(struct qmi_handle *handle,
 	struct qmi_txn *txn_handle = NULL;
 	int rc;
 
-	
+	/* Encode and send the request */
 	rc = qmi_encode_and_send_req(&txn_handle, handle, QMI_SYNC_TXN,
 				     req_desc, req, req_len,
 				     resp_desc, resp, resp_len,
@@ -860,7 +860,7 @@ int qmi_send_req_wait(struct qmi_handle *handle,
 		return rc;
 	}
 
-	
+	/* Wait for the response */
 	if (!timeout_ms) {
 		wait_event(txn_handle->wait_q,
 			   (txn_handle->resp_received ||
@@ -937,7 +937,7 @@ static int qmi_encode_and_send_resp(struct qmi_handle *handle,
 		goto encode_and_send_resp_err0;
 	}
 
-	
+	/* Allocate Transaction Info */
 	txn_handle = kzalloc(sizeof(struct qmi_txn), GFP_KERNEL);
 	if (!txn_handle) {
 		pr_err("%s: Failed to allocate txn handle\n", __func__);
@@ -950,7 +950,7 @@ static int qmi_encode_and_send_resp(struct qmi_handle *handle,
 	txn_handle->enc_data = NULL;
 	txn_handle->enc_data_len = 0;
 
-	
+	/* Encode the response msg */
 	encoded_resp_len = resp_desc->max_msg_len + QMI_HEADER_SIZE;
 	encoded_resp = kmalloc(encoded_resp_len, GFP_KERNEL);
 	if (!encoded_resp) {
@@ -967,7 +967,7 @@ static int qmi_encode_and_send_resp(struct qmi_handle *handle,
 	}
 	encoded_resp_len = rc;
 
-	
+	/* Encode the header & Add to the txn_list */
 	if (req_h) {
 		txn_handle->txn_id = req_h->txn_id;
 		cntl_flag = QMI_RESPONSE_CONTROL_FLAG;
@@ -1147,7 +1147,7 @@ static int send_err_resp(struct qmi_handle *handle,
 	err_resp.result = QMI_RESULT_FAILURE_V01;
 	err_resp.error = translate_err_code(err);
 
-	
+	/* Allocate Transaction Info */
 	txn_handle = kzalloc(sizeof(struct qmi_txn), GFP_KERNEL);
 	if (!txn_handle) {
 		pr_err("%s: Failed to allocate txn handle\n", __func__);
@@ -1159,7 +1159,7 @@ static int send_err_resp(struct qmi_handle *handle,
 	txn_handle->enc_data = NULL;
 	txn_handle->enc_data_len = 0;
 
-	
+	/* Encode the response msg */
 	encoded_resp_len = err_resp_desc.max_msg_len + QMI_HEADER_SIZE;
 	encoded_resp = kmalloc(encoded_resp_len, GFP_KERNEL);
 	if (!encoded_resp) {
@@ -1176,7 +1176,7 @@ static int send_err_resp(struct qmi_handle *handle,
 	}
 	encoded_resp_len = rc;
 
-	
+	/* Encode the header & Add to the txn_list */
 	txn_handle->txn_id = txn_id;
 	encode_qmi_header(encoded_resp, QMI_RESPONSE_CONTROL_FLAG,
 			  txn_handle->txn_id, msg_id,
@@ -1238,7 +1238,7 @@ static int handle_qmi_request(struct qmi_handle *handle,
 	if (conn_h)
 		goto decode_req;
 
-	
+	/* New client, establish a connection */
 	conn_h = add_svc_clnt_conn(handle, src_addr, src_addr_len);
 	if (!conn_h) {
 		pr_err("%s: Error adding a new conn_h\n", __func__);
@@ -1292,7 +1292,7 @@ process_req:
 					      msg_id, req_struct);
 	if (rc < 0) {
 		pr_err("%s: Error while req_cb\n", __func__);
-		
+		/* Check if the error is before or after sending a response */
 		if (verify_req_handle(conn_h, req_h))
 			rmv_req_handle(req_h);
 		else
@@ -1325,7 +1325,7 @@ static int handle_qmi_response(struct qmi_handle *handle,
 	struct qmi_txn *txn_handle;
 	int rc;
 
-	
+	/* Find the transaction handle */
 	txn_handle = find_txn_handle(handle, txn_id);
 	if (!txn_handle) {
 		pr_err("%s Response received for non-existent txn_id %d\n",
@@ -1333,7 +1333,7 @@ static int handle_qmi_response(struct qmi_handle *handle,
 		return 0;
 	}
 
-	
+	/* Decode the message */
 	rc = qmi_kernel_decode(txn_handle->resp_desc, txn_handle->resp,
 			       (void *)(resp_msg + QMI_HEADER_SIZE), msg_len);
 	if (rc < 0) {
@@ -1347,7 +1347,7 @@ static int handle_qmi_response(struct qmi_handle *handle,
 		return rc;
 	}
 
-	
+	/* Handle async or sync resp */
 	switch (txn_handle->type) {
 	case QMI_SYNC_TXN:
 		txn_handle->resp_received = 1;
@@ -1399,7 +1399,7 @@ int qmi_recv_msg(struct qmi_handle *handle)
 		return -ENETRESET;
 	}
 
-	
+	/* Read the messages */
 	rc = msm_ipc_router_read_msg((struct msm_ipc_port *)(handle->src_port),
 				     &src_addr, &recv_msg, &recv_msg_len);
 	if (rc == -ENOMSG) {
@@ -1413,7 +1413,7 @@ int qmi_recv_msg(struct qmi_handle *handle)
 		return rc;
 	}
 
-	
+	/* Decode the header & Handle the req, resp, indication message */
 	decode_qmi_header(recv_msg, &cntl_flag, &txn_id, &msg_id, &msg_len);
 
 	qmi_log(handle, cntl_flag, txn_id, msg_id, msg_len);
@@ -1797,14 +1797,14 @@ int qmi_svc_register(struct qmi_handle *handle, void *ops_options)
 	if (!handle || !svc_ops_options)
 		return -EINVAL;
 
-	
+	/* Check if the required elements of opts_options are filled */
 	if (!svc_ops_options->service_id || !svc_ops_options->service_vers ||
 	    !svc_ops_options->connect_cb || !svc_ops_options->disconnect_cb ||
 	    !svc_ops_options->req_desc_cb || !svc_ops_options->req_cb)
 		return -EINVAL;
 
 	mutex_lock(&handle->handle_lock);
-	
+	/* Check if another service/client is registered in that handle */
 	if (handle->handle_type == QMI_SERVICE_HANDLE || handle->dest_info) {
 		mutex_unlock(&handle->handle_lock);
 		return -EBUSY;
@@ -1834,7 +1834,12 @@ int qmi_svc_register(struct qmi_handle *handle, void *ops_options)
 }
 EXPORT_SYMBOL(qmi_svc_register);
 
-
+/**
+ * qmi_svc_unregister() - Unregister the service from a QMI handle
+ * @handle: QMI handle from which the service has to be unregistered.
+ *
+ * return: 0 on success, < 0 on error.
+ */
 int qmi_svc_unregister(struct qmi_handle *handle)
 {
 	struct qmi_svc_clnt_conn *conn_h, *temp_conn_h;

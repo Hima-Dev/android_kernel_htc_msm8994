@@ -225,7 +225,7 @@ static int of_read_clocks(struct device *dev, struct clk ***clks_ref,
 			return rc;
 		}
 
-		
+		/* Make sure rate-settable clocks' rates are set */
 		if (clk_get_rate(clks[i]) == 0)
 			clk_set_rate(clks[i], clk_round_rate(clks[i],
 								clock_rate));
@@ -285,7 +285,7 @@ static int of_read_regs(struct device *dev, struct reg_info **regs_ref,
 
 		len /= sizeof(vdd_uV_uA[0]);
 
-		
+		/* There should be two entries: one for uV and one for uA */
 		if (len != 2) {
 			dev_err(dev, "Missing uV/uA value\n");
 			return -EINVAL;
@@ -878,7 +878,7 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
-	
+	/* Defaulting smem_id to be not present */
 	d->smem_id = -1;
 
 	if (of_find_property(pdev->dev.of_node, "qcom,smem-id", &len)) {

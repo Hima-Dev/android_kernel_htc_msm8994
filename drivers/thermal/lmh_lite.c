@@ -248,7 +248,7 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 	static struct lmh_sensor_packet payload;
 	struct scm_desc desc_arg;
 	struct {
-		
+		/* TZ is 32-bit right now */
 		uint32_t addr;
 		uint32_t size;
 	} cmd_buf;
@@ -270,7 +270,7 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 	else
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH,
 			LMH_GET_INTENSITY), &desc_arg);
-	
+	/* Have memory barrier before we access the TZ data */
 	mb();
 	trace_lmh_event_call("GET_INTENSITY exit");
 	if (ret) {
@@ -583,7 +583,7 @@ static int lmh_get_sensor_list(void)
 		else
 			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH,
 				LMH_GET_SENSORS), &desc_arg);
-		
+		/* Have memory barrier before we access the TZ data */
 		mb();
 		trace_lmh_event_call("GET_SENSORS exit");
 		if (ret < 0) {
@@ -722,7 +722,7 @@ static int lmh_get_dev_info(void)
 				LMH_GET_PROFILES), &desc_arg);
 			size = desc_arg.ret[0];
 		}
-		
+		/* Have memory barrier before we access the TZ data */
 		mb();
 		trace_lmh_event_call("GET_PROFILE exit");
 		if (ret) {

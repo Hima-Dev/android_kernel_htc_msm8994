@@ -429,7 +429,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
-	
+	/* rate and channels are sent to audio driver */
 	prtd->samp_rate = runtime->rate;
 	prtd->channel_mode = runtime->channels;
 	prtd->out_head = 0;
@@ -440,7 +440,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 
 	switch (compr->info.codec_param.codec.id) {
 	case SND_AUDIOCODEC_MP3:
-		
+		/* No media format block for mp3 */
 		break;
 	case SND_AUDIOCODEC_AAC:
 		pr_debug("%s: SND_AUDIOCODEC_AAC\n", __func__);
@@ -673,7 +673,7 @@ static void populate_codec_list(struct compr_audio *compr,
 		struct snd_pcm_runtime *runtime)
 {
 	pr_debug("%s\n", __func__);
-	
+	/* MP3 Block */
 	compr->info.compr_cap.num_codecs = 5;
 	compr->info.compr_cap.min_fragment_size = runtime->hw.period_bytes_min;
 	compr->info.compr_cap.max_fragment_size = runtime->hw.period_bytes_max;
@@ -684,7 +684,7 @@ static void populate_codec_list(struct compr_audio *compr,
 	compr->info.compr_cap.codecs[2] = SND_AUDIOCODEC_AC3;
 	compr->info.compr_cap.codecs[3] = SND_AUDIOCODEC_EAC3;
 	compr->info.compr_cap.codecs[4] = SND_AUDIOCODEC_AMRWB;
-	
+	/* Add new codecs here */
 }
 
 static int msm_compr_open(struct snd_pcm_substream *substream)
@@ -729,7 +729,7 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 			&constraints_sample_rates);
 	if (ret < 0)
 		pr_info("snd_pcm_hw_constraint_list failed\n");
-	
+	/* Ensure that buffer size is a multiple of period size */
 	ret = snd_pcm_hw_constraint_integer(runtime,
 			    SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0)
@@ -905,7 +905,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 		dir = IN;
 	else
 		dir = OUT;
-	
+	/* Modifying kernel hardware params based on userspace config */
 	if (params_periods(params) > 0 &&
 		(params_periods(params) != runtime->hw.periods_max)) {
 		runtime->hw.periods_max = params_periods(params);
@@ -994,7 +994,7 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 			sizeof(struct snd_compr_params));
 		switch (compr->info.codec_param.codec.id) {
 		case SND_AUDIOCODEC_MP3:
-			
+			/* For MP3 we dont need any other parameter */
 			pr_debug("SND_AUDIOCODEC_MP3\n");
 			compr->codec = FORMAT_MP3;
 			break;
@@ -1005,12 +1005,12 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_AC3: {
 			char params_value[MAX_AC3_PARAM_SIZE];
 			int *params_value_data = (int *)params_value;
-			
+			/* 36 is the max param length for ddp */
 			int i;
 			struct snd_dec_ddp *ddp =
 				&compr->info.codec_param.codec.options.ddp;
 			uint32_t params_length = 0;
-			
+			/* check integer overflow */
 			if (ddp->params_length > UINT_MAX/sizeof(int)) {
 				pr_err("%s: Integer overflow ddp->params_length %d\n",
 				__func__, ddp->params_length);
@@ -1018,7 +1018,7 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 			}
 			params_length = ddp->params_length*sizeof(int);
 			if (params_length > MAX_AC3_PARAM_SIZE) {
-				
+				/*MAX is 36*sizeof(int) this should not happen*/
 				pr_err("%s: params_length(%d) is greater than %zd\n",
 				__func__, params_length, MAX_AC3_PARAM_SIZE);
 				return -EINVAL;
@@ -1045,19 +1045,19 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_EAC3: {
 			char params_value[MAX_AC3_PARAM_SIZE];
 			int *params_value_data = (int *)params_value;
-			
+			/* 36 is the max param length for ddp */
 			int i;
 			struct snd_dec_ddp *ddp =
 				&compr->info.codec_param.codec.options.ddp;
 			uint32_t params_length = 0;
-			
+			/* check integer overflow */
 			if (ddp->params_length > UINT_MAX/sizeof(int)) {
 				pr_err("%s: Integer overflow ddp->params_length %d\n",
 				__func__, ddp->params_length);
 				return -EINVAL;
 			}
 			if (params_length > MAX_AC3_PARAM_SIZE) {
-				
+				/*MAX is 36*sizeof(int) this should not happen*/
 				pr_err("%s: params_length(%d) is greater than %zd\n",
 				__func__, params_length, MAX_AC3_PARAM_SIZE);
 				return -EINVAL;
@@ -1124,7 +1124,7 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 		atomic_set(&prtd->pending_buffer, 0);
 		prtd->cmd_ack = 0;
 		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
-		
+		/* Wait indefinitely for  DRAIN. Flush can also signal this*/
 		rc = wait_event_interruptible(the_locks.eos_wait,
 			(prtd->cmd_ack || prtd->cmd_interrupt));
 
@@ -1239,7 +1239,7 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 }
 #ifdef CONFIG_COMPAT
 struct snd_enc_wma32 {
-	u32 super_block_align; 
+	u32 super_block_align; /* WMA Type-specific data */
 	u32 encodeopt1;
 	u32 encodeopt2;
 };
@@ -1264,7 +1264,7 @@ struct snd_enc_flac32 {
 };
 
 struct snd_enc_generic32 {
-	u32 bw;	
+	u32 bw;	/* encoder bandwidth */
 	s32 reserved[15];
 };
 struct snd_dec_ddp32 {

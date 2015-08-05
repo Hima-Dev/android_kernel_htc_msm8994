@@ -358,7 +358,7 @@ static int rt6_info_hash_nhsfn(unsigned int candidate_count,
 	val ^= ipv6_addr_hash(&fl6->daddr);
 	val ^= ipv6_addr_hash(&fl6->saddr);
 
-	
+	/* Work only if this not encapsulated */
 	switch (fl6->flowi6_proto) {
 	case IPPROTO_UDP:
 	case IPPROTO_TCP:
@@ -372,10 +372,10 @@ static int rt6_info_hash_nhsfn(unsigned int candidate_count,
 		val ^= (__force u16)fl6->fl6_icmp_code;
 		break;
 	}
-	
+	/* RFC6438 recommands to use flowlabel */
 	val ^= (__force u32)fl6->flowlabel;
 
-	
+	/* Perhaps, we need to tune, this function? */
 	val = val ^ (val >> 7) ^ (val >> 12);
 	return val % candidate_count;
 }
@@ -583,7 +583,7 @@ static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
 	m = rt6_score_route(rt, oif, strict);
 	if (m == RT6_NUD_FAIL_SOFT && !IS_ENABLED(CONFIG_IPV6_ROUTER_PREF)) {
 		match_do_rr = true;
-		m = 0; 
+		m = 0; /* lowest valid score */
 	} else if (m < 0) {
 		goto out;
 	}
@@ -635,7 +635,7 @@ static struct rt6_info *rt6_select(struct fib6_node *fn, int oif, int strict)
 	if (do_rr) {
 		struct rt6_info *next = rt0->dst.rt6_next;
 
-		
+		/* no entries matched; do round-robin */
 		if (!next || next->rt6i_metric != rt0->rt6i_metric)
 			next = fn->leaf;
 
@@ -661,7 +661,7 @@ int rt6_route_rcv(struct net_device *dev, u8 *opt, int len,
 		return -EINVAL;
 	}
 
-	
+	/* Sanity check for prefix_len and length */
 	if (rinfo->length > 3) {
 		return -EINVAL;
 	} else if (rinfo->prefix_len > 128) {
@@ -685,7 +685,7 @@ int rt6_route_rcv(struct net_device *dev, u8 *opt, int len,
 	if (rinfo->length == 3)
 		prefix = (struct in6_addr *)rinfo->prefix;
 	else {
-		
+		/* this function is safe */
 		ipv6_addr_prefix(&prefix_buf,
 				 (struct in6_addr *)rinfo->prefix,
 				 rinfo->prefix_len);
@@ -1815,7 +1815,7 @@ static struct rt6_info *rt6_add_route_info(struct net_device *dev,
 	cfg.fc_dst = *prefix;
 	cfg.fc_gateway = *gwaddr;
 
-	
+	/* We should treat it as a default route if prefix length is 0. */
 	if (!prefixlen)
 		cfg.fc_flags |= RTF_DEFAULT;
 
@@ -1911,8 +1911,8 @@ int ipv6_route_ioctl(struct net *net, unsigned int cmd, void __user *arg)
 	int err;
 
 	switch(cmd) {
-	case SIOCADDRT:		
-	case SIOCDELRT:		
+	case SIOCADDRT:		/* Add a route */
+	case SIOCDELRT:		/* Delete a route */
 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
 			return -EPERM;
 		err = copy_from_user(&rtmsg, arg,
@@ -1954,7 +1954,7 @@ static int ip6_pkt_drop(struct sk_buff *skb, u8 code, int ipstats_mib_noroutes)
 				      IPSTATS_MIB_INADDRERRORS);
 			break;
 		}
-		
+		/* FALLTHROUGH */
 	case IPSTATS_MIB_OUTNOROUTES:
 		IP6_INC_STATS(dev_net(dst->dev), ip6_dst_idev(dst),
 			      ipstats_mib_noroutes);
@@ -2052,7 +2052,7 @@ static int fib6_remove_prefsrc(struct rt6_info *rt, void *arg)
 	if (((void *)rt->dst.dev == dev || !dev) &&
 	    rt != net->ipv6.ip6_null_entry &&
 	    ipv6_addr_equal(addr, &rt->rt6i_prefsrc.addr)) {
-		
+		/* remove prefsrc entry */
 		rt->rt6i_prefsrc.plen = 0;
 	}
 	return 0;
@@ -2239,7 +2239,7 @@ beginning:
 	rtnh = (struct rtnexthop *)cfg->fc_mp;
 	remaining = cfg->fc_mp_len;
 
-	
+	/* Parse a Multipath Entry */
 	while (rtnh_ok(rtnh, remaining)) {
 		memcpy(&r_cfg, cfg, sizeof(*cfg));
 		if (rtnh->rtnh_ifindex)
@@ -2303,15 +2303,15 @@ static int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh)
 static inline size_t rt6_nlmsg_size(void)
 {
 	return NLMSG_ALIGN(sizeof(struct rtmsg))
-	       + nla_total_size(16) 
-	       + nla_total_size(16) 
-	       + nla_total_size(16) 
-	       + nla_total_size(16) 
-	       + nla_total_size(4) 
-	       + nla_total_size(4) 
-	       + nla_total_size(4) 
-	       + nla_total_size(4) 
-	       + RTAX_MAX * nla_total_size(4) 
+	       + nla_total_size(16) /* RTA_SRC */
+	       + nla_total_size(16) /* RTA_DST */
+	       + nla_total_size(16) /* RTA_GATEWAY */
+	       + nla_total_size(16) /* RTA_PREFSRC */
+	       + nla_total_size(4) /* RTA_TABLE */
+	       + nla_total_size(4) /* RTA_IIF */
+	       + nla_total_size(4) /* RTA_OIF */
+	       + nla_total_size(4) /* RTA_PRIORITY */
+	       + RTAX_MAX * nla_total_size(4) /* RTA_METRICS */
 	       + nla_total_size(sizeof(struct rta_cacheinfo));
 }
 
@@ -2326,9 +2326,9 @@ static int rt6_fill_node(struct net *net,
 	long expires;
 	u32 table;
 
-	if (prefix) {	
+	if (prefix) {	/* user wants prefix routes only */
 		if (!(rt->rt6i_flags & RTF_PREFIX_RT)) {
-			
+			/* success since this is not a prefix route */
 			return 1;
 		}
 	}
@@ -2584,7 +2584,7 @@ void inet6_rt_notify(int event, struct rt6_info *rt, struct nl_info *info)
 	err = rt6_fill_node(net, skb, rt, NULL, NULL, 0,
 				event, info->portid, seq, 0, 0, 0);
 	if (err < 0) {
-		
+		/* -EMSGSIZE implies BUG in rt6_nlmsg_size() */
 		WARN_ON(err == -EMSGSIZE);
 		kfree_skb(skb);
 		goto errout;
@@ -2699,7 +2699,7 @@ static const struct file_operations rt6_stats_seq_fops = {
 	.llseek	 = seq_lseek,
 	.release = single_release_net,
 };
-#endif	
+#endif	/* CONFIG_PROC_FS */
 
 #ifdef CONFIG_SYSCTL
 
@@ -2814,7 +2814,7 @@ struct ctl_table * __net_init ipv6_route_sysctl_init(struct net *net)
 		table[8].data = &net->ipv6.sysctl.ip6_rt_min_advmss;
 		table[9].data = &net->ipv6.sysctl.ip6_rt_gc_min_interval;
 
-		
+		/* Don't export sysctls to unprivileged users */
 		if (net->user_ns != &init_user_ns)
 			table[0].procname = NULL;
 	}

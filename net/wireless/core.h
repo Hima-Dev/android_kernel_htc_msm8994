@@ -127,7 +127,7 @@ struct cfg80211_internal_bss {
 	unsigned long refcount;
 	atomic_t hold;
 
-	
+	/* must be last because of priv member */
 	struct cfg80211_bss pub;
 };
 

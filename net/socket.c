@@ -1467,7 +1467,8 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 			goto out_fd;
 	}
 
-	
+	/* The real protocol initialization is performed in later initcalls.
+	 */
 
 	fd_install(newfd, newfile);
 	err = newfd;
@@ -2394,7 +2395,7 @@ out_fs:
 	goto out;
 }
 
-core_initcall(sock_init);	
+core_initcall(sock_init);	/* early initcall */
 
 #ifdef CONFIG_PROC_FS
 void socket_seq_show(struct seq_file *seq)
@@ -2405,13 +2406,13 @@ void socket_seq_show(struct seq_file *seq)
 	for_each_possible_cpu(cpu)
 	    counter += per_cpu(sockets_in_use, cpu);
 
-	
+	/* It can be negative, by the way. 8) */
 	if (counter < 0)
 		counter = 0;
 
 	seq_printf(seq, "sockets: used %d\n", counter);
 }
-#endif				
+#endif				/* CONFIG_PROC_FS */
 
 #ifdef CONFIG_COMPAT
 static int do_siocgstamp(struct net *net, struct socket *sock,
@@ -2827,20 +2828,20 @@ static int compat_siocshwtstamp(struct net *net, struct compat_ifreq __user *uif
 
 struct rtentry32 {
 	u32		rt_pad1;
-	struct sockaddr rt_dst;         
-	struct sockaddr rt_gateway;     
-	struct sockaddr rt_genmask;     
+	struct sockaddr rt_dst;         /* target address               */
+	struct sockaddr rt_gateway;     /* gateway addr (RTF_GATEWAY)   */
+	struct sockaddr rt_genmask;     /* target network mask (IP)     */
 	unsigned short	rt_flags;
 	short		rt_pad2;
 	u32		rt_pad3;
 	unsigned char	rt_tos;
 	unsigned char	rt_class;
 	short		rt_pad4;
-	short		rt_metric;      
-	 u32 rt_dev;        
-	u32		rt_mtu;         
-	u32		rt_window;      
-	unsigned short  rt_irtt;        
+	short		rt_metric;      /* +1 for binary compatibility! */
+	/* char * */ u32 rt_dev;        /* forcing the device at add    */
+	u32		rt_mtu;         /* per route MTU/Window         */
+	u32		rt_window;      /* Window clamping              */
+	unsigned short  rt_irtt;        /* Initial RTT                  */
 };
 
 struct in6_rtmsg32 {
@@ -2867,7 +2868,7 @@ static int routing_ioctl(struct net *net, struct socket *sock,
 	u32 rtdev;
 	mm_segment_t old_fs = get_fs();
 
-	if (sock && sock->sk && sock->sk->sk_family == AF_INET6) { 
+	if (sock && sock->sk && sock->sk->sk_family == AF_INET6) { /* ipv6 */
 		struct in6_rtmsg32 __user *ur6 = argp;
 		ret = copy_from_user(&r6.rtmsg_dst, &(ur6->rtmsg_dst),
 			3 * sizeof(struct in6_addr));
@@ -2880,7 +2881,7 @@ static int routing_ioctl(struct net *net, struct socket *sock,
 		ret |= __get_user(r6.rtmsg_ifindex, &(ur6->rtmsg_ifindex));
 
 		r = (void *) &r6;
-	} else { 
+	} else { /* ipv4 */
 		struct rtentry32 __user *ur4 = argp;
 		ret = copy_from_user(&r4.rt_dst, &(ur4->rt_dst),
 					3 * sizeof(struct sockaddr));

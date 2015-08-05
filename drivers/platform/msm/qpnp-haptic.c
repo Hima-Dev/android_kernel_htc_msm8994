@@ -242,7 +242,7 @@ static int qpnp_hap_mod_enable(struct qpnp_hap *hap, int on)
 
 			dev_dbg(&hap->spmi->dev, "HAP_STATUS=0x%x\n", val);
 
-			
+			/* wait for QPNP_HAP_CYCLS cycles of play rate */
 			if (val & QPNP_HAP_STATUS_BUSY) {
 				usleep(QPNP_HAP_CYCLS * hap->wave_play_rate_us);
 				if (hap->play_mode == QPNP_HAP_DIRECT)
@@ -329,7 +329,7 @@ static irqreturn_t qpnp_hap_play_irq(int irq, void *_hap)
 
 	mutex_lock(&hap->wf_lock);
 
-	
+	/* Configure WAVE_SAMPLE1 to WAVE_SAMPLE8 register */
 	for (i = 0; i < QPNP_HAP_WAV_SAMP_LEN && hap->wf_update; i++) {
 		reg = hap->wave_samp[i] = hap->shadow_wave_samp[i];
 		rc = qpnp_hap_write_reg(hap, &reg,
@@ -390,7 +390,7 @@ static int qpnp_hap_buffer_config(struct qpnp_hap *hap)
 	if (rc)
 		return rc;
 
-	
+	/* Configure WAVE_SAMPLE1 to WAVE_SAMPLE8 register */
 	for (i = 0, reg = 0; i < QPNP_HAP_WAV_SAMP_LEN; i++) {
 		reg = hap->wave_samp[i];
 		rc = qpnp_hap_write_reg(hap, &reg,
@@ -399,7 +399,7 @@ static int qpnp_hap_buffer_config(struct qpnp_hap *hap)
 			return rc;
 	}
 
-	
+	/* setup play irq */
 	if (hap->use_play_irq) {
 		rc = devm_request_threaded_irq(&hap->spmi->dev, hap->play_irq,
 			NULL, qpnp_hap_play_irq,
@@ -926,7 +926,7 @@ static ssize_t qpnp_hap_play_mode_store(struct device *dev,
 
 	old_mode = hap->play_mode;
 	hap->play_mode = temp;
-	
+	/* Configure the PLAY MODE register */
 	rc = qpnp_hap_play_mode_config(hap);
 	if (rc) {
 		hap->play_mode = old_mode;
@@ -1132,7 +1132,7 @@ static int qpnp_haptic_suspend(struct device *dev)
 
 	hrtimer_cancel(&hap->hap_timer);
 	cancel_work_sync(&hap->work);
-	
+	/* turn-off haptic */
 	qpnp_hap_set(hap, 0);
 
 	return 0;
@@ -1168,7 +1168,7 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	if (rc)
 		return rc;
 
-	
+	/* Configure auto resonance parameters */
 	if (hap->act_type == QPNP_HAP_LRA) {
 		if (hap->lra_res_cal_period < QPNP_HAP_RES_CAL_PERIOD_MIN)
 			hap->lra_res_cal_period = QPNP_HAP_RES_CAL_PERIOD_MIN;
@@ -1191,7 +1191,7 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 		if (rc)
 			return rc;
 	} else {
-		
+		/* disable auto resonance for ERM */
 		reg = 0x00;
 
 		rc = qpnp_hap_write_reg(hap, &reg,
@@ -1200,17 +1200,17 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 			return rc;
 	}
 
-	
+	/* Configure the PLAY MODE register */
 	rc = qpnp_hap_play_mode_config(hap);
 	if (rc)
 		return rc;
 
-	
+	/* Configure the VMAX register */
 	rc = qpnp_hap_vmax_config(hap);
 	if (rc)
 		return rc;
 
-	
+	/* Configure the ILIM register */
 	if (hap->ilim_ma < QPNP_HAP_ILIM_MIN_MA)
 		hap->ilim_ma = QPNP_HAP_ILIM_MIN_MA;
 	else if (hap->ilim_ma > QPNP_HAP_ILIM_MAX_MA)
@@ -1226,12 +1226,12 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	if (rc)
 		return rc;
 
-	
+	/* Configure the short circuit debounce register */
 	rc = qpnp_hap_sc_deb_config(hap);
 	if (rc)
 		return rc;
 
-	
+	/* Configure the INTERNAL_PWM register */
 	if (hap->int_pwm_freq_khz <= QPNP_HAP_INT_PWM_FREQ_253_KHZ) {
 		hap->int_pwm_freq_khz = QPNP_HAP_INT_PWM_FREQ_253_KHZ;
 		temp = 0;
@@ -1264,7 +1264,7 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	if (rc)
 		return rc;
 
-	
+	/* Configure the WAVE SHAPE register */
 	rc = qpnp_hap_read_reg(hap, &reg,
 			QPNP_HAP_WAV_SHAPE_REG(hap->base));
 	if (rc < 0)
@@ -1301,7 +1301,7 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	if (rc)
 		return rc;
 
-	
+	/* Configure BRAKE register */
 	rc = qpnp_hap_read_reg(hap, &reg, QPNP_HAP_EN_CTL2_REG(hap->base));
 	if (rc < 0)
 		return rc;
@@ -1323,13 +1323,13 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 			return rc;
 	}
 
-	
+	/* Cache enable control register */
 	rc = qpnp_hap_read_reg(hap, &reg, QPNP_HAP_EN_CTL_REG(hap->base));
 	if (rc < 0)
 		return rc;
 	hap->reg_en_ctl = reg;
 
-	
+	/* Cache play register */
 	rc = qpnp_hap_read_reg(hap, &reg, QPNP_HAP_PLAY_REG(hap->base));
 	if (rc < 0)
 		return rc;
@@ -1345,7 +1345,7 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	if (rc)
 		return rc;
 
-	
+	/* setup short circuit irq */
 	if (hap->use_sc_irq) {
 		rc = devm_request_threaded_irq(&hap->spmi->dev, hap->sc_irq,
 			NULL, qpnp_hap_sc_irq,

@@ -374,7 +374,7 @@ static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 		for (i = 0; i < total_axi_port_cnt; i++) {
 			vect = &bw_table->usecase
 				[mdss_res->curr_bw_uc_idx].vectors[i];
-			
+			/* avoid performing updates for small changes */
 			if ((ab_quota[i] == vect->ab) &&
 				(ib_quota[i] == vect->ib))
 				match_cnt++;
@@ -1045,13 +1045,13 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 				      MDSS_CLK_MDP_CORE))
 		return -EINVAL;
 
-	
+	/* lut_clk is not present on all MDSS revisions */
 	mdss_mdp_irq_clk_register(mdata, "lut_clk", MDSS_CLK_MDP_LUT);
 
-	
+	/* vsync_clk is optional for non-smart panels */
 	mdss_mdp_irq_clk_register(mdata, "vsync_clk", MDSS_CLK_MDP_VSYNC);
 
-	
+	/* Setting the default clock rate to the max supported.*/
 	mdss_mdp_set_clk_rate(mdata->max_mdp_clk_rate);
 	pr_debug("mdp clk rate=%ld\n", mdss_mdp_get_clk_rate(MDSS_CLK_MDP_SRC));
 
@@ -1294,7 +1294,7 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 
 	mdss_hw_rev_init(mdata);
 
-	
+	/* Disable hw underrun recovery only for older mdp reversions. */
 	if (mdata->mdp_rev < MDSS_MDP_HW_REV_105)
 		writel_relaxed(0x0, mdata->mdp_base +
 			MDSS_MDP_REG_VIDEO_INTF_UNDERFLOW_CTL);
@@ -1314,7 +1314,7 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 		for (j = 0; j < ENHIST_LUT_ENTRIES; j++)
 			writel_relaxed(j, offset);
 
-		
+		/* swap */
 		writel_relaxed(1, offset + 4);
 	}
 	vig = mdata->vig_pipes;
@@ -1323,7 +1323,7 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 			MDSS_MDP_REG_VIG_HIST_LUT_BASE;
 		for (j = 0; j < ENHIST_LUT_ENTRIES; j++)
 			writel_relaxed(j, offset);
-		
+		/* swap */
 		writel_relaxed(1, offset + 16);
 	}
 
@@ -1432,13 +1432,13 @@ static int mdss_mdp_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 	} else if (mdss_mdp_panel[0] == '1') {
 		pan_cfg->lk_cfg = true;
 	} else {
-		
+		/* read from dt */
 		pan_cfg->lk_cfg = true;
 		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
 		return -EINVAL;
 	}
 
-	
+	/* skip lk cfg and delimiter; ex: "0:" */
 	strlcpy(pan_name, &mdss_mdp_panel[2], MDSS_MAX_PANEL_LEN);
 	t = strnstr(pan_name, ":", MDSS_MAX_PANEL_LEN);
 	if (!t) {
@@ -1451,7 +1451,7 @@ static int mdss_mdp_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 		pan_intf_str[i] = *(pan_name + i);
 	pan_intf_str[i] = 0;
 	pr_debug("%d panel intf %s\n", __LINE__, pan_intf_str);
-	
+	/* point to the start of panel name */
 	t = t + 1;
 	strlcpy(&pan_cfg->arg_cfg[0], t, sizeof(pan_cfg->arg_cfg));
 	pr_debug("%d: t=[%s] panel name=[%s]\n", __LINE__,
@@ -1503,7 +1503,7 @@ static int mdss_mdp_get_cmdline_config(struct platform_device *pdev)
 	panel_name = &pan_cfg->arg_cfg[0];
 	intf_type = &pan_cfg->pan_intf;
 
-	
+	/* reads from dt by default */
 	pan_cfg->lk_cfg = true;
 
 	len = strlen(mdss_mdp_panel);
@@ -1517,7 +1517,7 @@ static int mdss_mdp_get_cmdline_config(struct platform_device *pdev)
 	}
 
 	rc = mdss_mdp_parse_dt_pan_intf(pdev);
-	
+	/* if pref pan intf is not present */
 	if (rc)
 		pr_err("unable to parse device tree for pan intf\n");
 	else
@@ -1685,7 +1685,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_mdp_hw.irq_info->irq = res->start;
 	mdss_mdp_hw.ptr = mdata;
 
-	
+	/*populate hw iomem base info from device tree*/
 	rc = mdss_mdp_parse_dt(pdev);
 	if (rc) {
 		pr_err("unable to parse device tree\n");
@@ -1923,7 +1923,7 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 	if (rc)
 		pr_debug("Info in device tree: ppb offset not configured\n");
 
-	
+	/* Parse the mdp specific register base offset*/
 	rc = of_property_read_u32(pdev->dev.of_node,
 		"qcom,mdss-mdp-reg-offset", &data);
 	if (rc) {
@@ -1986,7 +1986,7 @@ static int  mdss_mdp_parse_dt_pipe_clk_ctrl(struct platform_device *pdev,
 			pipe->clk_ctrl.reg_off = be32_to_cpu(arr[i++]);
 			pipe->clk_ctrl.bit_off = be32_to_cpu(arr[i++]);
 
-			
+			/* status register is next in line to ctrl register */
 			pipe->clk_status.reg_off = pipe->clk_ctrl.reg_off + 4;
 			pipe->clk_status.bit_off = be32_to_cpu(arr[i++]);
 
@@ -3510,7 +3510,7 @@ static int mdss_mdp_runtime_resume(struct device *dev)
 	dev_dbg(dev, "pm_runtime: resuming. active overlay cnt=%d\n",
 		atomic_read(&mdata->active_intf_cnt));
 
-	
+	/* do not resume panels when coming out of idle power collapse */
 	if (!mdata->idle_pc)
 		device_for_each_child(dev, &device_on, mdss_fb_suspres_panel);
 	mdss_mdp_footswitch_ctrl(mdata, true);
@@ -3544,7 +3544,7 @@ static int mdss_mdp_runtime_suspend(struct device *dev)
 	}
 
 	mdss_mdp_footswitch_ctrl(mdata, false);
-	
+	/* do not suspend panels when going in to idle power collapse */
 	if (!mdata->idle_pc)
 		device_for_each_child(dev, &device_on, mdss_fb_suspres_panel);
 

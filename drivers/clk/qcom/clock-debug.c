@@ -69,7 +69,7 @@ static int clock_debug_measure_get(void *data, u64 *val)
 	int ret, is_hw_gated;
 	unsigned long meas_rate, sw_rate;
 
-	
+	/* Check to see if the clock is in hardware gating mode */
 	if (clock->ops->in_hwcg_mode)
 		is_hw_gated = clock->ops->in_hwcg_mode(clock);
 	else
@@ -408,7 +408,7 @@ static int list_rates_show(struct seq_file *m, void *unused)
 	int level, i = 0;
 	unsigned long rate, fmax = 0;
 
-	
+	/* Find max frequency supported within voltage constraints. */
 	if (!clock->vdd_class) {
 		fmax = ULONG_MAX;
 	} else {

@@ -295,7 +295,7 @@ error:
 
 static int mdss_dsi_panel_power_lp(struct mdss_panel_data *pdata, int enable)
 {
-	
+	/* Panel power control when entering/exiting lp mode */
 	return 0;
 }
 
@@ -409,7 +409,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 
 	for_each_child_of_node(supply_root_node, supply_node) {
 		const char *st = NULL;
-		
+		/* vreg-name */
 		rc = of_property_read_string(supply_node,
 			"qcom,supply-name", &st);
 		if (rc) {
@@ -419,7 +419,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		}
 		snprintf(mp->vreg_config[i].vreg_name,
 			ARRAY_SIZE((mp->vreg_config[i].vreg_name)), "%s", st);
-		
+		/* vreg-min-voltage */
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-min-voltage", &tmp);
 		if (rc) {
@@ -429,7 +429,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		}
 		mp->vreg_config[i].min_voltage = tmp;
 
-		
+		/* vreg-max-voltage */
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-max-voltage", &tmp);
 		if (rc) {
@@ -439,7 +439,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		}
 		mp->vreg_config[i].max_voltage = tmp;
 
-		
+		/* enable-load */
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-enable-load", &tmp);
 		if (rc) {
@@ -449,7 +449,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		}
 		mp->vreg_config[i].enable_load = tmp;
 
-		
+		/* disable-load */
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-disable-load", &tmp);
 		if (rc) {
@@ -459,7 +459,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		}
 		mp->vreg_config[i].disable_load = tmp;
 
-		
+		/* pre-sleep */
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-pre-on-sleep", &tmp);
 		if (rc) {
@@ -480,7 +480,7 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 			mp->vreg_config[i].pre_off_sleep = tmp;
 		}
 
-		
+		/* post-sleep */
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-post-on-sleep", &tmp);
 		if (rc) {
@@ -589,10 +589,10 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 
 	if (!pdata->panel_info.ulps_suspend_enabled) {
-		
+		/* disable DSI controller */
 		mdss_dsi_controller_cfg(0, pdata);
 
-		
+		/* disable DSI phy */
 		mdss_dsi_phy_disable(ctrl_pdata);
 	}
 
@@ -673,7 +673,7 @@ static int mdss_dsi_reconfig(struct mdss_panel_data *pdata, int mode)
 	pinfo = &pdata->panel_info.mipi;
 
 	if (pinfo->dms_mode == DYNAMIC_MODE_SWITCH_IMMEDIATE) {
-		
+		/* reset DSI */
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 		mdss_dsi_sw_reset(ctrl_pdata, true);
 		mdss_dsi_ctrl_setup(ctrl_pdata);
@@ -696,7 +696,7 @@ static int mdss_dsi_update_panel_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		pinfo->mipi.vsync_enable = 1;
 		pinfo->mipi.hw_vsync_mode = 1;
 		pinfo->partial_update_enabled = pinfo->partial_update_supported;
-	} else {	
+	} else {	/*video mode*/
 		pinfo->mipi.mode = DSI_VIDEO_MODE;
 		pinfo->type = MIPI_VIDEO_PANEL;
 		pinfo->mipi.vsync_enable = 0;
@@ -1039,7 +1039,7 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 				(new_dsi_v_total & 0x7ffffff));
 	}
 	ctrl_rev = MIPI_INP(ctrl_pdata->ctrl_base);
-	
+	/* Flush DSI TIMING registers for 8916/8939 */
 	if (ctrl_pdata->timing_db_mode)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e4, 0x1);
 	ctrl_pdata->panel_data.panel_info.mipi.frame_rate = new_fps;
@@ -1102,7 +1102,7 @@ static void __mdss_dsi_calc_dfps_delay(struct mdss_panel_data *pdata)
 			((((pd->timing[1] >> 1) + 1) +
 			((pd->timing[4] >> 1) + 1)) / hr_bit_to_esc_ratio);
 
-	
+	/* 130 us pll delay recommended by h/w doc */
 	pll_delay = ((130 * esc_clk_rate) / 1000000) * 2;
 
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + DSI_DYNAMIC_REFRESH_PIPE_DELAY,
@@ -1159,11 +1159,11 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 			return rc;
 		}
 
-		
+		/* add an extra reference to main clks */
 		clk_prepare_enable(ctrl_pdata->pll_byte_clk);
 		clk_prepare_enable(ctrl_pdata->pll_pixel_clk);
 
-		
+		/* change the parent to shadow clocks*/
 		clk_set_parent(ctrl_pdata->mux_byte_clk,
 				ctrl_pdata->shadow_byte_clk);
 		clk_set_parent(ctrl_pdata->mux_pixel_clk,
@@ -1327,18 +1327,18 @@ static int mdss_dsi_set_stream_size(struct mdss_panel_data *pdata)
 
 	roi = &pinfo->roi;
 
-	
+	/* DSI_COMMAND_MODE_MDP_STREAM_CTRL */
 	data = (((roi->w * 3) + 1) << 16) |
 			(pdata->panel_info.mipi.vc << 8) | DTYPE_DCS_LWRITE;
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x60, data);
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x58, data);
 
-	
+	/* DSI_COMMAND_MODE_MDP_STREAM_TOTAL */
 	data = roi->h << 16 | roi->w;
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, data);
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, data);
 
-	
+	/* set idle control -- dsi clk cycle */
 	idle = 0;
 	pidle = ctrl_pdata->line_idle;
 	for (i = 0; i < ctrl_pdata->horizontal_idle_cnt; i++) {
@@ -1353,7 +1353,7 @@ static int mdss_dsi_set_stream_size(struct mdss_panel_data *pdata)
 	}
 
 	if (idle)
-		idle |= BIT(12);	
+		idle |= BIT(12);	/* enable */
 
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x194, idle);
 
@@ -1518,7 +1518,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_CONT_SPLASH_BEGIN:
 		if (ctrl_pdata->off_cmds.link_state == DSI_HS_MODE) {
-			
+			/* Panel is Enabled in Bootloader */
 			rc = mdss_dsi_blank(pdata, MDSS_PANEL_POWER_OFF);
 		}
 		break;
@@ -1586,7 +1586,7 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 
 	len = strlen(panel_cfg);
 	if (!len) {
-		
+		/* no panel cfg chg, parse dt */
 		pr_debug("%s:%d: no cmd line cfg present\n",
 			 __func__, __LINE__);
 		goto end;
@@ -1724,7 +1724,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	if (rc)
 		pr_warn("%s: failed to get pin resources\n", __func__);
 
-	
+	/* Parse the regulator information */
 	for (i = 0; i < DSI_MAX_PM; i++) {
 		rc = mdss_dsi_get_dt_vreg_data(&pdev->dev,
 			&ctrl_pdata->power_data[i], i);
@@ -2126,7 +2126,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 				ctrl_pdev->dev.of_node, "qcom,dsi-irq-line");
 
 	if (ctrl_pdata->dsi_irq_line) {
-		
+		/* DSI has it's own irq line */
 		res = platform_get_resource(ctrl_pdev, IORESOURCE_IRQ, 0);
 		if (!res || res->start == 0) {
 			pr_err("%s:%d unable to get the MDSS irq resources\n",

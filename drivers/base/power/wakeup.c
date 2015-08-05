@@ -455,7 +455,13 @@ void __pm_wakeup_event(struct wakeup_source *ws, unsigned int msec)
 }
 EXPORT_SYMBOL_GPL(__pm_wakeup_event);
 
-
+/**
+ * pm_wakeup_event - Notify the PM core of a wakeup event.
+ * @dev: Device the wakeup event is related to.
+ * @msec: Anticipated event processing time (in milliseconds).
+ *
+ * Call __pm_wakeup_event() for the @dev's wakeup source object.
+ */
 void pm_wakeup_event(struct device *dev, unsigned int msec)
 {
 	unsigned long flags;

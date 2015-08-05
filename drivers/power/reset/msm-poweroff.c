@@ -161,7 +161,7 @@ static int dload_set(const char *val, struct kernel_param *kp)
 	if (ret)
 		return ret;
 
-	
+	/* If download_mode is not zero or one, ignore. */
 	if (download_mode >> 1) {
 		download_mode = old_val;
 		return -EINVAL;
@@ -261,7 +261,7 @@ static void msm_restart_prepare(char mode, const char *cmd)
 			need_warm_reset = true;
 	}
 
-	
+	/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (need_warm_reset) {
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 	} else {
@@ -335,12 +335,12 @@ static void deassert_ps_hold(void)
 	};
 
 	if (scm_deassert_ps_hold_supported) {
-		
+		/* This call will be available on ARMv8 only */
 		scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_PWR,
 				 SCM_IO_DEASSERT_PS_HOLD), &desc);
 	}
 
-	
+	/* Fall-through to the direct write in case the scm_call "returns" */
 	__raw_writel(0, msm_ps_hold);
 }
 

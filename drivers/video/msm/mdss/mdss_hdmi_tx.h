@@ -117,4 +117,4 @@ struct hdmi_tx_ctrl {
 	u32 s3d_mode;
 };
 
-#endif 
+#endif /* __MDSS_HDMI_TX_H__ */

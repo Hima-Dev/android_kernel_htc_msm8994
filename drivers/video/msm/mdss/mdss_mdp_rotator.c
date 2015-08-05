@@ -337,7 +337,7 @@ static void mdss_mdp_rot_mgr_del_session(struct mdss_mdp_rotator_session *rot)
 		return;
 	}
 
-	
+	/* if head is empty means that session was already removed */
 	if (list_empty(&rot->head))
 		return;
 
@@ -504,7 +504,14 @@ static int mdss_mdp_rotator_kickoff(struct mdss_mdp_ctl *ctl,
 	return ret;
 }
 
-
+/**
+ * __mdss_mdp_rotator_to_pipe() - setup pipe according to rotator session params
+ * @rot:	Pointer to rotator session
+ * @pipe:	Pointer to pipe driving structure
+ *
+ * After calling this the pipe structure will contain all parameters required
+ * to use rotator pipe. Note that this function assumes rotator pipe is idle.
+ */
 static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 		struct mdss_mdp_rot_pipe *rot_pipe)
 {
@@ -751,7 +758,7 @@ static int mdss_mdp_rotator_config(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	u32 bwc_enabled;
 
-	
+	/* keep only flags of interest to rotator */
 	rot->flags = req->flags & (MDP_ROT_90 | MDP_FLIP_LR | MDP_FLIP_UD |
 				   MDP_SECURE_OVERLAY_SESSION);
 

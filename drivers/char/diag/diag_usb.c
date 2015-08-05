@@ -114,7 +114,7 @@ static void usb_connect(struct diag_usb_info *ch)
 
 	if (ch->ops && ch->ops->open)
 		ch->ops->open(ch->ctxt, DIAG_USB_MODE);
-	
+	/* As soon as we open the channel, queue a read */
 	queue_work(ch->usb_wq, &(ch->read_work));
 }
 

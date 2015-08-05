@@ -82,7 +82,7 @@ static irqreturn_t threaded_isr(int irq, void *dev_id)
 	while (time_before_eq(jiffies, spdm_hyp_timeout))
 		msleep(10);
 
-	
+	/* call hyp to get bw_vote */
 	desc.arg[0] = SPDM_CMD_GET_BW_ALL;
 	ext_status = spdm_ext_call(&desc, 1);
 	if (ext_status)
@@ -159,7 +159,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		mutex_lock(&devfreqs_lock);
 		list_add(&spdm_data->list, &devfreqs);
 		mutex_unlock(&devfreqs_lock);
-		
+		/* call hyp with config data */
 		desc.arg[0] = SPDM_CMD_CFG_PORTS;
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.num_ports;
@@ -284,7 +284,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 			pr_err("External command %u failed with error %u",
 				(int)desc.arg[0], ext_status);
 
-		
+		/* call hyp enable/commit */
 		desc.arg[0] = SPDM_CMD_ENABLE;
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = 0;
@@ -303,12 +303,12 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 
 	case DEVFREQ_GOV_STOP:
 		devfreq_monitor_stop(devfreq);
-		
+		/* find devfreq in list and remove it */
 		mutex_lock(&devfreqs_lock);
 		list_del(&spdm_data->list);
 		mutex_unlock(&devfreqs_lock);
 
-		
+		/* call hypvervisor to disable */
 		desc.arg[0] = SPDM_CMD_DISABLE;
 		desc.arg[1] = spdm_data->spdm_client;
 		ext_status = spdm_ext_call(&desc, 2);

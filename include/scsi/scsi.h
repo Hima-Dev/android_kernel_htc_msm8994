@@ -239,7 +239,9 @@ static inline int scsi_status_is_good(int status)
 #define VOLUME_OVERFLOW     0x0d
 #define MISCOMPARE          0x0e
 
-
+/*
+ *  SENSE KEYS
+ */
 
 #define TYPE_DISK           0x00
 #define TYPE_TAPE           0x01
@@ -303,13 +305,15 @@ static inline int scsi_is_wlun(unsigned int lun)
 	return (lun & 0xff00) == SCSI_W_LUN_BASE;
 }
 
-
+/*
+ *  MESSAGE CODES
+ */
 
 #define COMMAND_COMPLETE    0x00
 #define EXTENDED_MESSAGE    0x01
 #define     EXTENDED_MODIFY_DATA_POINTER    0x00
 #define     EXTENDED_SDTR                   0x01
-#define     EXTENDED_EXTENDED_IDENTIFY      0x02    
+#define     EXTENDED_EXTENDED_IDENTIFY      0x02    /* SCSI-I only */
 #define     EXTENDED_WDTR                   0x03
 #define     EXTENDED_PPR                    0x04
 #define     EXTENDED_MODIFY_BIDI_DATA_PTR   0x05
@@ -326,8 +330,8 @@ static inline int scsi_is_wlun(unsigned int lun)
 #define TARGET_RESET        0x0c
 #define ABORT_TASK          0x0d
 #define CLEAR_TASK_SET      0x0e
-#define INITIATE_RECOVERY   0x0f            
-#define RELEASE_RECOVERY    0x10            
+#define INITIATE_RECOVERY   0x0f            /* SCSI-II only */
+#define RELEASE_RECOVERY    0x10            /* SCSI-II only */
 #define CLEAR_ACA           0x16
 #define LOGICAL_UNIT_RESET  0x17
 #define SIMPLE_QUEUE_TAG    0x20
@@ -433,4 +437,4 @@ struct scsi_disk *scsi_disk_get_from_dev(struct device *dev);
 struct gendisk *scsi_gendisk_get_from_dev(struct device *dev);
 void scsi_gendisk_put(struct device *dev);
 
-#endif 
+#endif /* _SCSI_SCSI_H */

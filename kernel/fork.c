@@ -93,7 +93,7 @@ int lockdep_tasklist_lock_is_held(void)
 	return lockdep_is_held(&tasklist_lock);
 }
 EXPORT_SYMBOL_GPL(lockdep_tasklist_lock_is_held);
-#endif 
+#endif /* #ifdef CONFIG_PROVE_RCU */
 
 int nr_processes(void)
 {
@@ -372,7 +372,7 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 		if (mpnt->vm_flags & VM_ACCOUNT) {
 			unsigned long len = vma_pages(mpnt);
 
-			if (security_vm_enough_memory_mm(oldmm, len)) 
+			if (security_vm_enough_memory_mm(oldmm, len)) /* sic */
 				goto fail_nomem;
 			charge = len;
 		}
@@ -403,7 +403,7 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 			if (tmp->vm_flags & VM_SHARED)
 				mapping->i_mmap_writable++;
 			flush_dcache_mmap_lock(mapping);
-			
+			/* insert tmp into the share list, just after mpnt */
 			if (unlikely(tmp->vm_flags & VM_NONLINEAR))
 				vma_nonlinear_insert(tmp,
 						&mapping->i_mmap_nonlinear);
@@ -435,7 +435,7 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 		if (retval)
 			goto out;
 	}
-	
+	/* a new mm has just been created */
 	arch_dup_mmap(oldmm, mm);
 	retval = 0;
 out:
@@ -470,7 +470,7 @@ static inline void mm_free_pgd(struct mm_struct *mm)
 #define dup_mmap(mm, oldmm)	(0)
 #define mm_alloc_pgd(mm)	(0)
 #define mm_free_pgd(mm)
-#endif 
+#endif /* CONFIG_MMU */
 
 __cacheline_aligned_in_smp DEFINE_SPINLOCK(mmlist_lock);
 
@@ -575,7 +575,7 @@ int mmput(struct mm_struct *mm)
 		uprobe_clear_state(mm);
 		exit_aio(mm);
 		ksm_exit(mm);
-		khugepaged_exit(mm); 
+		khugepaged_exit(mm); /* must run before exit_mmap */
 		exit_mmap(mm);
 		set_mm_exe_file(mm, NULL);
 		if (!list_empty(&mm->mmlist)) {
@@ -605,7 +605,7 @@ struct file *get_mm_exe_file(struct mm_struct *mm)
 {
 	struct file *exe_file;
 
-	
+	/* We need mmap_sem to protect against races with removal of exe_file */
 	down_read(&mm->mmap_sem);
 	exe_file = mm->exe_file;
 	if (exe_file)
@@ -768,7 +768,7 @@ struct mm_struct *dup_mm(struct task_struct *tsk)
 	return mm;
 
 free_pt:
-	
+	/* don't put binfmt in mmput, we haven't got module yet */
 	mm->binfmt = NULL;
 	mmput(mm);
 
@@ -823,7 +823,7 @@ static int copy_fs(unsigned long clone_flags, struct task_struct *tsk)
 {
 	struct fs_struct *fs = current->fs;
 	if (clone_flags & CLONE_FS) {
-		
+		/* tsk->fs is already what we want */
 		spin_lock(&fs->lock);
 		if (fs->in_exec) {
 			spin_unlock(&fs->lock);
@@ -911,12 +911,14 @@ void __cleanup_sighand(struct sighand_struct *sighand)
 	}
 }
 
-
+/*
+ * Initialize POSIX timer handling for a thread group.
+ */
 static void posix_cpu_timers_init_group(struct signal_struct *sig)
 {
 	unsigned long cpu_limit;
 
-	
+	/* Thread group counters. */
 	thread_group_cputime_init(sig);
 
 	cpu_limit = ACCESS_ONCE(sig->rlim[RLIMIT_CPU].rlim_cur);
@@ -925,7 +927,7 @@ static void posix_cpu_timers_init_group(struct signal_struct *sig)
 		sig->cputimer.running = 1;
 	}
 
-	
+	/* The timer lists. */
 	INIT_LIST_HEAD(&sig->cpu_timers[0]);
 	INIT_LIST_HEAD(&sig->cpu_timers[1]);
 	INIT_LIST_HEAD(&sig->cpu_timers[2]);
@@ -1094,7 +1096,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 		goto bad_fork_cleanup_count;
 
 	p->did_exec = 0;
-	delayacct_tsk_init(p);	
+	delayacct_tsk_init(p);	/* Must remain after dup_task_struct() */
 	copy_flags(clone_flags, p);
 	INIT_LIST_HEAD(&p->children);
 	INIT_LIST_HEAD(&p->sibling);
@@ -1184,7 +1186,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	p->sequential_io_avg	= 0;
 #endif
 
-	
+	/* Perform scheduler related setup. Assign this task to a CPU. */
 	sched_fork(p);
 
 	retval = perf_event_init_task(p);
@@ -1193,7 +1195,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	retval = audit_alloc(p);
 	if (retval)
 		goto bad_fork_cleanup_policy;
-	
+	/* copy all the process information */
 	retval = copy_semundo(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_audit;
@@ -1258,7 +1260,7 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 #endif
 	clear_all_latency_tracing(p);
 
-	
+	/* ok, now we should be set up.. */
 	if (clone_flags & CLONE_THREAD)
 		p->exit_signal = -1;
 	else if (clone_flags & CLONE_PARENT)
@@ -1361,9 +1363,9 @@ bad_fork_cleanup_signal:
 bad_fork_cleanup_sighand:
 	__cleanup_sighand(p->sighand);
 bad_fork_cleanup_fs:
-	exit_fs(p); 
+	exit_fs(p); /* blocking */
 bad_fork_cleanup_files:
-	exit_files(p); 
+	exit_files(p); /* blocking */
 bad_fork_cleanup_semundo:
 	exit_sem(p);
 bad_fork_cleanup_audit:
@@ -1393,7 +1395,7 @@ static inline void init_idle_pids(struct pid_link *links)
 	enum pid_type type;
 
 	for (type = PIDTYPE_PID; type < PIDTYPE_MAX; ++type) {
-		INIT_HLIST_NODE(&links[type].node); 
+		INIT_HLIST_NODE(&links[type].node); /* not really needed */
 		links[type].pid = &init_struct_pid;
 	}
 }
@@ -1459,7 +1461,7 @@ long do_fork(unsigned long clone_flags,
 
 		wake_up_new_task(p);
 
-		
+		/* forking complete and child started to run, tell ptracer */
 		if (unlikely(trace))
 			ptrace_event_pid(trace, pid);
 
@@ -1487,7 +1489,7 @@ SYSCALL_DEFINE0(fork)
 #ifdef CONFIG_MMU
 	return do_fork(SIGCHLD, 0, 0, NULL, NULL);
 #else
-	
+	/* can not support in nommu mode */
 	return(-EINVAL);
 #endif
 }
@@ -1587,7 +1589,7 @@ static int unshare_fs(unsigned long unshare_flags, struct fs_struct **new_fsp)
 	if (!(unshare_flags & CLONE_FS) || !fs)
 		return 0;
 
-	
+	/* don't need lock here; in the worst case we'll do useless copy */
 	if (fs->users == 1)
 		return 0;
 
@@ -1682,7 +1684,7 @@ SYSCALL_DEFINE1(unshare, unsigned long, unshare_flags)
 		task_unlock(current);
 
 		if (new_cred) {
-			
+			/* Install the new user namespace */
 			commit_creds(new_cred);
 			new_cred = NULL;
 		}

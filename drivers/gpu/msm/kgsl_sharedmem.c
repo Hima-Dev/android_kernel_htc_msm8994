@@ -367,7 +367,7 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 	kgsl_driver.stats.page_alloc -= memdesc->size;
 
 	kgsl_page_alloc_unmap_kernel(memdesc);
-	
+	/* we certainly do not expect the hostptr to still be mapped */
 	BUG_ON(memdesc->hostptr);
 
 	if (sglen <= 0)
@@ -394,7 +394,7 @@ static int kgsl_page_alloc_map_kernel(struct kgsl_memdesc *memdesc)
 		int sglen = memdesc->sglen;
 		int i, count = 0;
 
-		
+		/* create a list of pages to call vmap */
 		pages = kgsl_malloc(npages * sizeof(struct page *));
 		if (pages == NULL) {
 			ret = -ENOMEM;
@@ -655,7 +655,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			vunmap(ptr);
 		} else {
 			int k;
-			
+			/* Very, very, very slow path */
 
 			for (k = j; k < j + step; k++) {
 				ptr = kmap_atomic(pages[k]);
@@ -663,7 +663,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 				dmac_flush_range(ptr, ptr + PAGE_SIZE);
 				kunmap_atomic(ptr);
 			}
-			
+			/* scale down the step size to avoid this path */
 			if (step > 1)
 				step >>= 1;
 		}
@@ -807,7 +807,7 @@ static const char * const memtype_str[] = {
 	[KGSL_MEMTYPE_EGL_IMAGE] = "egl_image",
 	[KGSL_MEMTYPE_EGL_SHADOW] = "egl_shadow",
 	[KGSL_MEMTYPE_MULTISAMPLE] = "egl_multisample",
-	
+	/* KGSL_MEMTYPE_KERNEL handled below, to avoid huge array */
 };
 
 void kgsl_get_memory_usage(char *name, size_t name_size, unsigned int memflags)
@@ -850,7 +850,10 @@ int kgsl_cma_alloc_coherent(struct kgsl_device *device,
 	if (result)
 		goto err;
 
-	
+	/*
+	 * Allocate space to store the list of pages to send to vmap. This is an
+	 * array of pointers so we can track 1024 pages per page of allocation
+	 */
 
 	KGSL_STATS_ADD(size, kgsl_driver.stats.coherent,
 		       kgsl_driver.stats.coherent_max);
@@ -913,7 +916,7 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 	if (size == 0)
 		return -EINVAL;
 
-	
+	/* Align size to 1M boundaries */
 	size = ALIGN(size, SZ_1M);
 
 	memdesc->size = size;
@@ -941,12 +944,12 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 	if (result != 0)
 		goto err;
 
-	
+	/* Set the private bit to indicate that we've secured this */
 	SetPagePrivate(sg_page(memdesc->sg));
 
 	memdesc->priv |= KGSL_MEMDESC_TZ_LOCKED;
 
-	
+	/* Record statistics */
 	KGSL_STATS_ADD(size, kgsl_driver.stats.secure,
 	       kgsl_driver.stats.secure_max);
 err:

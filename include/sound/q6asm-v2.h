@@ -98,16 +98,16 @@
 #define READDONE_IDX_NUMFRAMES 9
 #define READDONE_IDX_SEQ_ID 10
 
-#define SOFT_PAUSE_PERIOD       30   
-#define SOFT_PAUSE_STEP         0 
+#define SOFT_PAUSE_PERIOD       30   /* ramp up/down for 30ms    */
+#define SOFT_PAUSE_STEP         0 /* Step value 0ms or 0us */
 enum {
 	SOFT_PAUSE_CURVE_LINEAR = 0,
 	SOFT_PAUSE_CURVE_EXP,
 	SOFT_PAUSE_CURVE_LOG,
 };
 
-#define SOFT_VOLUME_PERIOD       30   
-#define SOFT_VOLUME_STEP         0 
+#define SOFT_VOLUME_PERIOD       30   /* ramp up/down for 30ms    */
+#define SOFT_VOLUME_STEP         0 /* Step value 0ms or 0us */
 enum {
 	SOFT_VOLUME_CURVE_LINEAR = 0,
 	SOFT_VOLUME_CURVE_EXP,
@@ -124,8 +124,8 @@ struct audio_buffer {
 	dma_addr_t phys;
 	void       *data;
 	uint32_t   used;
-	uint32_t   size;
-	uint32_t   actual_size; 
+	uint32_t   size;/* size of buffer */
+	uint32_t   actual_size; /* actual number of bytes read by DSP */
 	struct      ion_handle *handle;
 	struct      ion_client *client;
 };
@@ -154,7 +154,7 @@ struct audio_port_data {
 	uint32_t	    cpu_buf;
 	struct list_head    mem_map_handle;
 	uint32_t	    tmp_hdl;
-	
+	/* read or write locks */
 	struct mutex	    lock;
 	spinlock_t	    dsp_lock;
 };
@@ -163,7 +163,7 @@ struct audio_client {
 	int                    session;
 	app_cb		       cb;
 	atomic_t	       cmd_state;
-	
+	/* Relative or absolute TS */
 	atomic_t	       time_flag;
 	atomic_t	       nowait_cmd_cnt;
 	atomic_t               mem_state;
@@ -174,7 +174,7 @@ struct audio_client {
 	struct apr_svc         *mmap_apr;
 	struct apr_svc         *apr2;
 	struct mutex	       cmd_lock;
-	
+	/* idx:1 out port, 0: in port*/
 	struct audio_port_data port[2];
 	wait_queue_head_t      cmd_wait;
 	wait_queue_head_t      time_wait;
@@ -183,7 +183,7 @@ struct audio_client {
 	int					   stream_id;
 	struct device *dev;
 	int		       topology;
-	
+	/* audio cache operations fptr*/
 	int (*fptr_cache_ops)(struct audio_buffer *abuff, int cache_op);
 	atomic_t               unmap_cb_success;
 	atomic_t               reset;
@@ -195,12 +195,12 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv);
 
 struct audio_client *q6asm_get_audio_client(int session_id);
 
-int q6asm_audio_client_buf_alloc(unsigned int dir,
+int q6asm_audio_client_buf_alloc(unsigned int dir/* 1:Out,0:In */,
 				struct audio_client *ac,
 				unsigned int bufsz,
 				unsigned int bufcnt);
 int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir
-				,
+				/* 1:Out,0:In */,
 				struct audio_client *ac,
 				unsigned int bufsz,
 				unsigned int bufcnt);
@@ -209,13 +209,13 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 			struct audio_client *ac);
 
 int q6asm_open_read(struct audio_client *ac, uint32_t format
-		);
+		/*, uint16_t bits_per_sample*/);
 
 int q6asm_open_read_v2(struct audio_client *ac, uint32_t format,
 			uint16_t bits_per_sample);
 
 int q6asm_open_write(struct audio_client *ac, uint32_t format
-		);
+		/*, uint16_t bits_per_sample*/);
 
 int q6asm_open_write_v2(struct audio_client *ac, uint32_t format,
 			uint16_t bits_per_sample);
@@ -440,4 +440,4 @@ int q6asm_send_mtmx_strtr_window(struct audio_client *ac,
 		uint32_t param_id);
 
 
-#endif 
+#endif /* __Q6_ASM_H__ */

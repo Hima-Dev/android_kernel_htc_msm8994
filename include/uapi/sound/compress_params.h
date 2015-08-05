@@ -233,7 +233,25 @@ struct snd_enc_wma {
 	__u32 encodeopt2;
 };
 
-
+/**
+ * struct snd_enc_vorbis
+ * @quality: Sets encoding quality to n, between -1 (low) and 10 (high).
+ * In the default mode of operation, the quality level is 3.
+ * Normal quality range is 0 - 10.
+ * @managed: Boolean. Set  bitrate  management  mode. This turns off the
+ * normal VBR encoding, but allows hard or soft bitrate constraints to be
+ * enforced by the encoder. This mode can be slower, and may also be
+ * lower quality. It is primarily useful for streaming.
+ * @max_bit_rate: Enabled only if managed is TRUE
+ * @min_bit_rate: Enabled only if managed is TRUE
+ * @downmix: Boolean. Downmix input from stereo to mono (has no effect on
+ * non-stereo streams). Useful for lower-bitrate encoding.
+ *
+ * These options were extracted from the OpenMAX IL spec and Gstreamer vorbisenc
+ * properties
+ *
+ * For best quality users should specify VBR mode and set quality levels.
+ */
 
 struct snd_enc_vorbis {
 	__s32 quality;
@@ -243,7 +261,14 @@ struct snd_enc_vorbis {
 	__u32 downmix;
 };
 
-
+/**
+ * struct snd_enc_real
+ * @quant_bits: number of coupling quantization bits in the stream
+ * @start_region: coupling start region in the stream
+ * @num_regions: number of regions value
+ *
+ * These options were extracted from the OpenMAX IL spec
+ */
 
 struct snd_enc_real {
 	__u32 quant_bits;
@@ -258,7 +283,7 @@ struct snd_enc_flac {
 };
 
 struct snd_enc_generic {
-	__u32 bw;	
+	__u32 bw;	/* encoder bandwidth */
 	__s32 reserved[15];
 };
 struct snd_dec_ddp {

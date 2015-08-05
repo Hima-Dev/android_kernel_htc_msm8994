@@ -18,9 +18,9 @@
 #include <linux/dmaengine.h>
 
 enum msm_i2_debug_level {
-	MSM_ERR,	
-	MSM_PROF,	
-	MSM_DBG,	
+	MSM_ERR,	/* Error messages only. Always on */
+	MSM_PROF,	/* High level events. Use for profiling */
+	MSM_DBG,	/* Low level details. Use for debugging */
 };
 
 #define i2c_msm_dbg(ctrl, dbg_level, fmt, ...) do {\
@@ -78,7 +78,7 @@ enum {
 	QUP_I2C_STATUS_RESET    = 0x42,
 };
 
-
+/* QUP Registers */
 enum {
 	QUP_MINI_CORE_MASK      = 0xF00,
 	QUP_MINI_CORE_I2C_VAL   = 0x200,
@@ -475,5 +475,5 @@ static inline const char *i2c_msm_dbg_dma_tag_to_str(const struct
 {
 	return NULL;
 }
-#endif 
-#endif 
+#endif /* I2C_MSM_V2_PROF_DBG */
+#endif /* _I2C_MSM_V2_H */

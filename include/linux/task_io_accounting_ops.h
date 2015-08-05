@@ -80,7 +80,7 @@ static inline void task_blk_io_accounting_add(struct task_io_accounting *dst,
 {
 }
 
-#endif 
+#endif /* CONFIG_TASK_IO_ACCOUNTING */
 
 #ifdef CONFIG_TASK_XACCT
 static inline void task_chr_io_accounting_add(struct task_io_accounting *dst,
@@ -96,7 +96,7 @@ static inline void task_chr_io_accounting_add(struct task_io_accounting *dst,
 						struct task_io_accounting *src)
 {
 }
-#endif 
+#endif /* CONFIG_TASK_XACCT */
 
 static inline void task_io_accounting_add(struct task_io_accounting *dst,
 						struct task_io_accounting *src)
@@ -104,4 +104,4 @@ static inline void task_io_accounting_add(struct task_io_accounting *dst,
 	task_chr_io_accounting_add(dst, src);
 	task_blk_io_accounting_add(dst, src);
 }
-#endif 
+#endif /* __TASK_IO_ACCOUNTING_OPS_INCLUDED */

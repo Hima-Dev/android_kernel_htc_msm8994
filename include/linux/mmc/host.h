@@ -72,13 +72,13 @@ struct mmc_ios {
 #define MMC_1_2V_SDR_MODE	3
 #define MMC_1_8V_SDR_MODE	4
 
-	unsigned char	signal_voltage;		
+	unsigned char	signal_voltage;		/* signalling voltage (1.8V or 3.3V) */
 
 #define MMC_SIGNAL_VOLTAGE_330	0
 #define MMC_SIGNAL_VOLTAGE_180	1
 #define MMC_SIGNAL_VOLTAGE_120	2
 
-	unsigned char	drv_type;		
+	unsigned char	drv_type;		/* driver type (A, B, C, D) */
 
 #define MMC_SET_DRIVER_TYPE_B	0
 #define MMC_SET_DRIVER_TYPE_A	1
@@ -160,8 +160,8 @@ struct mmc_context_info {
 struct regulator;
 
 struct mmc_supply {
-	struct regulator *vmmc;		
-	struct regulator *vqmmc;	
+	struct regulator *vmmc;		/* Card power supply */
+	struct regulator *vqmmc;	/* Optional Vccq supply */
 };
 
 enum dev_state {
@@ -343,27 +343,27 @@ struct mmc_host {
 	bool			sdio_irq_pending;
 	atomic_t		sdio_irq_thread_abort;
 
-	mmc_pm_flag_t		pm_flags;	
+	mmc_pm_flag_t		pm_flags;	/* requested pm features */
 
-	struct led_trigger	*led;		
+	struct led_trigger	*led;		/* activity led */
 
 #ifdef CONFIG_REGULATOR
-	bool			regulator_enabled; 
+	bool			regulator_enabled; /* regulator state */
 #endif
 	struct mmc_supply	supply;
 
 	struct dentry		*debugfs_root;
 
-	struct mmc_async_req	*areq;		
-	struct mmc_context_info	context_info;	
+	struct mmc_async_req	*areq;		/* active async req */
+	struct mmc_context_info	context_info;	/* async synchronization info */
 
 #ifdef CONFIG_FAIL_MMC_REQUEST
 	struct fault_attr	fail_mmc_request;
 #endif
 
-	unsigned int		actual_clock;	
+	unsigned int		actual_clock;	/* Actual HC clock rate */
 
-	unsigned int		slotno;	
+	unsigned int		slotno;	/* used for sdio acpi binding */
 
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 	struct {
@@ -595,4 +595,4 @@ static inline int mmc_use_core_pm(struct mmc_host *host)
 	return host->caps2 & MMC_CAP2_CORE_PM;
 }
 
-#endif 
+#endif /* LINUX_MMC_HOST_H */

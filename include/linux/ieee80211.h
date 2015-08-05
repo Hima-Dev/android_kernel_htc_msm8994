@@ -537,7 +537,7 @@ struct ieee80211_mgmt {
 			__le16 auth_alg;
 			__le16 auth_transaction;
 			__le16 status_code;
-			
+			/* possibly followed by Challenge text */
 			u8 variable[0];
 		} __packed auth;
 		struct {
@@ -546,21 +546,21 @@ struct ieee80211_mgmt {
 		struct {
 			__le16 capab_info;
 			__le16 listen_interval;
-			
+			/* followed by SSID and Supported rates */
 			u8 variable[0];
 		} __packed assoc_req;
 		struct {
 			__le16 capab_info;
 			__le16 status_code;
 			__le16 aid;
-			
+			/* followed by Supported rates */
 			u8 variable[0];
 		} __packed assoc_resp, reassoc_resp;
 		struct {
 			__le16 capab_info;
 			__le16 listen_interval;
 			u8 current_ap[6];
-			
+			/* followed by SSID and Supported rates */
 			u8 variable[0];
 		} __packed reassoc_req;
 		struct {
@@ -969,7 +969,7 @@ struct ieee80211_vht_operation {
 	__le16 basic_mcs_set;
 } __packed;
 
-
+/* 802.11ac VHT Capabilities */
 #define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_3895			0x00000000
 #define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_7991			0x00000001
 #define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454			0x00000002
@@ -1082,21 +1082,21 @@ enum ieee80211_statuscode {
 	WLAN_STATUS_AUTH_TIMEOUT = 16,
 	WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA = 17,
 	WLAN_STATUS_ASSOC_DENIED_RATES = 18,
-	
+	/* 802.11b */
 	WLAN_STATUS_ASSOC_DENIED_NOSHORTPREAMBLE = 19,
 	WLAN_STATUS_ASSOC_DENIED_NOPBCC = 20,
 	WLAN_STATUS_ASSOC_DENIED_NOAGILITY = 21,
-	
+	/* 802.11h */
 	WLAN_STATUS_ASSOC_DENIED_NOSPECTRUM = 22,
 	WLAN_STATUS_ASSOC_REJECTED_BAD_POWER = 23,
 	WLAN_STATUS_ASSOC_REJECTED_BAD_SUPP_CHAN = 24,
-	
+	/* 802.11g */
 	WLAN_STATUS_ASSOC_DENIED_NOSHORTTIME = 25,
 	WLAN_STATUS_ASSOC_DENIED_NODSSSOFDM = 26,
-	
+	/* 802.11w */
 	WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY = 30,
 	WLAN_STATUS_ROBUST_MGMT_FRAME_POLICY_VIOLATION = 31,
-	
+	/* 802.11i */
 	WLAN_STATUS_INVALID_IE = 40,
 	WLAN_STATUS_INVALID_GROUP_CIPHER = 41,
 	WLAN_STATUS_INVALID_PAIRWISE_CIPHER = 42,
@@ -1104,7 +1104,7 @@ enum ieee80211_statuscode {
 	WLAN_STATUS_UNSUPP_RSN_VERSION = 44,
 	WLAN_STATUS_INVALID_RSN_IE_CAP = 45,
 	WLAN_STATUS_CIPHER_SUITE_REJECTED = 46,
-	
+	/* 802.11e */
 	WLAN_STATUS_UNSPECIFIED_QOS = 32,
 	WLAN_STATUS_ASSOC_DENIED_NOBANDWIDTH = 33,
 	WLAN_STATUS_ASSOC_DENIED_LOWACK = 34,
@@ -1116,11 +1116,11 @@ enum ieee80211_statuscode {
 	WLAN_STATUS_NO_DIRECT_LINK = 48,
 	WLAN_STATUS_STA_NOT_PRESENT = 49,
 	WLAN_STATUS_STA_NOT_QSTA = 50,
-	
+	/* 802.11s */
 	WLAN_STATUS_ANTI_CLOG_REQUIRED = 76,
 	WLAN_STATUS_FCG_NOT_SUPP = 78,
 	WLAN_STATUS_STA_NO_TBTT = 78,
-	
+	/* 802.11ad */
 	WLAN_STATUS_REJECTED_WITH_SUGGESTED_CHANGES = 39,
 	WLAN_STATUS_REJECTED_FOR_DELAY_PERIOD = 47,
 	WLAN_STATUS_REJECT_WITH_SCHEDULE = 83,
@@ -1133,7 +1133,7 @@ enum ieee80211_statuscode {
 	WLAN_STATUS_DENIED_DUE_TO_SPECTRUM_MANAGEMENT = 103,
 };
 
-
+/* Reason codes */
 enum ieee80211_reasoncode {
 	WLAN_REASON_UNSPECIFIED = 1,
 	WLAN_REASON_PREV_AUTH_NOT_VALID = 2,
@@ -1144,10 +1144,10 @@ enum ieee80211_reasoncode {
 	WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA = 7,
 	WLAN_REASON_DISASSOC_STA_HAS_LEFT = 8,
 	WLAN_REASON_STA_REQ_ASSOC_WITHOUT_AUTH = 9,
-	
+	/* 802.11h */
 	WLAN_REASON_DISASSOC_BAD_POWER = 10,
 	WLAN_REASON_DISASSOC_BAD_SUPP_CHAN = 11,
-	
+	/* 802.11i */
 	WLAN_REASON_INVALID_IE = 13,
 	WLAN_REASON_MIC_FAILURE = 14,
 	WLAN_REASON_4WAY_HANDSHAKE_TIMEOUT = 15,
@@ -1160,7 +1160,7 @@ enum ieee80211_reasoncode {
 	WLAN_REASON_INVALID_RSN_IE_CAP = 22,
 	WLAN_REASON_IEEE8021X_FAILED = 23,
 	WLAN_REASON_CIPHER_SUITE_REJECTED = 24,
-	
+	/* 802.11e */
 	WLAN_REASON_DISASSOC_UNSPECIFIED_QOS = 32,
 	WLAN_REASON_DISASSOC_QAP_NO_BANDWIDTH = 33,
 	WLAN_REASON_DISASSOC_LOW_ACK = 34,
@@ -1170,7 +1170,7 @@ enum ieee80211_reasoncode {
 	WLAN_REASON_QSTA_REQUIRE_SETUP = 38,
 	WLAN_REASON_QSTA_TIMEOUT = 39,
 	WLAN_REASON_QSTA_CIPHER_NOT_SUPP = 45,
-	
+	/* 802.11s */
 	WLAN_REASON_MESH_PEER_CANCELED = 52,
 	WLAN_REASON_MESH_MAX_PEERS = 53,
 	WLAN_REASON_MESH_CONFIG = 54,
@@ -1188,7 +1188,7 @@ enum ieee80211_reasoncode {
 	WLAN_REASON_MESH_CHAN = 66,
 };
 
-
+/* Information Element IDs */
 enum ieee80211_eid {
 	WLAN_EID_SSID = 0,
 	WLAN_EID_SUPP_RATES = 1,
@@ -1212,9 +1212,9 @@ enum ieee80211_eid {
 	WLAN_EID_TS_DELAY = 43,
 	WLAN_EID_TCLAS_PROCESSING = 44,
 	WLAN_EID_QOS_CAPA = 46,
-	
+	/* 802.11z */
 	WLAN_EID_LINK_ID = 101,
-	
+	/* 802.11s */
 	WLAN_EID_MESH_CONFIG = 113,
 	WLAN_EID_MESH_ID = 114,
 	WLAN_EID_LINK_METRIC_REPORT = 115,
@@ -1291,7 +1291,7 @@ enum ieee80211_eid {
 	WLAN_EID_WIDE_BW_CHANNEL_SWITCH = 194,
 	WLAN_EID_CHANNEL_SWITCH_WRAPPER = 196,
 
-	
+	/* 802.11ad */
 	WLAN_EID_NON_TX_BSSID_CAP =  83,
 	WLAN_EID_WAKEUP_SCHEDULE = 143,
 	WLAN_EID_EXT_SCHEDULE = 144,
@@ -1682,4 +1682,4 @@ static inline bool ieee80211_check_tim(const struct ieee80211_tim_ie *tim,
 	return !!(tim->virtual_map[index] & mask);
 }
 
-#endif 
+#endif /* LINUX_IEEE80211_H */

@@ -129,7 +129,7 @@ static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 		value = readl_relaxed(drvdata->clk_reg_virt);
 		value &= ~0x1;
 		writel_relaxed(value, drvdata->clk_reg_virt);
-		
+		/* Ensure clock is on before continuing */
 		mb();
 	}
 	return 0;
@@ -317,7 +317,7 @@ void iommu_halt(struct msm_iommu_drvdata const *iommu_drvdata)
 
 		if (res)
 			check_halt_state(iommu_drvdata);
-		
+		/* Ensure device is idle before continuing */
 		mb();
 	}
 }
@@ -339,7 +339,7 @@ static void __sync_tlb(struct msm_iommu_drvdata *iommu_drvdata, int ctx,
 	void __iomem *base = iommu_drvdata->cb_base;
 
 	SET_TLBSYNC(base, ctx, 0);
-	
+	/* No barrier needed due to read dependency */
 
 	res = readl_tight_poll_timeout(CTX_REG(CB_TLBSTATUS, base, ctx), val,
 				(val & CB_TLBSTATUS_SACTIVE) == 0, 5000000);
@@ -489,7 +489,7 @@ static void __program_iommu(struct msm_iommu_drvdata *drvdata)
 		writel_relaxed(0xFFFFFFFF, drvdata->smmu_local_base +
 							SMMU_INTR_SEL_NS);
 
-	mb(); 
+	mb(); /* Make sure writes complete before returning */
 }
 
 void program_iommu_bfb_settings(void __iomem *base,
@@ -527,7 +527,7 @@ static void __release_smg(void __iomem *base)
 	int i, smt_size;
 	smt_size = GET_IDR0_NUMSMRG(base);
 
-	
+	/* Invalidate all SMGs */
 	for (i = 0; i < smt_size; i++)
 		if (GET_SMR_VALID(base, i))
 			SET_SMR_VALID(base, i, 0);
@@ -560,7 +560,7 @@ static void msm_iommu_assign_ASID(const struct msm_iommu_drvdata *iommu_drvdata,
 #ifdef CONFIG_IOMMU_LPAE
 static void msm_iommu_setup_ctx(void __iomem *base, unsigned int ctx)
 {
-	SET_CB_TTBCR_EAE(base, ctx, 1); 
+	SET_CB_TTBCR_EAE(base, ctx, 1); /* Extended Address Enable (EAE) */
 }
 
 static void msm_iommu_setup_memory_remap(void __iomem *base, unsigned int ctx)
@@ -618,7 +618,7 @@ static int program_m2v_table(struct device *dev, void __iomem *base)
 	int len = ctx_drvdata->nsid;
 
 	smt_size = GET_IDR0_NUMSMRG(base);
-	
+	/* Program the M2V tables for this context */
 	for (i = 0; i < len / sizeof(*sids); i++) {
 		for (; num < smt_size; num++)
 			if (GET_SMR_VALID(base, num) == 0)
@@ -632,7 +632,7 @@ static int program_m2v_table(struct device *dev, void __iomem *base)
 		SET_S2CR_N(base, num, 0);
 		SET_S2CR_CBNDX(base, num, ctx);
 		SET_S2CR_MEMATTR(base, num, 0x0A);
-		
+		/* Set security bit override to be Non-secure */
 		SET_S2CR_NSCFG(base, num, 3);
 	}
 
@@ -667,17 +667,17 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	pn = pgtable >> CB_TTBR0_ADDR_SHIFT;
 	SET_CB_TTBR0_ADDR(cb_base, ctx, pn);
 
-	
+	/* Enable context fault interrupt */
 	SET_CB_SCTLR_CFIE(cb_base, ctx, 1);
 
 	if (iommu_drvdata->model != MMU_500) {
-		
+		/* Redirect all cacheable requests to L2 slave port. */
 		SET_CB_ACTLR_BPRCISH(cb_base, ctx, 1);
 		SET_CB_ACTLR_BPRCOSH(cb_base, ctx, 1);
 		SET_CB_ACTLR_BPRCNSH(cb_base, ctx, 1);
 	}
 
-	
+	/* Enable private ASID namespace */
 	SET_CB_SCTLR_ASIDPNE(cb_base, ctx, 1);
 
 	if (!is_secure) {
@@ -815,7 +815,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto unlock;
 	}
 
-	
+	/* We can only do this once */
 	if (!iommu_drvdata->ctx_attach_count) {
 		if (!is_secure) {
 			iommu_halt(iommu_drvdata);
@@ -840,7 +840,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	__program_context(iommu_drvdata, ctx_drvdata, priv, is_secure, set_m2v);
 
 	iommu_resume(iommu_drvdata);
-	
+	/* Ensure TLB is clear */
 	if (iommu_drvdata->model != MMU_500) {
 		SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
 					ctx_drvdata->asid);
@@ -978,7 +978,7 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 fail:
 	mutex_unlock(&msm_iommu_lock);
 
-	
+	/* the IOMMU API requires us to return how many bytes were unmapped */
 	len = ret ? 0 : len;
 	return len;
 }
@@ -1033,7 +1033,7 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 static phys_addr_t msm_iommu_get_phy_from_PAR(unsigned long va, u64 par)
 {
 	phys_addr_t phy;
-	
+	/* Upper 28 bits from PAR, lower 12 from VA */
 	phy = (par & 0xFFFFFFF000ULL) | (va & 0x00000FFF);
 	return phy;
 }
@@ -1042,10 +1042,10 @@ static phys_addr_t msm_iommu_get_phy_from_PAR(unsigned long va, u64 par)
 {
 	phys_addr_t phy;
 
-	
+	/* We are dealing with a supersection */
 	if (par & CB_PAR_SS)
 		phy = (par & 0xFF000000) | (va & 0x00FFFFFF);
-	else 
+	else /* Upper 20 bits from PAR, lower 12 from VA */
 		phy = (par & 0xFFFFF000) | (va & 0x00000FFF);
 
 	return phy;
@@ -1085,7 +1085,7 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 
 	ret = __enable_clocks(iommu_drvdata);
 	if (ret) {
-		ret = 0;	
+		ret = 0;	/* 0 indicates translation failed */
 		goto fail;
 	}
 

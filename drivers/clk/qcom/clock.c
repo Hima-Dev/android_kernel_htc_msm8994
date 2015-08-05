@@ -445,12 +445,12 @@ int msm_clk_notif_register(struct clk *clk, struct notifier_block *nb)
 
 	mutex_lock(&clk->prepare_lock);
 
-	
+	/* search the list of notifiers for this clk */
 	list_for_each_entry(cn, &clk_notifier_list, node)
 		if (cn->clk == clk)
 			break;
 
-	
+	/* if clk wasn't in the notifier list, allocate new clk_notifier */
 	if (cn->clk != clk) {
 		cn = kzalloc(sizeof(struct msm_clk_notifier), GFP_KERNEL);
 		if (!cn)
@@ -491,7 +491,7 @@ int msm_clk_notif_unregister(struct clk *clk, struct notifier_block *nb)
 
 		clk->notifier_count--;
 
-		
+		/* XXX the notifier code should handle this better */
 		if (!cn->notifier_head.head) {
 			srcu_cleanup_notifier_head(&cn->notifier_head);
 			list_del(&cn->node);
@@ -534,7 +534,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 
 	mutex_lock(&clk->prepare_lock);
 
-	
+	/* Return early if the rate isn't going to change */
 	if (clk->rate == rate && !(clk->flags & CLKFLAG_NO_RATE_CACHE))
 		goto out;
 
@@ -556,7 +556,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 			goto abort_set_rate;
 	}
 
-	
+	/* Enforce vdd requirements for target frequency. */
 	if (clk->prepare_count) {
 		rc = vote_rate_vdd(clk, rate);
 		if (rc)
@@ -568,7 +568,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 		goto err_set_rate;
 	clk->rate = rate;
 
-	
+	/* Release vdd requirements for starting frequency. */
 	if (clk->prepare_count)
 		unvote_rate_vdd(clk, start_rate);
 
@@ -588,7 +588,7 @@ err_set_rate:
 	if (clk->prepare_count)
 		unvote_rate_vdd(clk, rate);
 err_vote_vdd:
-	
+	/* clk->rate is still the old rate. So, pass the new rate instead. */
 	if (clk->ops->post_set_rate)
 		clk->ops->post_set_rate(clk, rate);
 	goto out;
@@ -823,7 +823,7 @@ static int __handoff_clk(struct clk *clk)
 			clk->dbg_name);
 
 	clk->flags |= CLKFLAG_INIT_DONE;
-	
+	/* if the clk is on orphan list, remove it */
 	list_del_init(&clk->list);
 	clock_debug_register(clk);
 

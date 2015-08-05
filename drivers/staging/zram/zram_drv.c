@@ -217,11 +217,11 @@ static inline int valid_io_request(struct zram *zram, struct bio *bio)
 	start = bio->bi_sector;
 	end = start + (bio->bi_size >> SECTOR_SHIFT);
 	bound = zram->disksize >> SECTOR_SHIFT;
-	
+	/* out of range range */
 	if (unlikely(start >= bound || end > bound || start > end))
 		return 0;
 
-	
+	/* I/O request is valid */
 	return 1;
 }
 
@@ -376,7 +376,7 @@ static int zram_decompress_page(struct zram *zram, char *mem, u32 index)
 	zs_unmap_object(meta->mem_pool, handle);
 	read_unlock(&meta->tb_lock);
 
-	
+	/* Should NEVER happen. Return bio error if it does. */
 	if (unlikely(ret != LZO_E_OK)) {
 		pr_err("Decompression failed! err=%d, page=%u\n", ret, index);
 		atomic64_inc(&zram->stats.failed_reads);
@@ -405,7 +405,7 @@ static int zram_bvec_read(struct zram *zram, struct bio_vec *bvec,
 	read_unlock(&meta->tb_lock);
 
 	if (is_partial_io(bvec))
-		
+		/* Use  a temporary buffer to decompress the page */
 		uncmem = kmalloc(PAGE_SIZE, GFP_NOIO);
 
 	user_mem = kmap_atomic(page);
@@ -419,7 +419,7 @@ static int zram_bvec_read(struct zram *zram, struct bio_vec *bvec,
 	}
 
 	ret = zram_decompress_page(zram, uncmem, index);
-	
+	/* Should NEVER happen. Return bio error if it does. */
 	if (unlikely(ret != LZO_E_OK))
 		goto out_cleanup;
 
@@ -581,7 +581,7 @@ static void zram_reset_device(struct zram *zram, bool reset_capacity)
 	meta = zram->meta;
 	zram->init_done = 0;
 
-	
+	/* Free all pages that are still in this zram device */
 	for (index = 0; index < zram->disksize >> PAGE_SHIFT; index++) {
 		unsigned long handle = meta->table[index].handle;
 		if (!handle)
@@ -592,7 +592,7 @@ static void zram_reset_device(struct zram *zram, bool reset_capacity)
 
 	zram_meta_free(zram->meta);
 	zram->meta = NULL;
-	
+	/* Reset stats */
 	memset(&zram->stats, 0, sizeof(zram->stats));
 
 	zram->disksize = 0;
@@ -617,7 +617,7 @@ static void zram_init_device(struct zram *zram, struct zram_meta *meta)
 		);
 	}
 
-	
+	/* zram devices sort of resembles non-rotational disks */
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, zram->disk->queue);
 
 	zram->meta = meta;
@@ -840,7 +840,7 @@ static int create_device(struct zram *zram, int device_id)
 	blk_queue_make_request(zram->queue, zram_make_request);
 	zram->queue->queuedata = zram;
 
-	 
+	 /* gendisk structure */
 	zram->disk = alloc_disk(1);
 	if (!zram->disk) {
 		pr_warn("Error allocating disk structure for device %d\n",
@@ -914,7 +914,7 @@ static int __init zram_init(void)
 		goto out;
 	}
 
-	
+	/* Allocate the device array and initialize each one */
 	zram_devices = kzalloc(num_devices * sizeof(struct zram), GFP_KERNEL);
 	if (!zram_devices) {
 		ret = -ENOMEM;

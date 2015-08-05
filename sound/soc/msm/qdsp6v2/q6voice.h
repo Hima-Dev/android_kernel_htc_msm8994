@@ -107,7 +107,7 @@ enum {
 struct mem_buffer {
 	dma_addr_t		phys;
 	void			*data;
-	uint32_t		size; 
+	uint32_t		size; /* size of buffer */
 };
 
 struct share_mem_buf {
@@ -977,20 +977,20 @@ struct share_memory_info {
 };
 
 struct voice_data {
-	int voc_state;
+	int voc_state;/*INIT, CHANGE, RELEASE, RUN */
 
-	
+	/* Shared mem to store decoder and encoder packets */
 	struct share_memory_info	shmem_info;
 
 	wait_queue_head_t mvm_wait;
 	wait_queue_head_t cvs_wait;
 	wait_queue_head_t cvp_wait;
 
-	
+	/* Cache the values related to Rx and Tx devices */
 	struct device_data dev_rx;
 	struct device_data dev_tx;
 
-	
+	/* Cache the values related to Rx and Tx streams */
 	struct stream_data stream_rx;
 	struct stream_data stream_tx;
 
@@ -998,11 +998,11 @@ struct voice_data {
 	u32 cvs_state;
 	u32 cvp_state;
 
-	
+	/* Handle to MVM in the Q6 */
 	u16 mvm_handle;
-	
+	/* Handle to CVS in the Q6 */
 	u16 cvs_handle;
-	
+	/* Handle to CVP in the Q6 */
 	u16 cvp_handle;
 
 	struct mutex lock;
@@ -1011,11 +1011,11 @@ struct voice_data {
 
 	uint16_t sidetone_gain;
 	uint8_t tty_mode;
-	
+	/* slowtalk enable value */
 	uint32_t st_enable;
 	uint32_t hd_enable;
 	uint32_t dtmf_rx_detect_en;
-	
+	/* Local Call Hold mode */
 	uint8_t lch_mode;
 
 	struct voice_dev_route_state voc_route_state;
@@ -1040,7 +1040,7 @@ struct cal_mem {
 #define MAX_VOC_SESSIONS 6
 
 struct common_data {
-	
+	/* these default values are for all devices */
 	uint32_t default_mute_val;
 	uint32_t default_sample_val;
 	uint32_t default_vol_step_val;

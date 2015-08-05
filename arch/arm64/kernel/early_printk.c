@@ -149,13 +149,13 @@ static int __init setup_early_printk(char *buf)
 		return 0;
 	}
 
-	
+	/* I/O address */
 	if (!strncmp(buf, ",0x", 3)) {
 		char *e;
 		paddr = simple_strtoul(buf + 1, &e, 16);
 		buf = e;
 	}
-	
+	/* no options parsing yet */
 
 	if (paddr)
 		early_base = (void __iomem *)set_fixmap_offset_io(FIX_EARLYCON_MEM_BASE, paddr);

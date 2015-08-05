@@ -91,21 +91,21 @@
 	 (((minor) & 0x0FFF) << 16) |		\
 	 ((step)   & 0xFFFF))
 
-#define MDSS_MDP_HW_REV_100	MDSS_MDP_REV(1, 0, 0) 
-#define MDSS_MDP_HW_REV_101	MDSS_MDP_REV(1, 1, 0) 
-#define MDSS_MDP_HW_REV_101_1	MDSS_MDP_REV(1, 1, 1) 
-#define MDSS_MDP_HW_REV_101_2	MDSS_MDP_REV(1, 1, 2) 
-#define MDSS_MDP_HW_REV_102	MDSS_MDP_REV(1, 2, 0) 
-#define MDSS_MDP_HW_REV_102_1	MDSS_MDP_REV(1, 2, 1) 
-#define MDSS_MDP_HW_REV_103	MDSS_MDP_REV(1, 3, 0) 
-#define MDSS_MDP_HW_REV_103_1	MDSS_MDP_REV(1, 3, 1) 
-#define MDSS_MDP_HW_REV_105	MDSS_MDP_REV(1, 5, 0) 
-#define MDSS_MDP_HW_REV_106	MDSS_MDP_REV(1, 6, 0) 
+#define MDSS_MDP_HW_REV_100	MDSS_MDP_REV(1, 0, 0) /* 8974 v1.0 */
+#define MDSS_MDP_HW_REV_101	MDSS_MDP_REV(1, 1, 0) /* 8x26 v1.0 */
+#define MDSS_MDP_HW_REV_101_1	MDSS_MDP_REV(1, 1, 1) /* 8x26 v2.0, 8926 v1.0 */
+#define MDSS_MDP_HW_REV_101_2	MDSS_MDP_REV(1, 1, 2) /* 8926 v2.0 */
+#define MDSS_MDP_HW_REV_102	MDSS_MDP_REV(1, 2, 0) /* 8974 v2.0 */
+#define MDSS_MDP_HW_REV_102_1	MDSS_MDP_REV(1, 2, 1) /* 8974 v3.0 (Pro) */
+#define MDSS_MDP_HW_REV_103	MDSS_MDP_REV(1, 3, 0) /* 8084 v1.0 */
+#define MDSS_MDP_HW_REV_103_1	MDSS_MDP_REV(1, 3, 1) /* 8084 v1.1 */
+#define MDSS_MDP_HW_REV_105	MDSS_MDP_REV(1, 5, 0) /* 8994 v1.0 */
+#define MDSS_MDP_HW_REV_106	MDSS_MDP_REV(1, 6, 0) /* 8916 v1.0 */
 #define MDSS_MDP_HW_REV_107	MDSS_MDP_REV(1, 7, 0)
-#define MDSS_MDP_HW_REV_108	MDSS_MDP_REV(1, 8, 0) 
-#define MDSS_MDP_HW_REV_109	MDSS_MDP_REV(1, 9, 0) 
-#define MDSS_MDP_HW_REV_110	MDSS_MDP_REV(1, 10, 0) 
-#define MDSS_MDP_HW_REV_200	MDSS_MDP_REV(2, 0, 0) 
+#define MDSS_MDP_HW_REV_108	MDSS_MDP_REV(1, 8, 0) /* 8939 v1.0 */
+#define MDSS_MDP_HW_REV_109	MDSS_MDP_REV(1, 9, 0) /* 8994 v2.0 */
+#define MDSS_MDP_HW_REV_110	MDSS_MDP_REV(1, 10, 0) /* 8992 v1.0 */
+#define MDSS_MDP_HW_REV_200	MDSS_MDP_REV(2, 0, 0) /* 8092 v1.0 */
 
 enum {
 	NOTIFY_UPDATE_INIT,
@@ -124,57 +124,57 @@ enum {
 };
 
 enum {
-	MDP_RGB_565,      
-	MDP_XRGB_8888,    
-	MDP_Y_CBCR_H2V2,  
+	MDP_RGB_565,      /* RGB 565 planer */
+	MDP_XRGB_8888,    /* RGB 888 padded */
+	MDP_Y_CBCR_H2V2,  /* Y and CbCr, pseudo planer w/ Cb is in MSB */
 	MDP_Y_CBCR_H2V2_ADRENO,
-	MDP_ARGB_8888,    
-	MDP_RGB_888,      
-	MDP_Y_CRCB_H2V2,  
-	MDP_YCRYCB_H2V1,  
-	MDP_CBYCRY_H2V1,  
-	MDP_Y_CRCB_H2V1,  
-	MDP_Y_CBCR_H2V1,   
+	MDP_ARGB_8888,    /* ARGB 888 */
+	MDP_RGB_888,      /* RGB 888 planer */
+	MDP_Y_CRCB_H2V2,  /* Y and CrCb, pseudo planer w/ Cr is in MSB */
+	MDP_YCRYCB_H2V1,  /* YCrYCb interleave */
+	MDP_CBYCRY_H2V1,  /* CbYCrY interleave */
+	MDP_Y_CRCB_H2V1,  /* Y and CrCb, pseduo planer w/ Cr is in MSB */
+	MDP_Y_CBCR_H2V1,   /* Y and CrCb, pseduo planer w/ Cr is in MSB */
 	MDP_Y_CRCB_H1V2,
 	MDP_Y_CBCR_H1V2,
-	MDP_RGBA_8888,    
-	MDP_BGRA_8888,	  
-	MDP_RGBX_8888,	  
-	MDP_Y_CRCB_H2V2_TILE,  
-	MDP_Y_CBCR_H2V2_TILE,  
-	MDP_Y_CR_CB_H2V2,  
-	MDP_Y_CR_CB_GH2V2,  
-	MDP_Y_CB_CR_H2V2,  
-	MDP_Y_CRCB_H1V1,  
-	MDP_Y_CBCR_H1V1,  
-	MDP_YCRCB_H1V1,   
-	MDP_YCBCR_H1V1,   
-	MDP_BGR_565,      
-	MDP_BGR_888,      
+	MDP_RGBA_8888,    /* ARGB 888 */
+	MDP_BGRA_8888,	  /* ABGR 888 */
+	MDP_RGBX_8888,	  /* RGBX 888 */
+	MDP_Y_CRCB_H2V2_TILE,  /* Y and CrCb, pseudo planer tile */
+	MDP_Y_CBCR_H2V2_TILE,  /* Y and CbCr, pseudo planer tile */
+	MDP_Y_CR_CB_H2V2,  /* Y, Cr and Cb, planar */
+	MDP_Y_CR_CB_GH2V2,  /* Y, Cr and Cb, planar aligned to Android YV12 */
+	MDP_Y_CB_CR_H2V2,  /* Y, Cb and Cr, planar */
+	MDP_Y_CRCB_H1V1,  /* Y and CrCb, pseduo planer w/ Cr is in MSB */
+	MDP_Y_CBCR_H1V1,  /* Y and CbCr, pseduo planer w/ Cb is in MSB */
+	MDP_YCRCB_H1V1,   /* YCrCb interleave */
+	MDP_YCBCR_H1V1,   /* YCbCr interleave */
+	MDP_BGR_565,      /* BGR 565 planer */
+	MDP_BGR_888,      /* BGR 888 */
 	MDP_Y_CBCR_H2V2_VENUS,
-	MDP_BGRX_8888,   
-	MDP_RGBA_8888_TILE,	  
-	MDP_ARGB_8888_TILE,	  
-	MDP_ABGR_8888_TILE,	  
-	MDP_BGRA_8888_TILE,	  
-	MDP_RGBX_8888_TILE,	  
-	MDP_XRGB_8888_TILE,	  
-	MDP_XBGR_8888_TILE,	  
-	MDP_BGRX_8888_TILE,	  
-	MDP_YCBYCR_H2V1,  
-	MDP_RGB_565_TILE,	  
-	MDP_BGR_565_TILE,	  
-	MDP_ARGB_1555,	
-	MDP_RGBA_5551,	
-	MDP_ARGB_4444,	
-	MDP_RGBA_4444,	
+	MDP_BGRX_8888,   /* BGRX 8888 */
+	MDP_RGBA_8888_TILE,	  /* RGBA 8888 in tile format */
+	MDP_ARGB_8888_TILE,	  /* ARGB 8888 in tile format */
+	MDP_ABGR_8888_TILE,	  /* ABGR 8888 in tile format */
+	MDP_BGRA_8888_TILE,	  /* BGRA 8888 in tile format */
+	MDP_RGBX_8888_TILE,	  /* RGBX 8888 in tile format */
+	MDP_XRGB_8888_TILE,	  /* XRGB 8888 in tile format */
+	MDP_XBGR_8888_TILE,	  /* XBGR 8888 in tile format */
+	MDP_BGRX_8888_TILE,	  /* BGRX 8888 in tile format */
+	MDP_YCBYCR_H2V1,  /* YCbYCr interleave */
+	MDP_RGB_565_TILE,	  /* RGB 565 in tile format */
+	MDP_BGR_565_TILE,	  /* BGR 565 in tile format */
+	MDP_ARGB_1555,	/*ARGB 1555*/
+	MDP_RGBA_5551,	/*RGBA 5551*/
+	MDP_ARGB_4444,	/*ARGB 4444*/
+	MDP_RGBA_4444,	/*RGBA 4444*/
 	MDP_RGB_565_UBWC,
 	MDP_RGBA_8888_UBWC,
 	MDP_Y_CBCR_H2V2_UBWC,
 	MDP_IMGTYPE_LIMIT,
-	MDP_RGB_BORDERFILL,	
-	MDP_FB_FORMAT = MDP_IMGTYPE2_START,    
-	MDP_IMGTYPE_LIMIT2 
+	MDP_RGB_BORDERFILL,	/* border fill pipe */
+	MDP_FB_FORMAT = MDP_IMGTYPE2_START,    /* framebuffer format */
+	MDP_IMGTYPE_LIMIT2 /* Non valid image type after this enum */
 };
 
 enum {
@@ -268,9 +268,9 @@ struct mdp_img {
 #define MDP_BV_SIZE	3
 
 struct mdp_ccs {
-	int direction;			
-	uint16_t ccs[MDP_CCS_SIZE];	
-	uint16_t bv[MDP_BV_SIZE];	
+	int direction;			/* MDP_CCS_RGB2YUV or YUV2RGB */
+	uint16_t ccs[MDP_CCS_SIZE];	/* 3x3 color coefficients */
+	uint16_t bv[MDP_BV_SIZE];	/* 1x3 bias vector */
 };
 
 struct mdp_csc {
@@ -301,7 +301,7 @@ struct mdp_blit_req {
 	uint32_t alpha;
 	uint32_t transp_mask;
 	uint32_t flags;
-	int sharpening_strength;  
+	int sharpening_strength;  /* -127 <--> 127, default 64 */
 	uint8_t color_space;
 	uint32_t fps;
 };
@@ -424,7 +424,7 @@ struct mdp_qseed_cfg_data {
 #define MDP_CSC_FLAG_YUV_OUT	0x4
 
 struct mdp_csc_cfg {
-	
+	/* flags for enable CSC, toggling RGB,YUV input/output */
 	uint32_t flags;
 	uint32_t csc_mv[9];
 	uint32_t csc_pre_bv[3];
@@ -457,7 +457,7 @@ struct mdp_pa_mem_col_cfg {
 #define MDP_SIX_ZONE_LUT_SIZE		384
 
 struct mdp_pa_v2_data {
-	
+	/* Mask bits for PA features */
 	uint32_t flags;
 	uint32_t global_hue_adj;
 	uint32_t global_sat_adj;
@@ -901,7 +901,7 @@ enum {
 	WB_FORMAT_ARGB_8888,
 	WB_FORMAT_BGRA_8888,
 	WB_FORMAT_BGRX_8888,
-	WB_FORMAT_ARGB_8888_INPUT_ALPHA 
+	WB_FORMAT_ARGB_8888_INPUT_ALPHA /* Need to support */
 };
 
 struct msmfb_mdp_pp {
@@ -1053,4 +1053,4 @@ enum {
 	MDP_CSC_ITU_R_601_FR,
 	MDP_CSC_ITU_R_709,
 };
-#endif 
+#endif /*_UAPI_MSM_MDP_H_*/

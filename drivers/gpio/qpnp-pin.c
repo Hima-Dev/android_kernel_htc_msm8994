@@ -142,15 +142,15 @@ enum qpnp_pin_param_type {
 #define QPNP_PIN_CS_OUT_INVALID		8
 
 struct qpnp_pin_spec {
-	uint8_t slave;			
-	uint16_t offset;		
-	uint32_t gpio_chip_idx;		
-	uint32_t pmic_pin;		
-	int irq;			
-	u8 regs[Q_NUM_CTL_REGS];	
-	u8 num_ctl_regs;		
-	u8 type;			
-	u8 subtype;			
+	uint8_t slave;			/* 0-15 */
+	uint16_t offset;		/* 0-255 */
+	uint32_t gpio_chip_idx;		/* offset from gpio_chip base */
+	uint32_t pmic_pin;		/* PMIC pin number */
+	int irq;			/* logical IRQ number */
+	u8 regs[Q_NUM_CTL_REGS];	/* Control regs */
+	u8 num_ctl_regs;		/* usable number on this pin */
+	u8 type;			/* peripheral type */
+	u8 subtype;			/* peripheral subtype */
 	u8 dig_major_rev;
 	struct device_node *node;
 	enum qpnp_pin_param_type params[Q_NUM_PARAMS];
@@ -488,13 +488,13 @@ static int _qpnp_pin_config(struct qpnp_pin_chip *q_chip,
 	if (rc)
 		goto gpio_cfg;
 
-	
+	/* set mode */
 	if (Q_HAVE_HW_SP(Q_PIN_CFG_MODE, q_spec, param->mode))
 		q_reg_clr_set(&q_spec->regs[Q_REG_I_MODE_CTL],
 			  Q_REG_MODE_SEL_SHIFT, Q_REG_MODE_SEL_MASK,
 			  param->mode);
 
-	
+	/* output specific configuration */
 	if (Q_HAVE_HW_SP(Q_PIN_CFG_INVERT, q_spec, param->invert))
 		q_reg_clr_set(&q_spec->regs[Q_REG_I_MODE_CTL],
 			  Q_REG_OUT_INVERT_SHIFT, Q_REG_OUT_INVERT_MASK,
@@ -512,7 +512,7 @@ static int _qpnp_pin_config(struct qpnp_pin_chip *q_chip,
 			  Q_REG_OUT_TYPE_SHIFT, Q_REG_OUT_TYPE_MASK,
 			  param->output_type);
 
-	
+	/* config applicable for both input / output */
 	if (Q_HAVE_HW_SP(Q_PIN_CFG_VIN_SEL, q_spec, param->vin_sel))
 		q_reg_clr_set(&q_spec->regs[Q_REG_I_DIG_VIN_CTL],
 			  Q_REG_VIN_SHIFT, Q_REG_VIN_MASK,
@@ -526,7 +526,7 @@ static int _qpnp_pin_config(struct qpnp_pin_chip *q_chip,
 			  Q_REG_MASTER_EN_SHIFT, Q_REG_MASTER_EN_MASK,
 			  param->master_en);
 
-	
+	/* mpp specific config */
 	if (Q_HAVE_HW_SP(Q_PIN_CFG_AOUT_REF, q_spec, param->aout_ref))
 		q_reg_clr_set(&q_spec->regs[Q_REG_I_AOUT_CTL],
 			  Q_REG_AOUT_REF_SHIFT, Q_REG_AOUT_REF_MASK,
@@ -626,11 +626,11 @@ static int qpnp_pin_to_irq(struct gpio_chip *gpio_chip, unsigned offset)
 	if (!q_spec)
 		return -EINVAL;
 
-	
+	/* if we have mapped this pin previously return the virq */
 	if (q_spec->irq)
 		return q_spec->irq;
 
-	
+	/* call into irq_domain to get irq mapping */
 	intspec[0] = q_chip->spmi->sid;
 	intspec[1] = (q_spec->offset >> 8) & 0xFF;
 	intspec[2] = 0;
@@ -659,7 +659,7 @@ static int qpnp_pin_get(struct gpio_chip *gpio_chip, unsigned offset)
 	if (WARN_ON(!q_spec))
 		return -ENODEV;
 
-	
+	/* gpio val is from RT status iff input is enabled */
 	if ((q_spec->regs[Q_REG_I_MODE_CTL] & Q_REG_MODE_SEL_MASK)
 						== QPNP_PIN_MODE_DIG_IN) {
 		rc = spmi_ext_register_readl(q_chip->spmi->ctrl, q_spec->slave,
@@ -671,7 +671,7 @@ static int qpnp_pin_get(struct gpio_chip *gpio_chip, unsigned offset)
 		else if (q_spec->type == Q_GPIO_TYPE &&
 			 q_spec->dig_major_rev > 0)
 			en_mask = Q_REG_STATUS1_GPIO_EN_MASK;
-		else 
+		else /* MPP */
 			en_mask = Q_REG_STATUS1_MPP_EN_MASK;
 
 		if (!(buf[0] & en_mask))
@@ -1037,7 +1037,7 @@ static int qpnp_pin_debugfs_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(qpnp_pin_fops, qpnp_pin_debugfs_get,
 			qpnp_pin_debugfs_set, "%llu\n");
 
-#define DEBUGFS_BUF_SIZE 11 
+#define DEBUGFS_BUF_SIZE 11 /* supports 2^32 in decimal */
 
 struct qpnp_pin_debugfs_args {
 	enum qpnp_pin_param_type type;
@@ -1243,7 +1243,7 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 	list_add(&q_chip->chip_list, &qpnp_pin_chips);
 	mutex_unlock(&qpnp_pin_chips_lock);
 
-	
+	/* first scan through nodes to find the range required for allocation */
 	for (i = 0; i < spmi->num_dev_node; i++) {
 		rc = of_property_read_u32(spmi->dev_node[i].of_node,
 						"qcom,pin-num", &gpio);
@@ -1274,7 +1274,7 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 	q_chip->pmic_pin_lowest = lowest_gpio;
 	q_chip->pmic_pin_highest = highest_gpio;
 
-	
+	/* allocate gpio lookup tables */
 	q_chip->pmic_pins = kzalloc(sizeof(struct qpnp_pin_spec *) *
 					(highest_gpio - lowest_gpio + 1),
 					GFP_KERNEL);
@@ -1287,7 +1287,7 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 		goto err_probe;
 	}
 
-	
+	/* get interrupt controller device_node */
 	q_chip->int_ctrl = of_irq_find_parent(spmi->dev.of_node);
 	if (!q_chip->int_ctrl) {
 		dev_err(&spmi->dev, "%s: Can't find interrupt parent\n",
@@ -1296,7 +1296,7 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 		goto err_probe;
 	}
 
-	
+	/* now scan through again and populate the lookup table */
 	for (i = 0; i < spmi->num_dev_node; i++) {
 		d_node = &spmi->dev_node[i];
 		res = spmi_get_resource(spmi, d_node, IORESOURCE_MEM, 0);
@@ -1354,7 +1354,7 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 		if (rc)
 			goto err_probe;
 
-		
+		/* initialize lookup table params */
 		qpnp_pmic_pin_set_spec(q_chip, gpio, q_spec);
 		qpnp_chip_gpio_set_spec(q_chip, i, q_spec);
 	}
@@ -1380,7 +1380,7 @@ static int qpnp_pin_probe(struct spmi_device *spmi)
 	}
 
 	q_chip->chip_registered = true;
-	
+	/* now configure gpio config defaults if they exist */
 	for (i = 0; i < spmi->num_dev_node; i++) {
 		q_spec = qpnp_chip_gpio_get_spec(q_chip, i);
 		if (WARN_ON(!q_spec)) {

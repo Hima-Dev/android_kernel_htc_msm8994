@@ -24,7 +24,22 @@
 #include "u_serial.h"
 #include "gadget_chips.h"
 
-
+/*
+ * This CDC ACM function support just wraps control functions and
+ * notifications around the generic serial-over-usb code.
+ *
+ * Because CDC ACM is standardized by the USB-IF, many host operating
+ * systems have drivers for it.  Accordingly, ACM is the preferred
+ * interop solution for serial-port type connections.  The control
+ * models are often not necessary, and in any case don't do much in
+ * this bare-bones implementation.
+ *
+ * Note that even MS-Windows has some support for ACM.  However, that
+ * support is somewhat broken because when you use ACM in a composite
+ * device, having multiple interfaces confuses the poor OS.  It doesn't
+ * seem to understand CDC Union descriptors.  The new "association"
+ * descriptors (roughly equivalent to CDC Unions) may sometimes help.
+ */
 
 struct f_acm {
 	struct gserial			port;
@@ -216,7 +231,7 @@ acm_call_mgmt_descriptor = {
 	.bDescriptorType =	USB_DT_CS_INTERFACE,
 	.bDescriptorSubType =	USB_CDC_CALL_MANAGEMENT_TYPE,
 	.bmCapabilities =	0,
-	
+	/* .bDataInterface = DYNAMIC */
 };
 
 static struct usb_cdc_acm_descriptor acm_descriptor = {
@@ -367,7 +382,22 @@ static struct usb_gadget_strings *acm_strings[] = {
 	NULL,
 };
 
-
+/*
+ * This CDC ACM function support just wraps control functions and
+ * notifications around the generic serial-over-usb code.
+ *
+ * Because CDC ACM is standardized by the USB-IF, many host operating
+ * systems have drivers for it.  Accordingly, ACM is the preferred
+ * interop solution for serial-port type connections.  The control
+ * models are often not necessary, and in any case don't do much in
+ * this bare-bones implementation.
+ *
+ * Note that even MS-Windows has some support for ACM.  However, that
+ * support is somewhat broken because when you use ACM in a composite
+ * device, having multiple interfaces confuses the poor OS.  It doesn't
+ * seem to understand CDC Union descriptors.  The new "association"
+ * descriptors (roughly equivalent to CDC Unions) may sometimes help.
+ */
 
 static void acm_complete_set_line_coding(struct usb_ep *ep,
 		struct usb_request *req)
@@ -381,7 +411,7 @@ static void acm_complete_set_line_coding(struct usb_ep *ep,
 		return;
 	}
 
-	
+	/* normal completion */
 	if (req->actual != sizeof(acm->port_line_coding)) {
 		DBG(cdev, "acm ttyGS%d short resp, len %d\n",
 				acm->port_num, req->actual);
@@ -417,7 +447,7 @@ static int acm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		req->complete = acm_complete_set_line_coding;
 		break;
 
-	
+	/* GET_LINE_CODING ... return what host sent, or initial value */
 	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_REQ_GET_LINE_CODING:
 		if (w_index != acm->ctrl_id)
@@ -428,7 +458,7 @@ static int acm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		memcpy(req->buf, &acm->port_line_coding, value);
 		break;
 
-	
+	/* SET_CONTROL_LINE_STATE ... save what the host sent */
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_REQ_SET_CONTROL_LINE_STATE:
 		if (w_index != acm->ctrl_id)
@@ -455,7 +485,7 @@ invalid:
 			w_value, w_index, w_length);
 	}
 
-	
+	/* respond with data transfer or status phase? */
 	if (value >= 0) {
 		DBG(cdev, "acm ttyGS%d req%02x.%02x v%04x i%04x l%d\n",
 			acm->port_num, ctrl->bRequestType, ctrl->bRequest,
@@ -468,7 +498,7 @@ invalid:
 					acm->port_num, value);
 	}
 
-	
+	/* device either stalls (value < 0) or reports success */
 	return value;
 }
 
@@ -477,7 +507,7 @@ static int acm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	struct f_acm		*acm = func_to_acm(f);
 	struct usb_composite_dev *cdev = f->config->cdev;
 
-	
+	/* we know alt == 0, so this is an activation or a reset */
 
 	if (intf == acm->ctrl_id) {
 		if (acm->notify->driver_data) {
@@ -553,7 +583,7 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	notify->wLength = cpu_to_le16(length);
 	memcpy(buf, data, length);
 
-	
+	/* ep_queue() can complete immediately if it fills the fifo... */
 	spin_unlock(&acm->lock);
 	status = usb_ep_queue(ep, req, GFP_ATOMIC);
 	spin_lock(&acm->lock);
@@ -664,7 +694,7 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	acm_data_interface_desc.iInterface = us[ACM_DATA_IDX].id;
 	acm_iad_descriptor.iFunction = us[ACM_IAD_IDX].id;
 
-	
+	/* allocate instance-specific interface IDs, and patch descriptors */
 	status = usb_interface_id(c, f);
 	if (status < 0)
 		goto fail;
@@ -685,26 +715,26 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 
 	status = -ENODEV;
 
-	
+	/* allocate instance-specific endpoints */
 	ep = usb_ep_autoconfig(cdev->gadget, &acm_fs_in_desc);
 	if (!ep)
 		goto fail;
 	acm->port.in = ep;
-	ep->driver_data = cdev;	
+	ep->driver_data = cdev;	/* claim */
 
 	ep = usb_ep_autoconfig(cdev->gadget, &acm_fs_out_desc);
 	if (!ep)
 		goto fail;
 	acm->port.out = ep;
-	ep->driver_data = cdev;	
+	ep->driver_data = cdev;	/* claim */
 
 	ep = usb_ep_autoconfig(cdev->gadget, &acm_fs_notify_desc);
 	if (!ep)
 		goto fail;
 	acm->notify = ep;
-	ep->driver_data = cdev;	
+	ep->driver_data = cdev;	/* claim */
 
-	
+	/* allocate notification */
 	acm->notify_req = gs_alloc_req(ep,
 			sizeof(struct usb_cdc_notification) + 2,
 			GFP_KERNEL);
@@ -739,7 +769,7 @@ fail:
 	if (acm->notify_req)
 		gs_free_req(acm->notify, acm->notify_req);
 
-	
+	/* we might as well release our claims on endpoints */
 	if (acm->notify)
 		acm->notify->driver_data = NULL;
 	if (acm->port.out)
@@ -794,7 +824,7 @@ static struct usb_function *acm_alloc_func(struct usb_function_instance *fi)
 
 	acm->port.func.name = "acm";
 	acm->port.func.strings = acm_strings;
-	
+	/* descriptors are per-instance copies */
 	acm->port.func.bind = acm_bind;
 	acm->port.func.set_alt = acm_set_alt;
 	acm->port.func.setup = acm_setup;

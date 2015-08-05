@@ -57,7 +57,7 @@ struct usb_function {
 	void			(*free_func)(struct usb_function *f);
 	struct module		*mod;
 
-	
+	/* runtime state management */
 	int			(*set_alt)(struct usb_function *,
 					unsigned interface, unsigned alt);
 	int			(*get_alt)(struct usb_function *,
@@ -68,15 +68,15 @@ struct usb_function {
 	void			(*suspend)(struct usb_function *);
 	void			(*resume)(struct usb_function *);
 
-	
+	/* USB 3.0 additions */
 	int			(*get_status)(struct usb_function *);
 	int			(*func_suspend)(struct usb_function *,
 						u8 suspend_opt);
 	unsigned		func_is_suspended:1;
 	unsigned		func_wakeup_allowed:1;
 	unsigned		func_wakeup_pending:1;
-	
-	
+	/* private: */
+	/* internals */
 	struct list_head		list;
 	DECLARE_BITMAP(endpoints, 32);
 	const struct usb_function_instance *fi;
@@ -116,8 +116,8 @@ struct usb_configuration {
 
 	struct usb_composite_dev	*cdev;
 
-	
-	
+	/* private: */
+	/* internals */
 	struct list_head	list;
 	struct list_head	functions;
 	u8			next_interface_id;
@@ -126,7 +126,7 @@ struct usb_configuration {
 	unsigned		fullspeed:1;
 	struct usb_function	*interface[MAX_CONFIG_INTERFACES];
 
-	
+	/* number of in and out eps used in this configuration */
 	int			num_ineps_used;
 	int			num_outeps_used;
 };
@@ -157,7 +157,7 @@ struct usb_composite_driver {
 
 	void			(*disconnect)(struct usb_composite_dev *);
 
-	
+	/* global suspend hooks */
 	void			(*suspend)(struct usb_composite_dev *);
 	void			(*resume)(struct usb_composite_dev *);
 	struct usb_gadget_driver		gadget_driver;
@@ -325,4 +325,4 @@ void usb_remove_function(struct usb_configuration *c, struct usb_function *f);
 #define INFO(d, fmt, args...) \
 	dev_info(&(d)->gadget->dev , fmt , ## args)
 
-#endif	
+#endif	/* __LINUX_USB_COMPOSITE_H */

@@ -456,7 +456,7 @@ int disable_nonboot_cpus(void)
 
 	if (!error) {
 		BUG_ON(num_online_cpus() > 1);
-		
+		/* Make sure the CPUs won't be enabled by someone else */
 		cpu_hotplug_disabled = 1;
 	} else {
 		printk(KERN_ERR "Non-boot CPUs are not disabled\n");
@@ -477,7 +477,7 @@ void __ref enable_nonboot_cpus(void)
 {
 	int cpu, error;
 
-	
+	/* Allow everyone to use the CPU hotplug again */
 	cpu_maps_update_begin();
 	cpu_hotplug_disabled = 0;
 	if (cpumask_empty(frozen_cpus))

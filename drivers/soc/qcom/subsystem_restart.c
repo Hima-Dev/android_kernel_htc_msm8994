@@ -147,7 +147,17 @@ static struct attribute_group attr_group = {
 
 #endif
 
-
+/**
+ * struct subsys_tracking - track state of a subsystem or restart order
+ * @p_state: private state of subsystem/order
+ * @state: public state of subsystem/order
+ * @s_lock: protects p_state
+ * @lock: protects subsystem/order callbacks and state
+ *
+ * Tracks the state of a subsystem or a set of subsystems (restart order).
+ * Doing this avoids the need to grab each subsystem's lock and update
+ * each subsystems state when restarting an order.
+ */
 struct subsys_tracking {
 	enum p_subsys_state p_state;
 	spinlock_t s_lock;
@@ -501,7 +511,7 @@ static void do_epoch_check(struct subsys_device *dev)
 	max_restarts_check = max_restarts;
 	max_history_time_check = max_history_time;
 
-	
+	/* Check if epoch checking is enabled */
 	if (!max_restarts_check)
 		goto out;
 
@@ -936,7 +946,7 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	track->p_state = SUBSYS_RESTARTING;
 	spin_unlock_irqrestore(&track->s_lock, flags);
 
-	
+	/* Collect ram dumps for all subsystems in order here */
 	for_each_subsys_device(list, count, NULL, subsystem_ramdump);
 
 	for_each_subsys_device(list, count, NULL, subsystem_free_memory);

@@ -85,9 +85,9 @@ const unsigned int a4xx_sp_tp_registers_count =
 			ARRAY_SIZE(a4xx_sp_tp_registers) / 2;
 
 const unsigned int a4xx_ppd_registers[] = {
-	
+	/* V2 Thresholds */
 	0x01B2, 0x01B5,
-	
+	/* Control and Status */
 	0x01B9, 0x01BE,
 };
 
@@ -95,7 +95,7 @@ const unsigned int a4xx_ppd_registers_count =
 			ARRAY_SIZE(a4xx_ppd_registers) / 2;
 
 const unsigned int a4xx_xpu_registers[] = {
-	
+	/* XPU */
 	0x2C00, 0x2C01, 0x2C10, 0x2C10, 0x2C12, 0x2C16, 0x2C1D, 0x2C20,
 	0x2C28, 0x2C28, 0x2C30, 0x2C30, 0x2C32, 0x2C36, 0x2C40, 0x2C40,
 	0x2C50, 0x2C50, 0x2C52, 0x2C56, 0x2C80, 0x2C80, 0x2C94, 0x2C95,
@@ -105,7 +105,7 @@ const unsigned int a4xx_xpu_reg_cnt =
 				ARRAY_SIZE(a4xx_xpu_registers)/2;
 
 static const unsigned int a4xx_vbif_ver_20000000_registers[] = {
-	
+	/* VBIF version 0x20000000 & IOMMU V1 */
 	0x3000, 0x3007, 0x300C, 0x3014, 0x3018, 0x301D, 0x3020, 0x3022,
 	0x3024, 0x3026, 0x3028, 0x302A, 0x302C, 0x302D, 0x3030, 0x3031,
 	0x3034, 0x3036, 0x3038, 0x3038, 0x303C, 0x303D, 0x3040, 0x3040,
@@ -167,7 +167,7 @@ static const unsigned int a4xx_vbif_ver_20020000_registers[] = {
 };
 
 static const unsigned int a4xx_vbif_ver_20050000_registers[] = {
-	
+	/* VBIF version 0x20050000*/
 	0x3000, 0x3007, 0x302C, 0x302C, 0x3030, 0x3030, 0x3034, 0x3036,
 	0x3038, 0x3038, 0x303C, 0x303D, 0x3040, 0x3040, 0x3049, 0x3049,
 	0x3058, 0x3058, 0x305B, 0x3061, 0x3064, 0x3068, 0x306C, 0x306D,
@@ -363,7 +363,7 @@ static void a4xx_regulator_enable(struct adreno_device *adreno_dev)
 	if (!(adreno_is_a430(adreno_dev) || adreno_is_a418(adreno_dev)))
 		return;
 
-	
+	/* Set the default register values; set SW_COLLAPSE to 0 */
 	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, 0x778000);
 	do {
 		udelay(5);
@@ -401,7 +401,7 @@ static void a4xx_enable_ppd(struct adreno_device *adreno_dev)
 		!adreno_is_a430v2(adreno_dev))
 		return;
 
-	
+	/* Program thresholds */
 	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_HIGH_CLEAR_THR,
 								0x003F0101);
 	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_LOW, 0x00000101);
@@ -481,7 +481,7 @@ static void a4xx_enable_hwcg(struct kgsl_device *device)
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB1, 0x22222222);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB2, 0x22222222);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_RB3, 0x22222222);
-	
+	/* Disable L1 clocking in A420 due to CCU issues with it */
 	if (adreno_is_a420(adreno_dev)) {
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB0, 0x00002020);
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB1, 0x00002020);
@@ -493,7 +493,7 @@ static void a4xx_enable_hwcg(struct kgsl_device *device)
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB2, 0x00022020);
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_RB3, 0x00022020);
 	}
-	
+	/* No CCU for A405 */
 	if (!adreno_is_a405(adreno_dev)) {
 		kgsl_regwrite(device,
 			A4XX_RBBM_CLOCK_CTL_MARB_CCU0, 0x00000922);
@@ -560,7 +560,7 @@ static void a4xx_protect_init(struct adreno_device *adreno_dev)
 	adreno_set_protected_registers(adreno_dev, &index, 0x40, 6);
 	adreno_set_protected_registers(adreno_dev, &index, 0x80, 4);
 
-	
+	/* Content protection registers */
 	if (kgsl_mmu_is_secured(&device->mmu)) {
 		adreno_set_protected_registers(adreno_dev, &index,
 			   A4XX_RBBM_SECVID_TSB_TRUSTED_BASE, 3);
@@ -701,9 +701,9 @@ int a4xx_perfcounter_enable_vbif(struct adreno_device *adreno_dev,
 	kgsl_regwrite(device, reg->select - A4XX_VBIF_PERF_CLR_REG_SEL_OFF, 0);
 	kgsl_regwrite(device, reg->select,
 			countable & A4XX_VBIF_PERF_CNT_SEL_MASK);
-	
+	/* enable reg is 8 DWORDS before select reg */
 	kgsl_regwrite(device, reg->select - A4XX_VBIF_PERF_EN_REG_SEL_OFF, 1);
-	
+	/* reset the saved value field */
 	counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs[counter].value = 0;
 	return 0;
 }
@@ -775,7 +775,7 @@ static int a4xx_perfcounter_enable(struct adreno_device *adreno_dev,
 		unsigned int group, unsigned int counter,
 		unsigned int countable)
 {
-	
+	/* The always on counter is... always on.  No need to enable it */
 	if (group == KGSL_PERFCOUNTER_GROUP_ALWAYSON) {
 		struct adreno_perfcounters *counters =
 			ADRENO_PERFCOUNTERS(adreno_dev);
@@ -1467,7 +1467,7 @@ int adreno_a4xx_pwron_fixup_init(struct adreno_device *adreno_dev)
 	unsigned int num_units = count >> 5;
 	int ret;
 
-	
+	/* Return if the fixup is already in place */
 	if (test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv))
 			return 0;
 
@@ -1680,46 +1680,46 @@ static struct adreno_coresight a4xx_coresight = {
 
 
 static struct adreno_irq_funcs a4xx_irq_funcs[] = {
-	ADRENO_IRQ_CALLBACK(NULL),                   
-	ADRENO_IRQ_CALLBACK(a4xx_err_callback), 
-	ADRENO_IRQ_CALLBACK(a4xx_err_callback), 
-	
+	ADRENO_IRQ_CALLBACK(NULL),                   /* 0 - RBBM_GPU_IDLE */
+	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 1 - RBBM_AHB_ERROR */
+	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 2 - RBBM_REG_TIMEOUT */
+	/* 3 - RBBM_ME_MS_TIMEOUT */
 	ADRENO_IRQ_CALLBACK(a4xx_err_callback),
-	
+	/* 4 - RBBM_PFP_MS_TIMEOUT */
 	ADRENO_IRQ_CALLBACK(a4xx_err_callback),
-	ADRENO_IRQ_CALLBACK(a4xx_err_callback), 
-	
+	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 5 - RBBM_ETS_MS_TIMEOUT */
+	/* 6 - RBBM_ATB_ASYNC_OVERFLOW */
 	ADRENO_IRQ_CALLBACK(a4xx_err_callback),
-	ADRENO_IRQ_CALLBACK(NULL), 
-	ADRENO_IRQ_CALLBACK(NULL), 
-	ADRENO_IRQ_CALLBACK(a4xx_err_callback), 
-	
+	ADRENO_IRQ_CALLBACK(NULL), /* 7 - RBBM_GPC_ERR */
+	ADRENO_IRQ_CALLBACK(NULL), /* 8 - CP_SW */
+	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 9 - CP_OPCODE_ERROR */
+	/* 10 - CP_RESERVED_BIT_ERROR */
 	ADRENO_IRQ_CALLBACK(a4xx_err_callback),
-	ADRENO_IRQ_CALLBACK(a4xx_err_callback), 
-	ADRENO_IRQ_CALLBACK(NULL), 
-	ADRENO_IRQ_CALLBACK(adreno_cp_callback), 
-	ADRENO_IRQ_CALLBACK(adreno_cp_callback), 
-	ADRENO_IRQ_CALLBACK(adreno_cp_callback), 
-	
+	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 11 - CP_HW_FAULT */
+	ADRENO_IRQ_CALLBACK(NULL), /* 12 - CP_DMA */
+	ADRENO_IRQ_CALLBACK(adreno_cp_callback), /* 13 - CP_IB2_INT */
+	ADRENO_IRQ_CALLBACK(adreno_cp_callback), /* 14 - CP_IB1_INT */
+	ADRENO_IRQ_CALLBACK(adreno_cp_callback), /* 15 - CP_RB_INT */
+	/* 16 - CP_REG_PROTECT_FAULT */
 	ADRENO_IRQ_CALLBACK(a4xx_err_callback),
-	ADRENO_IRQ_CALLBACK(NULL), 
-	ADRENO_IRQ_CALLBACK(NULL), 
-	ADRENO_IRQ_CALLBACK(NULL), 
-	ADRENO_IRQ_CALLBACK(NULL), 
-	
+	ADRENO_IRQ_CALLBACK(NULL), /* 17 - CP_RB_DONE_TS */
+	ADRENO_IRQ_CALLBACK(NULL), /* 18 - CP_VS_DONE_TS */
+	ADRENO_IRQ_CALLBACK(NULL), /* 19 - CP_PS_DONE_TS */
+	ADRENO_IRQ_CALLBACK(NULL), /* 20 - CP_CACHE_FLUSH_TS */
+	/* 21 - CP_AHB_ERROR_FAULT */
 	ADRENO_IRQ_CALLBACK(a4xx_err_callback),
-	ADRENO_IRQ_CALLBACK(a4xx_err_callback), 
-	ADRENO_IRQ_CALLBACK(NULL), 
-	
+	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 22 - RBBM_ATB_BUS_OVERFLOW */
+	ADRENO_IRQ_CALLBACK(NULL), /* 23 - Unused */
+	/* 24 - MISC_HANG_DETECT */
 	ADRENO_IRQ_CALLBACK(adreno_hang_int_callback),
-	ADRENO_IRQ_CALLBACK(a4xx_err_callback), 
-	ADRENO_IRQ_CALLBACK(NULL), 
-	ADRENO_IRQ_CALLBACK(NULL), 
-	ADRENO_IRQ_CALLBACK(a4xx_err_callback), 
-	ADRENO_IRQ_CALLBACK(a4xx_err_callback), 
-	
+	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 25 - UCHE_OOB_ACCESS */
+	ADRENO_IRQ_CALLBACK(NULL), /* 26 - Unused */
+	ADRENO_IRQ_CALLBACK(NULL), /* 27 - RBBM_TRACE_MISR */
+	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 28 - RBBM_DPM_CALC_ERR */
+	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 29 - RBBM_DPM_EPOCH_ERR */
+	/* 30 - RBBM_DPM_THERMAL_YELLOW_ERR */
 	ADRENO_IRQ_CALLBACK(a4xx_err_callback),
-	
+	/* 31 - RBBM_DPM_THERMAL_RED_ERR */
 	ADRENO_IRQ_CALLBACK(a4xx_err_callback),
 };
 

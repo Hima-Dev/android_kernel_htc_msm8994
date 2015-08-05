@@ -50,7 +50,7 @@ void debug_mutex_add_waiter(struct mutex *lock, struct mutex_waiter *waiter,
 {
 	SMP_DEBUG_LOCKS_WARN_ON(!spin_is_locked(&lock->wait_lock));
 
-	
+	/* Mark the current thread as blocked on the lock: */
 	ti->task->blocked_on = waiter;
 	ti->task->blocked_by = lock->owner;
 	ti->task->blocked_since = jiffies;

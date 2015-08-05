@@ -301,7 +301,7 @@ static bool msm_pm_pc_hotplug(void)
 		SCM_CMD_CORE_HOTPLUGGED | (flag & SCM_FLUSH_FLAG_MASK));
 	}
 
-	
+	/* Should not return here */
 	msm_pc_inc_debug_count(cpu, MSM_PC_FALLTHRU_COUNTER);
 	return 0;
 }
@@ -561,7 +561,7 @@ static bool msm_pm_power_collapse_standalone(
 
 	avsdscr = avs_get_avsdscr();
 	avscsr = avs_get_avscsr();
-	avs_set_avscsr(0); 
+	avs_set_avscsr(0); /* Disable AVS */
 
 #ifdef CONFIG_HTC_POWER_DEBUG
 	if ((!from_idle) && (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask))

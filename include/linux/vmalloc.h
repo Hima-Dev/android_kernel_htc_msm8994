@@ -184,4 +184,4 @@ do {						\
 } while (0)
 #endif
 
-#endif 
+#endif /* _LINUX_VMALLOC_H */

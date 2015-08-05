@@ -24,7 +24,8 @@
 #include <linux/file.h>
 #include <linux/writeback.h>
 #include <linux/blkdev.h>
-#include <linux/buffer_head.h>	
+#include <linux/buffer_head.h>	/* for try_to_release_page(),
+					buffer_heads_over_limit */
 #include <linux/mm_inline.h>
 #include <linux/backing-dev.h>
 #include <linux/rmap.h>
@@ -249,7 +250,7 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		nr_pages_scanned = SWAP_CLUSTER_MAX;
 
 	if (!down_read_trylock(&shrinker_rwsem)) {
-		
+		/* Assume we'll be able to shrink next time */
 		ret = 1;
 		goto out;
 	}
@@ -502,7 +503,7 @@ redo:
 	else if (!was_unevictable && lru == LRU_UNEVICTABLE)
 		count_vm_event(UNEVICTABLE_PGCULLED);
 
-	put_page(page);		
+	put_page(page);		/* drop ref from isolate */
 }
 
 enum page_references {
@@ -725,7 +726,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 			if (!sc->may_writepage)
 				goto keep_locked;
 
-			
+			/* Page is dirty, try to write it out here */
 			switch (pageout(page, mapping, sc)) {
 			case PAGE_KEEP:
 				goto keep_locked;
@@ -800,7 +801,7 @@ cull_mlocked:
 		continue;
 
 activate_locked:
-		
+		/* Not a candidate for swapping, so reclaim swap space. */
 		if (PageSwapCache(page) && vm_swap_full())
 			try_to_free_swap(page);
 		VM_BUG_ON(PageActive(page));
@@ -924,7 +925,7 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 			break;
 
 		case -EBUSY:
-			
+			/* else it is being freed elsewhere */
 			list_move(&page->lru, src);
 			continue;
 
@@ -1085,7 +1086,7 @@ shrink_inactive_list(unsigned long nr_to_scan, struct lruvec *lruvec,
 	while (unlikely(too_many_isolated(zone, file, sc, safe))) {
 		congestion_wait(BLK_RW_ASYNC, HZ/10);
 
-		
+		/* We are about to die and free our memory. Return now. */
 		if (fatal_signal_pending(current))
 			return SWAP_CLUSTER_MAX;
 
@@ -1225,7 +1226,7 @@ static void shrink_active_list(unsigned long nr_to_scan,
 	unsigned long nr_taken;
 	unsigned long nr_scanned;
 	unsigned long vm_flags;
-	LIST_HEAD(l_hold);	
+	LIST_HEAD(l_hold);	/* The pages which were snipped off */
 	LIST_HEAD(l_active);
 	LIST_HEAD(l_inactive);
 	struct page *page;
@@ -1608,7 +1609,7 @@ static inline bool should_continue_reclaim(struct zone *zone,
 			inactive_lru_pages > pages_for_compaction)
 		return true;
 
-	
+	/* If compaction would go ahead or the allocation would succeed, stop */
 	switch (compaction_suitable(zone, sc->order)) {
 	case COMPACT_PARTIAL:
 	case COMPACT_CONTINUE:
@@ -1860,13 +1861,13 @@ static bool pfmemalloc_watermark_ok(pg_data_t *pgdat)
 		free_pages += zone_page_state(zone, NR_FREE_PAGES);
 	}
 
-	
+	/* If there are no reserves (unexpected config) then do not throttle */
 	if (!pfmemalloc_reserve)
 		return true;
 
 	wmark_ok = free_pages > pfmemalloc_reserve / 2;
 
-	
+	/* kswapd must be awake if processes are being throttled */
 	if (!wmark_ok && waitqueue_active(&pgdat->kswapd_wait)) {
 		pgdat->classzone_idx = min(pgdat->classzone_idx,
 						(enum zone_type)ZONE_NORMAL);
@@ -1915,7 +1916,7 @@ static bool throttle_direct_reclaim(gfp_t gfp_mask, struct zonelist *zonelist,
 		goto check_pending;
 	}
 
-	
+	/* Throttle until kswapd wakes the process */
 	wait_event_killable(zone->zone_pgdat->pfmemalloc_wait,
 		pfmemalloc_watermark_ok(pgdat));
 
@@ -2010,7 +2011,7 @@ unsigned long try_to_free_mem_cgroup_pages(struct mem_cgroup *memcg,
 		.order = 0,
 		.priority = DEF_PRIORITY,
 		.target_mem_cgroup = memcg,
-		.nodemask = NULL, 
+		.nodemask = NULL, /* we don't care the placement */
 		.gfp_mask = (gfp_mask & GFP_RECLAIM_MASK) |
 				(GFP_HIGHUSER_MOVABLE & ~GFP_RECLAIM_MASK),
 	};
@@ -2469,7 +2470,7 @@ static int cpu_callback(struct notifier_block *nfb, unsigned long action,
 			mask = cpumask_of_node(pgdat->node_id);
 
 			if (cpumask_any_and(cpu_online_mask, mask) < nr_cpu_ids)
-				
+				/* One of our CPUs online: restore mask */
 				set_cpus_allowed_ptr(pgdat->kswapd, mask);
 		}
 	}
@@ -2502,7 +2503,7 @@ int kswapd_run(int nid)
 
 	pgdat->kswapd = kthread_run(kswapd, pgdat, "kswapd%d", nid);
 	if (IS_ERR(pgdat->kswapd)) {
-		
+		/* failure at boot is fatal */
 		BUG_ON(system_state == SYSTEM_BOOTING);
 		pr_err("Failed to start kswapd on node %d\n", nid);
 		ret = PTR_ERR(pgdat->kswapd);
@@ -2722,7 +2723,7 @@ void check_move_unevictable_pages(struct page **pages, int nr_pages)
 		spin_unlock_irq(&zone->lru_lock);
 	}
 }
-#endif 
+#endif /* CONFIG_SHMEM */
 
 static void warn_scan_unevictable_pages(void)
 {

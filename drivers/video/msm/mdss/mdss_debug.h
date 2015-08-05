@@ -108,8 +108,8 @@ struct debug_bus {
 #define MDSS_DEBUG_BASE_MAX 10
 
 struct mdss_debug_base {
-	struct list_head head; 
-	struct list_head dump_list; 
+	struct list_head head; /* head of this node */
+	struct list_head dump_list; /* head to the list with dump ranges */
 	struct mdss_debug_data *mdd;
 	char name[80];
 	void __iomem *base;
@@ -118,7 +118,7 @@ struct mdss_debug_base {
 	size_t max_offset;
 	char *buf;
 	size_t buf_len;
-	u32 *reg_dump; 
+	u32 *reg_dump; /* address for the mem dump if no ranges used */
 };
 
 struct mdss_debug_data {
@@ -133,10 +133,10 @@ struct dump_offset {
 };
 
 struct range_dump_node {
-	struct list_head head; 
-	u32 *reg_dump; 
-	char range_name[40]; 
-	struct dump_offset offset; 
+	struct list_head head; /* head of this node */
+	u32 *reg_dump; /* address for the mem dump */
+	char range_name[40]; /* name of this range */
+	struct dump_offset offset; /* range to dump */
 };
 
 #define DEFINE_MDSS_DEBUGFS_SEQ_FOPS(__prefix)				\
@@ -220,4 +220,4 @@ static inline int mdss_debug_register_io(const char *name,
 		dbg_blk);
 }
 
-#endif 
+#endif /* MDSS_DEBUG_H */

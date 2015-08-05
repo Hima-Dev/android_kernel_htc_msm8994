@@ -2932,7 +2932,7 @@ static int msm_gcc_8994_probe(struct platform_device *pdev)
 		return PTR_ERR(tmp_clk);
 	}
 
-	
+	/* Perform revision specific fixes */
 	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
@@ -2940,14 +2940,14 @@ static int msm_gcc_8994_probe(struct platform_device *pdev)
 	if (is_v2)
 		msm_gcc_8994v2_fixup();
 
-	
+	/* register common clock table */
 	ret = of_msm_clock_register(pdev->dev.of_node, gcc_clocks_8994_common,
 				    ARRAY_SIZE(gcc_clocks_8994_common));
 	if (ret)
 		return ret;
 
 	if (!is_v2) {
-		
+		/* register v1 specific clocks */
 		ret = of_msm_clock_register(pdev->dev.of_node,
 			gcc_clocks_8994_v1, ARRAY_SIZE(gcc_clocks_8994_v1));
 		if (ret)

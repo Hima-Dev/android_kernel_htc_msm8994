@@ -35,22 +35,22 @@ enum {
 	LINUX_SWAP_PARTITION = 0x82,
 	LINUX_DATA_PARTITION = 0x83,
 	LINUX_LVM_PARTITION = 0x8e,
-	LINUX_RAID_PARTITION = 0xfd,	
+	LINUX_RAID_PARTITION = 0xfd,	/* autodetect RAID partition */
 
 	SOLARIS_X86_PARTITION =	LINUX_SWAP_PARTITION,
 	NEW_SOLARIS_X86_PARTITION = 0xbf,
 
-	DM6_AUX1PARTITION = 0x51,	
-	DM6_AUX3PARTITION = 0x53,	
-	DM6_PARTITION =	0x54,		
-	EZD_PARTITION =	0x55,		
+	DM6_AUX1PARTITION = 0x51,	/* no DDO:  use xlated geom */
+	DM6_AUX3PARTITION = 0x53,	/* no DDO:  use xlated geom */
+	DM6_PARTITION =	0x54,		/* has DDO: use xlated geom & offset */
+	EZD_PARTITION =	0x55,		/* EZ-DRIVE */
 
-	FREEBSD_PARTITION = 0xa5,	
-	OPENBSD_PARTITION = 0xa6,	
-	NETBSD_PARTITION = 0xa9,	
-	BSDI_PARTITION = 0xb7,		
-	MINIX_PARTITION = 0x81,		
-	UNIXWARE_PARTITION = 0x63,	
+	FREEBSD_PARTITION = 0xa5,	/* FreeBSD Partition ID */
+	OPENBSD_PARTITION = 0xa6,	/* OpenBSD Partition ID */
+	NETBSD_PARTITION = 0xa9,	/* NetBSD Partition ID */
+	BSDI_PARTITION = 0xb7,		/* BSDI Partition ID */
+	MINIX_PARTITION = 0x81,		/* Minix Partition ID */
+	UNIXWARE_PARTITION = 0x63,	/* Same as GNU_HURD and SCO Unix */
 };
 
 #define DISK_MAX_PARTS			256
@@ -64,20 +64,20 @@ enum {
 #include <linux/workqueue.h>
 
 struct partition {
-	unsigned char boot_ind;		
-	unsigned char head;		
-	unsigned char sector;		
-	unsigned char cyl;		
-	unsigned char sys_ind;		
-	unsigned char end_head;		
-	unsigned char end_sector;	
-	unsigned char end_cyl;		
-	__le32 start_sect;	
-	__le32 nr_sects;		
+	unsigned char boot_ind;		/* 0x80 - active */
+	unsigned char head;		/* starting head */
+	unsigned char sector;		/* starting sector */
+	unsigned char cyl;		/* starting cylinder */
+	unsigned char sys_ind;		/* What partition type */
+	unsigned char end_head;		/* end head */
+	unsigned char end_sector;	/* end sector */
+	unsigned char end_cyl;		/* end cylinder */
+	__le32 start_sect;	/* starting sector counting from 0 */
+	__le32 nr_sects;		/* nr of sectors in partition */
 } __attribute__((packed));
 
 struct disk_stats {
-	unsigned long sectors[2];	
+	unsigned long sectors[2];	/* READs and WRITEs */
 	unsigned long ios[2];
 	unsigned long merges[2];
 	unsigned long ticks[2];
@@ -169,11 +169,11 @@ struct gendisk {
 	void *private_data;
 
 	int flags;
-	struct device *driverfs_dev;  
+	struct device *driverfs_dev;  // FIXME: remove
 	struct kobject *slave_dir;
 
 	struct timer_rand_state *random;
-	atomic_t sync_io;		
+	atomic_t sync_io;		/* RAID */
 	struct disk_events *ev;
 #ifdef  CONFIG_BLK_DEV_INTEGRITY
 	struct blk_integrity *integrity;
@@ -305,7 +305,7 @@ static inline void free_part_stats(struct hd_struct *part)
 	free_percpu(part->dkstats);
 }
 
-#else 
+#else /* !CONFIG_SMP */
 #define part_stat_lock()	({ rcu_read_lock(); 0; })
 #define part_stat_unlock()	rcu_read_unlock()
 
@@ -328,7 +328,7 @@ static inline void free_part_stats(struct hd_struct *part)
 {
 }
 
-#endif 
+#endif /* CONFIG_SMP */
 
 #define part_stat_add(cpu, part, field, addnd)	do {			\
 	__part_stat_add((cpu), (part), field, addnd);			\
@@ -591,7 +591,7 @@ extern ssize_t part_fail_show(struct device *dev,
 extern ssize_t part_fail_store(struct device *dev,
 			       struct device_attribute *attr,
 			       const char *buf, size_t count);
-#endif 
+#endif /* CONFIG_FAIL_MAKE_REQUEST */
 
 static inline void hd_ref_init(struct hd_struct *part)
 {
@@ -662,7 +662,7 @@ static inline void part_nr_sects_write(struct hd_struct *part, sector_t size)
 #endif
 }
 
-#else 
+#else /* CONFIG_BLOCK */
 
 static inline void printk_all_partitions(void) { }
 
@@ -676,6 +676,6 @@ static inline int blk_part_pack_uuid(const u8 *uuid_str, u8 *to)
 {
 	return -EINVAL;
 }
-#endif 
+#endif /* CONFIG_BLOCK */
 
-#endif 
+#endif /* _LINUX_GENHD_H */

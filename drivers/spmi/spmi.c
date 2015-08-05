@@ -89,14 +89,14 @@ int spmi_del_controller(struct spmi_controller *ctrl)
 	if (!ctrl)
 		return -EINVAL;
 
-	
+	/* Check that the ctrl has been added */
 	mutex_lock(&board_lock);
 	found = idr_find(&ctrl_idr, ctrl->nr);
 	mutex_unlock(&board_lock);
 	if (found != ctrl)
 		return -EINVAL;
 
-	
+	/* Remove all the clients associated with this controller */
 	mutex_lock(&board_lock);
 	bus_for_each_dev(&spmi_bus_type, NULL, ctrl, spmi_ctrl_remove_device);
 	mutex_unlock(&board_lock);
@@ -194,10 +194,10 @@ int spmi_add_device(struct spmi_device *spmidev)
 		return -EINVAL;
 	}
 
-	
+	/* Set the device name */
 	dev_set_name(dev, "%s-%p", spmidev->name, spmidev);
 
-	
+	/* Device may be bound to an active driver when this returns */
 	rc = device_add(dev);
 
 	if (rc < 0)
@@ -457,7 +457,7 @@ static int spmi_device_match(struct device *dev, struct device_driver *drv)
 	else
 		return 0;
 
-	
+	/* Attempt an OF style match */
 	if (of_driver_match_device(dev, drv))
 		return 1;
 
@@ -880,7 +880,7 @@ static int spmi_register_controller(struct spmi_controller *ctrl)
 {
 	int ret = 0;
 
-	
+	/* Can't register until after driver model init */
 	if (WARN_ON(!spmi_bus_type.p)) {
 		ret = -EAGAIN;
 		goto exit;

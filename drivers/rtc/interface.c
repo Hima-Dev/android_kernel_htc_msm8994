@@ -488,7 +488,7 @@ int rtc_alarm_irq_enable(struct rtc_device *rtc, unsigned int enabled)
 	}
 
 	if (err)
-		;
+		/* nothing */;
 	else if (!rtc->ops)
 		err = -ENODEV;
 	else if (!rtc->ops->alarm_irq_enable)
@@ -513,7 +513,7 @@ int rtc_update_irq_enable(struct rtc_device *rtc, unsigned int enabled)
 		return rtc_dev_update_irq_enable_emul(rtc, 0);
 	}
 #endif
-	
+	/* make sure we're changing state */
 	if (rtc->uie_rtctimer.enabled == enabled)
 		goto out;
 
@@ -546,17 +546,25 @@ out:
 }
 EXPORT_SYMBOL_GPL(rtc_update_irq_enable);
 
-
+/**
+ * rtc_handle_legacy_irq - AIE, UIE and PIE event hook
+ * @rtc: pointer to the rtc device
+ *
+ * This function is called when an AIE, UIE or PIE mode interrupt
+ * has occurred (or been emulated).
+ *
+ * Triggers the registered irq_task function callback.
+ */
 void rtc_handle_legacy_irq(struct rtc_device *rtc, int num, int mode)
 {
 	unsigned long flags;
 
-	
+	/* mark one irq of the appropriate mode */
 	spin_lock_irqsave(&rtc->irq_lock, flags);
 	rtc->irq_data = (rtc->irq_data + (num << 8)) | (RTC_IRQF|mode);
 	spin_unlock_irqrestore(&rtc->irq_lock, flags);
 
-	
+	/* call the task func */
 	spin_lock_irqsave(&rtc->irq_task_lock, flags);
 	if (rtc->irq_task)
 		rtc->irq_task->func(rtc->irq_task->private_data);
@@ -566,21 +574,38 @@ void rtc_handle_legacy_irq(struct rtc_device *rtc, int num, int mode)
 	kill_fasync(&rtc->async_queue, SIGIO, POLL_IN);
 }
 
-
+/**
+ * rtc_aie_update_irq - AIE mode rtctimer hook
+ * @private: pointer to the rtc_device
+ *
+ * This functions is called when the aie_timer expires.
+ */
 void rtc_aie_update_irq(void *private)
 {
 	struct rtc_device *rtc = (struct rtc_device *)private;
 	rtc_handle_legacy_irq(rtc, 1, RTC_AF);
 }
 
-
+/**
+ * rtc_uie_update_irq - UIE mode rtctimer hook
+ * @private: pointer to the rtc_device
+ *
+ * This functions is called when the uie_timer expires.
+ */
 void rtc_uie_update_irq(void *private)
 {
 	struct rtc_device *rtc = (struct rtc_device *)private;
 	rtc_handle_legacy_irq(rtc, 1,  RTC_UF);
 }
 
-
+/**
+ * rtc_pie_update_irq - PIE mode hrtimer hook
+ * @timer: pointer to the pie mode hrtimer
+ *
+ * This function is used to emulate PIE mode interrupts
+ * using an hrtimer. This function is called when the periodic
+ * hrtimer expires.
+ */
 enum hrtimer_restart rtc_pie_update_irq(struct hrtimer *timer)
 {
 	struct rtc_device *rtc;
@@ -647,7 +672,7 @@ int rtc_irq_register(struct rtc_device *rtc, struct rtc_task *task)
 	if (task == NULL || task->func == NULL)
 		return -EINVAL;
 
-	
+	/* Cannot register while the char dev is in use */
 	if (test_and_set_bit_lock(RTC_DEV_BUSY, &rtc->flags))
 		return -EBUSY;
 
@@ -805,14 +830,14 @@ again:
 		if (next->expires.tv64 > now.tv64)
 			break;
 
-		
+		/* expire timer */
 		timer = container_of(next, struct rtc_timer, node);
 		timerqueue_del(&rtc->timerqueue, &timer->node);
 		timer->enabled = 0;
 		if (timer->task.func)
 			timer->task.func(timer->task.private_data);
 
-		
+		/* Re-add/fwd periodic timers */
 		if (ktime_to_ns(timer->period)) {
 			timer->node.expires = ktime_add(timer->node.expires,
 							timer->period);
@@ -821,7 +846,7 @@ again:
 		}
 	}
 
-	
+	/* Set next alarm */
 	if (next) {
 		struct rtc_wkalrm alarm;
 		int err;
@@ -836,7 +861,13 @@ again:
 	mutex_unlock(&rtc->ops_lock);
 }
 
-
+/* rtc_timer_init - Initializes an rtc_timer
+ * @timer: timer to be intiialized
+ * @f: function pointer to be called when timer fires
+ * @data: private data passed to function pointer
+ *
+ * Kernel interface to initializing an rtc_timer.
+ */
 void rtc_timer_init(struct rtc_timer *timer, void (*f)(void* p), void* data)
 {
 	timerqueue_init(&timer->node);

@@ -306,7 +306,7 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 					0);
 			}
 
-			
+			/* if the fault wasn't handled by someone else: */
 			if (tmp == -ENOSYS) {
 				pr_err("Unexpected IOMMU page fault from secure context bank!\n");
 				pr_err("name = %s\n", drvdata->name);
@@ -338,7 +338,7 @@ static int msm_iommu_sec_ptbl_init(void)
 	unsigned int spare = 0;
 	int ret, ptbl_ret = 0;
 	int version;
-	
+	/* Use a dummy device for dma_alloc_attrs allocation */
 	struct device dev = { 0 };
 	void *cpu_addr;
 	dma_addr_t paddr;
@@ -714,7 +714,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	if (ret)
 		goto fail;
 
-	
+	/* We can only do this once */
 	if (!iommu_drvdata->ctx_attach_count) {
 		ret = iommu_access_ops->iommu_clk_on(iommu_drvdata);
 		if (ret) {
@@ -725,7 +725,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		ret = msm_iommu_sec_program_iommu(iommu_drvdata,
 						ctx_drvdata);
 
-		
+		/* bfb settings are always programmed by HLOS */
 		program_iommu_bfb_settings(iommu_drvdata->base,
 					   iommu_drvdata->bfb_settings);
 
@@ -839,7 +839,7 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 fail:
 	iommu_access_ops->iommu_lock_release(0);
 
-	
+	/* the IOMMU API requires us to return how many bytes were unmapped */
 	len = ret ? 0 : len;
 	return len;
 }

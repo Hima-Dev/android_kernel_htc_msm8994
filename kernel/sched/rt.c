@@ -70,7 +70,7 @@ void init_rt_rq(struct rt_rq *rt_rq, struct rq *rq)
 		INIT_LIST_HEAD(array->queue + i);
 		__clear_bit(i, array->bitmap);
 	}
-	
+	/* delimiter for bitsearch: */
 	__set_bit(MAX_RT_PRIO, array->bitmap);
 
 #if defined CONFIG_SMP
@@ -198,7 +198,7 @@ err:
 	return 0;
 }
 
-#else 
+#else /* CONFIG_RT_GROUP_SCHED */
 
 #define rt_entity_is_task(rt_se) (1)
 
@@ -226,7 +226,7 @@ int alloc_rt_sched_group(struct task_group *tg, struct task_group *parent)
 {
 	return 1;
 }
-#endif 
+#endif /* CONFIG_RT_GROUP_SCHED */
 
 #ifdef CONFIG_SMP
 
@@ -250,7 +250,7 @@ static inline void rt_clear_overload(struct rq *rq)
 	if (!rq->online)
 		return;
 
-	
+	/* the order here really doesn't matter */
 	atomic_dec(&rq->rd->rto_count);
 	cpumask_clear_cpu(rq->cpu, rq->rd->rto_mask);
 }
@@ -313,7 +313,7 @@ static void enqueue_pushable_task(struct rq *rq, struct task_struct *p)
 	plist_node_init(&p->pushable_tasks, p->prio);
 	plist_add(&p->pushable_tasks, &rq->rt.pushable_tasks);
 
-	
+	/* Update the highest prio pushable task */
 	if (p->prio < rq->rt.highest_prio.next)
 		rq->rt.highest_prio.next = p->prio;
 }
@@ -322,7 +322,7 @@ static void dequeue_pushable_task(struct rq *rq, struct task_struct *p)
 {
 	plist_del(&p->pushable_tasks, &rq->rt.pushable_tasks);
 
-	
+	/* Update the new highest prio pushable task */
 	if (has_pushable_tasks(rq)) {
 		p = plist_first_entry(&rq->rt.pushable_tasks,
 				      struct task_struct, pushable_tasks);
@@ -351,7 +351,7 @@ void dec_rt_migration(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq)
 {
 }
 
-#endif 
+#endif /* CONFIG_SMP */
 
 static inline int on_rt_rq(struct sched_rt_entity *rt_se)
 {
@@ -486,7 +486,7 @@ static inline struct rt_bandwidth *sched_rt_bandwidth(struct rt_rq *rt_rq)
 	return &rt_rq->tg->rt_bandwidth;
 }
 
-#else 
+#else /* !CONFIG_RT_GROUP_SCHED */
 
 static inline u64 sched_rt_runtime(struct rt_rq *rt_rq)
 {
@@ -690,12 +690,12 @@ static int balance_runtime(struct rt_rq *rt_rq)
 
 	return more;
 }
-#else 
+#else /* !CONFIG_SMP */
 static inline int balance_runtime(struct rt_rq *rt_rq)
 {
 	return 0;
 }
-#endif 
+#endif /* CONFIG_SMP */
 
 static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun)
 {
@@ -912,14 +912,14 @@ dec_rt_prio_smp(struct rt_rq *rt_rq, int prio, int prev_prio)
 		cpupri_set(&rq->rd->cpupri, rq->cpu, rt_rq->highest_prio.curr);
 }
 
-#else 
+#else /* CONFIG_SMP */
 
 static inline
 void inc_rt_prio_smp(struct rt_rq *rt_rq, int prio, int prev_prio) {}
 static inline
 void dec_rt_prio_smp(struct rt_rq *rt_rq, int prio, int prev_prio) {}
 
-#endif 
+#endif /* CONFIG_SMP */
 
 #if defined CONFIG_SMP || defined CONFIG_RT_GROUP_SCHED
 static void
@@ -960,7 +960,7 @@ dec_rt_prio(struct rt_rq *rt_rq, int prio)
 static inline void inc_rt_prio(struct rt_rq *rt_rq, int prio) {}
 static inline void dec_rt_prio(struct rt_rq *rt_rq, int prio) {}
 
-#endif 
+#endif /* CONFIG_SMP || CONFIG_RT_GROUP_SCHED */
 
 #ifdef CONFIG_RT_GROUP_SCHED
 
@@ -983,7 +983,7 @@ dec_rt_group(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq)
 	WARN_ON(!rt_rq->rt_nr_running && rt_rq->rt_nr_boosted);
 }
 
-#else 
+#else /* CONFIG_RT_GROUP_SCHED */
 
 static void
 inc_rt_group(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq)
@@ -994,7 +994,7 @@ inc_rt_group(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq)
 static inline
 void dec_rt_group(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq) {}
 
-#endif 
+#endif /* CONFIG_RT_GROUP_SCHED */
 
 #ifdef CONFIG_SCHED_HMP
 
@@ -1010,7 +1010,7 @@ dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
 	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
 }
 
-#else	
+#else	/* CONFIG_SCHED_HMP */
 
 static inline void
 inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
@@ -1018,7 +1018,7 @@ inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
 static inline void
 dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
 
-#endif	
+#endif	/* CONFIG_SCHED_HMP */
 
 static inline
 void inc_rt_tasks(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq)
@@ -1429,14 +1429,14 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	return best_cpu;
 }
 
-#else	
+#else	/* CONFIG_SCHED_HMP */
 
 static int find_lowest_rq_hmp(struct task_struct *task)
 {
 	return -1;
 }
 
-#endif	
+#endif	/* CONFIG_SCHED_HMP */
 
 static int find_lowest_rq(struct task_struct *task)
 {
@@ -1522,11 +1522,11 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			}
 		}
 
-		
+		/* If this rq is still suitable use it. */
 		if (lowest_rq->rt.highest_prio.curr > task->prio)
 			break;
 
-		
+		/* try again */
 		double_unlock_balance(rq, lowest_rq);
 		lowest_rq = NULL;
 	}
@@ -1616,7 +1616,7 @@ out:
 
 static void push_rt_tasks(struct rq *rq)
 {
-	
+	/* push_rt_task will return true if it moved an RT */
 	while (push_rt_task(rq))
 		;
 }
@@ -1669,7 +1669,7 @@ skip:
 
 static void pre_schedule_rt(struct rq *rq, struct task_struct *prev)
 {
-	
+	/* Try to pull RT tasks here if we lower this rq's prio */
 	if (rq->rt.highest_prio.curr > prev->prio)
 		pull_rt_task(rq);
 }
@@ -1807,7 +1807,7 @@ static void watchdog(struct rq *rq, struct task_struct *p)
 {
 	unsigned long soft, hard;
 
-	
+	/* max may change after cur was read, this will be fixed next tick */
 	soft = task_rlimit(p, RLIMIT_RTTIME);
 	hard = task_rlimit_max(p, RLIMIT_RTTIME);
 
@@ -1917,4 +1917,4 @@ void print_rt_stats(struct seq_file *m, int cpu)
 		print_rt_rq(m, cpu, rt_rq);
 	rcu_read_unlock();
 }
-#endif 
+#endif /* CONFIG_SCHED_DEBUG */

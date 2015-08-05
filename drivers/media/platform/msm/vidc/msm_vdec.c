@@ -1848,7 +1848,7 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 static int vdec_v4l2_to_hal(int id, int value)
 {
 	switch (id) {
-		
+		/* H264 */
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
@@ -1952,7 +1952,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	if (rc)
 		return rc;
 
-	
+	/* Small helper macro for quickly getting a control and err checking */
 #define TRY_GET_CTRL(__ctrl_id) ({ \
 		struct v4l2_ctrl *__temp; \
 		__temp = get_ctrl_from_cluster( \
@@ -1961,8 +1961,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		if (!__temp) { \
 			dprintk(VIDC_ERR, "Can't find %s (%x) in cluster\n", \
 				#__ctrl_id, __ctrl_id); \
-			 \
-			 \
+			/* Clusters are hardcoded, if we can't find */ \
+			/* something then things are massively screwed up */ \
 			BUG_ON(1); \
 		} \
 		__temp; \
@@ -2447,7 +2447,7 @@ int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
 		inst->ctrls[idx] = ctrl;
 	}
 
-	
+	/* Construct a super cluster of all controls */
 	inst->cluster = get_super_cluster(inst, &cluster_size);
 	if (!inst->cluster || !cluster_size) {
 		dprintk(VIDC_WARN,

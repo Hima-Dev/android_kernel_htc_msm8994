@@ -52,4 +52,4 @@ struct __compat_mtp_event {
 #define COMPAT_MTP_THREAD_SUPPORTED	      _IOW('M', 64, int)
 #endif
 #endif
-#endif 
+#endif /* __LINUX_USB_F_MTP_H */

@@ -229,7 +229,7 @@ static int msm_cpufreq_cpu_callback(struct notifier_block *nfb,
 	unsigned int cpu = (unsigned long)hcpu;
 	int rc;
 
-	
+	/* Fail hotplug until this driver can get CPU clocks */
 	if (!hotplug_ready)
 		return NOTIFY_BAD;
 
@@ -357,7 +357,7 @@ static struct freq_attr *msm_freq_attr[] = {
 };
 
 static struct cpufreq_driver msm_cpufreq_driver = {
-	
+	/* lps calculations are handled here. */
 	.flags		= CPUFREQ_STICKY | CPUFREQ_CONST_LOOPS,
 	.init		= msm_cpufreq_init,
 	.verify		= msm_cpufreq_verify,
@@ -374,7 +374,7 @@ static struct cpufreq_frequency_table *cpufreq_parse_dt(struct device *dev,
 	u32 *data;
 	struct cpufreq_frequency_table *ftbl;
 
-	
+	/* Parse list of usable CPU frequencies. */
 	if (!of_find_property(dev->of_node, tbl_name, &nf))
 		return ERR_PTR(-EINVAL);
 	nf /= sizeof(*data);
@@ -439,11 +439,11 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 	}
 	hotplug_ready = true;
 
-	
+	/* Use per-policy governor tunable for some targets */
 	if (of_property_read_bool(dev->of_node, "qcom,governor-per-policy"))
 		msm_cpufreq_driver.flags |= CPUFREQ_HAVE_GOVERNOR_PER_POLICY;
 
-	
+	/* Parse commong cpufreq table for all CPUs */
 	ftbl = cpufreq_parse_dt(dev, "qcom,cpufreq-table", 0);
 	if (!IS_ERR(ftbl)) {
 		for_each_possible_cpu(cpu) {
@@ -475,7 +475,7 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 			return PTR_ERR(ftbl);
 		}
 
-		
+		/* Use previous CPU's table if it shares same clock */
 		if (cpu_clk[cpu] == cpu_clk[cpu - 1]) {
 			if (!IS_ERR(ftbl)) {
 				dev_warn(dev, "Conflicting tables for CPU%d\n",
@@ -516,7 +516,7 @@ static int __init msm_cpufreq_register(void)
 	rc = platform_driver_probe(&msm_cpufreq_plat_driver,
 				   msm_cpufreq_probe);
 	if (rc < 0) {
-		
+		/* Unblock hotplug if msm-cpufreq probe fails */
 		unregister_hotcpu_notifier(&msm_cpufreq_cpu_notifier);
 		for_each_possible_cpu(cpu)
 			mutex_destroy(&(per_cpu(cpufreq_suspend, cpu).

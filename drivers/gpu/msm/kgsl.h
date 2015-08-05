@@ -56,23 +56,23 @@ struct kgsl_driver {
 	struct cdev cdev;
 	dev_t major;
 	struct class *class;
-	
+	/* Virtual device for managing the core */
 	struct device virtdev;
-	
+	/* Kobjects for storing pagetable and process statistics */
 	struct kobject *ptkobj;
 	struct kobject *prockobj;
 	struct kgsl_device *devp[KGSL_DEVICE_MAX];
 
-	
+	/* Global lilst of open processes */
 	struct list_head process_list;
-	
+	/* Global list of pagetables */
 	struct list_head pagetable_list;
-	
+	/* Spinlock for accessing the pagetable list */
 	spinlock_t ptlock;
-	
+	/* Mutex for accessing the process list */
 	struct mutex process_mutex;
 
-	
+	/* Mutex for protecting the device list */
 	struct mutex devlock;
 
 	struct {
@@ -287,11 +287,11 @@ static inline void kgsl_drm_exit(void)
 static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 				unsigned int gpuaddr, size_t size)
 {
-	
+	/* set a minimum size to search for */
 	if (!size)
 		size = 1;
 
-	
+	/* don't overflow */
 	if (size > UINT_MAX - gpuaddr)
 		return 0;
 
@@ -381,4 +381,4 @@ static inline void kgsl_free(void *ptr)
 	kfree(ptr);
 }
 
-#endif 
+#endif /* __KGSL_H */

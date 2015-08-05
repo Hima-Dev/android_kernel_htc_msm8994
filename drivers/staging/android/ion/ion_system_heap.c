@@ -283,7 +283,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	msm_ion_heap_free_pages_mem(&data);
 	return 0;
 err_free_sg2:
-	
+	/* We failed to zero buffers. Bypass pool */
 	buffer->flags |= ION_PRIV_FLAG_SHRINKER_FREE;
 
 	for_each_sg(table->sgl, sg, table->nents, i)

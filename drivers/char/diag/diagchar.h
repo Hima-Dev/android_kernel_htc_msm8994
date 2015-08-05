@@ -58,10 +58,10 @@
 #define DIAG_CTRL_MSG_F3_MASK	11
 #define CONTROL_CHAR	0x7E
 
-#define DIAG_CON_APSS (0x0001)	
-#define DIAG_CON_MPSS (0x0002)	
-#define DIAG_CON_LPASS (0x0004)	
-#define DIAG_CON_WCNSS (0x0008)	
+#define DIAG_CON_APSS (0x0001)	/* Bit mask for APSS */
+#define DIAG_CON_MPSS (0x0002)	/* Bit mask for MPSS */
+#define DIAG_CON_LPASS (0x0004)	/* Bit mask for LPASS */
+#define DIAG_CON_WCNSS (0x0008)	/* Bit mask for WCNSS */
 #define DIAG_CON_SENSORS (0x0016)
 
 
@@ -208,10 +208,10 @@ struct diag_master_table {
 };
 
 struct bindpkt_params_per_process {
-	
+	/* Name of the synchronization object associated with this proc */
 	char sync_obj_name[MAX_SYNC_OBJ_NAME_SIZE];
-	uint32_t count;	
-	struct bindpkt_params *params; 
+	uint32_t count;	/* Number of entries in this bind */
+	struct bindpkt_params *params; /* first bind params */
 };
 
 struct bindpkt_params {
@@ -219,11 +219,11 @@ struct bindpkt_params {
 	uint16_t subsys_id;
 	uint16_t cmd_code_lo;
 	uint16_t cmd_code_hi;
-	
+	/* For Central Routing, used to store Processor number */
 	uint16_t proc_id;
 	uint32_t event_id;
 	uint32_t log_code;
-	
+	/* For Central Routing, used to store SMD channel pointer */
 	uint32_t client_id;
 };
 
@@ -277,10 +277,10 @@ struct diag_mask_info {
 };
 
 struct diag_smd_info {
-	int peripheral;	
-	int type;	
+	int peripheral;	/* The peripheral this smd channel communicates with */
+	int type;	/* The type of smd channel (data, control, dci) */
 	uint16_t peripheral_mask;
-	int encode_hdlc; 
+	int encode_hdlc; /* Whether data is raw and needs to be hdlc encoded */
 
 	smd_channel_t *ch;
 	smd_channel_t *ch_save;
@@ -341,16 +341,16 @@ struct diagchar_dev {
 	int use_device_tree;
 	int supports_separate_cmdrsp;
 	int supports_apps_hdlc_encoding;
-	
+	/* The state requested in the STM command */
 	int stm_state_requested[NUM_STM_PROCESSORS];
-	
+	/* The current STM state */
 	int stm_state[NUM_STM_PROCESSORS];
-	
+	/* Whether or not the peripheral supports STM */
 	int peripheral_supports_stm[NUM_SMD_CONTROL_CHANNELS];
-	
+	/* Delayed response Variables */
 	uint16_t delayed_rsp_id;
 	struct mutex delayed_rsp_mutex;
-	
+	/* DCI related variables */
 	struct list_head dci_req_list;
 	struct list_head dci_client_list;
 	int dci_tag;
@@ -360,7 +360,7 @@ struct diagchar_dev {
 	unsigned char *apps_dci_buf;
 	int dci_state;
 	struct workqueue_struct *diag_dci_wq;
-	
+	/* Sizes that reflect memory pool sizes */
 	unsigned int itemsize;
 	unsigned int poolsize;
 	unsigned int itemsize_hdlc;
@@ -369,15 +369,15 @@ struct diagchar_dev {
 	unsigned int poolsize_dci;
 	unsigned int debug_flag;
 	int used;
-	
+	/* Buffers for masks */
 	struct mutex diag_cntl_mutex;
-	
+	/* Members for Sending response */
 	unsigned char *encoded_rsp_buf;
 	int encoded_rsp_len;
 	uint8_t rsp_buf_busy;
 	spinlock_t rsp_buf_busy_lock;
 	int rsp_buf_ctxt;
-	
+	/* State for diag forwarding */
 	struct diag_smd_info smd_data[NUM_SMD_DATA_CHANNELS];
 	struct diag_smd_info smd_cntl[NUM_SMD_CONTROL_CHANNELS];
 	struct diag_smd_info smd_dci[NUM_SMD_DCI_CHANNELS];
@@ -393,14 +393,14 @@ struct diagchar_dev {
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data_buf;
 	uint8_t user_space_data_busy;
-	
+	/* buffer for updating mask to peripherals */
 	unsigned char *buf_feature_mask_update;
 	struct mutex diag_hdlc_mutex;
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
 	unsigned hdlc_escape;
 	int in_busy_pktdata;
-	
+	/* Variables for non real time mode */
 	int real_time_mode[DIAG_NUM_PROC];
 	int real_time_update_busy;
 	uint16_t proc_active_mask;
@@ -426,7 +426,7 @@ struct diagchar_dev {
 	struct diag_master_table *table;
 	uint8_t *pkt_buf;
 	int pkt_length;
-	uint8_t *dci_pkt_buf; 
+	uint8_t *dci_pkt_buf; /* For Apps DCI packets */
 	uint32_t dci_pkt_length;
 	int in_busy_dcipktdata;
 	int logging_mode;
@@ -450,12 +450,12 @@ struct diagchar_dev {
 	uint8_t msg_mask_tbl_count;
 	uint16_t event_mask_size;
 	uint16_t last_event_id;
-	
+	/* Variables for Mask Centralization */
 	uint16_t num_event_id[NUM_SMD_CONTROL_CHANNELS];
 	uint32_t num_equip_id[NUM_SMD_CONTROL_CHANNELS];
 	uint32_t max_ssid_count[NUM_SMD_CONTROL_CHANNELS];
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-	
+	/* For sending command requests in callback mode */
 	unsigned char *cb_buf;
 	int cb_buf_len;
 #endif

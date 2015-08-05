@@ -30,7 +30,7 @@
 
 #define KGSL_TIMEOUT_NONE           0
 #define KGSL_TIMEOUT_DEFAULT        0xFFFFFFFF
-#define KGSL_TIMEOUT_PART           50 
+#define KGSL_TIMEOUT_PART           50 /* 50 msec */
 
 #define FIRST_TIMEOUT (HZ / 2)
 
@@ -264,22 +264,22 @@ struct kgsl_device {
 	uint32_t flags;
 	enum kgsl_deviceid id;
 
-	
+	/* Starting physical address for GPU registers */
 	unsigned long reg_phys;
 
-	
+	/* Starting Kernel virtual address for GPU registers */
 	void *reg_virt;
 
-	
+	/* Total memory size for all GPU registers */
 	unsigned int reg_len;
 
-	
+	/* Kernel virtual address for GPU shader memory */
 	void *shader_mem_virt;
 
-	
+	/* Starting physical address for GPU shader memory */
 	unsigned long shader_mem_phys;
 
-	
+	/* GPU shader memory size */
 	unsigned int shader_mem_len;
 	struct kgsl_memdesc memstore;
 	const char *iomemname;
@@ -315,12 +315,12 @@ struct kgsl_device {
 
 	struct kgsl_snapshot *snapshot;
 
-	u32 snapshot_faultcount;	
+	u32 snapshot_faultcount;	/* Total number of faults since boot */
 	struct kobject snapshot_kobj;
 
 	struct kobject ppd_kobj;
 
-	
+	/* Logging levels */
 	int cmd_log;
 	int ctxt_log;
 	int drv_log;
@@ -355,7 +355,16 @@ struct kgsl_device {
 	.ver_major = DRIVER_VERSION_MAJOR,\
 	.ver_minor = DRIVER_VERSION_MINOR
 
-
+/**
+ * enum bits for struct kgsl_context.priv
+ * @KGSL_CONTEXT_PRIV_DETACHED  - The context has been destroyed by userspace
+ *	and is no longer using the gpu.
+ * @KGSL_CONTEXT_PRIV_INVALID - The context has been destroyed by the kernel
+ *	because it caused a GPU fault.
+ * @KGSL_CONTEXT_PRIV_PAGEFAULT - The context has caused a page fault.
+ * @KGSL_CONTEXT_PRIV_DEVICE_SPECIFIC - this value and higher values are
+ *	reserved for devices specific use.
+ */
 enum kgsl_context_priv {
 	KGSL_CONTEXT_PRIV_DETACHED = 0,
 	KGSL_CONTEXT_PRIV_INVALID,
@@ -619,7 +628,17 @@ static inline bool kgsl_context_invalid(struct kgsl_context *context)
 						&context->priv));
 }
 
-
+/**
+ * kgsl_context_get() - get a pointer to a KGSL context
+ * @device: Pointer to the KGSL device that owns the context
+ * @id: Context ID
+ *
+ * Find the context associated with the given ID number, increase the reference
+ * count on it and return it.  The caller must make sure that this call is
+ * paired with a kgsl_context_put.  This function is for internal use because it
+ * doesn't validate the ownership of the context with the calling process - use
+ * kgsl_context_get_owner for that
+ */
 static inline struct kgsl_context *kgsl_context_get(struct kgsl_device *device,
 		uint32_t id)
 {
@@ -630,7 +649,7 @@ static inline struct kgsl_context *kgsl_context_get(struct kgsl_device *device,
 
 	context = idr_find(&device->context_idr, id);
 
-	
+	/* Don't return a context that has been detached */
 	if (kgsl_context_detached(context))
 		context = NULL;
 	else
@@ -663,7 +682,7 @@ static inline struct kgsl_context *kgsl_context_get_owner(
 
 	context = kgsl_context_get(dev_priv->device, id);
 
-	
+	/* Verify that the context belongs to current calling fd. */
 	if (context != NULL && context->dev_priv != dev_priv) {
 		kgsl_context_put(context);
 		return NULL;
@@ -770,4 +789,4 @@ struct kgsl_pwr_limit {
 };
 
 
-#endif  
+#endif  /* __KGSL_DEVICE_H */

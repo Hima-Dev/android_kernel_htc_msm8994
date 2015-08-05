@@ -170,4 +170,4 @@ void vcs_remove_sysfs(int index);
 extern bool vgacon_text_force(void);
 #endif
 
-#endif 
+#endif /* _LINUX_CONSOLE_H */

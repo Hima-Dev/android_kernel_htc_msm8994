@@ -46,15 +46,15 @@ enum qpnpint_regs {
 };
 
 struct q_perip_data {
-	uint8_t type;	    
-	uint8_t pol_high;   
-	uint8_t pol_low;    
-	uint8_t int_en;     
+	uint8_t type;	    /* bitmap */
+	uint8_t pol_high;   /* bitmap */
+	uint8_t pol_low;    /* bitmap */
+	uint8_t int_en;     /* bitmap */
 	uint8_t use_count;
 };
 
 struct q_irq_data {
-	uint32_t priv_d; 
+	uint32_t priv_d; /* data to optimize arbiter interactions */
 	struct q_chip_data *chip_d;
 	struct q_perip_data *per_d;
 	uint8_t mask_shift;
@@ -290,7 +290,7 @@ static int qpnpint_irq_set_type(struct irq_data *d, unsigned int flow_type)
 	per_d->pol_high &= ~irq_d->mask_shift;
 	per_d->pol_low &= ~irq_d->mask_shift;
 	if (flow_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
-		per_d->type |= irq_d->mask_shift; 
+		per_d->type |= irq_d->mask_shift; /* edge trig */
 		if (flow_type & IRQF_TRIGGER_RISING)
 			per_d->pol_high |= irq_d->mask_shift;
 		if (flow_type & IRQF_TRIGGER_FALLING)
@@ -299,7 +299,7 @@ static int qpnpint_irq_set_type(struct irq_data *d, unsigned int flow_type)
 		if ((flow_type & IRQF_TRIGGER_HIGH) &&
 		    (flow_type & IRQF_TRIGGER_LOW))
 			return -EINVAL;
-		per_d->type &= ~irq_d->mask_shift; 
+		per_d->type &= ~irq_d->mask_shift; /* level trig */
 		if (flow_type & IRQF_TRIGGER_HIGH)
 			per_d->pol_high |= irq_d->mask_shift;
 		else

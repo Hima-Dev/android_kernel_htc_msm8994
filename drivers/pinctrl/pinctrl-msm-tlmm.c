@@ -177,68 +177,68 @@ struct msm_ebi_regs {
 };
 
 static const struct msm_sdc_regs sdc_regs[MSM_PINTYPE_SDC_REGS_MAX] = {
-	
+	/* SDC1 CLK */
 	{
 		.pull_mask = TLMM_SDC1_CLK_PULL_MASK,
 		.pull_shft = TLMM_SDC1_CLK_PULL_SHFT,
 		.drv_mask = TLMM_SDC1_CLK_DRV_MASK,
 		.drv_shft = TLMM_SDC1_CLK_DRV_SHFT,
 	},
-	
+	/* SDC1 CMD */
 	{
 		.pull_mask = TLMM_SDC1_CMD_PULL_MASK,
 		.pull_shft = TLMM_SDC1_CMD_PULL_SHFT,
 		.drv_mask = TLMM_SDC1_CMD_DRV_MASK,
 		.drv_shft = TLMM_SDC1_CMD_DRV_SHFT,
 	},
-	
+	/* SDC1 DATA */
 	{
 		.pull_mask = TLMM_SDC1_DATA_PULL_MASK,
 		.pull_shft = TLMM_SDC1_DATA_PULL_SHFT,
 		.drv_mask = TLMM_SDC1_DATA_DRV_MASK,
 		.drv_shft = TLMM_SDC1_DATA_DRV_SHFT,
 	},
-	
+	/* SDC1 RCLK */
 	{
 		.pull_mask = TLMM_SDC1_RCLK_PULL_MASK,
 		.pull_shft = TLMM_SDC1_RCLK_PULL_SHFT,
 	},
-	
+	/* SDC2 CLK */
 	{
 		.pull_mask = TLMM_SDC2_CLK_PULL_MASK,
 		.pull_shft = TLMM_SDC2_CLK_PULL_SHFT,
 		.drv_mask = TLMM_SDC2_CLK_DRV_MASK,
 		.drv_shft = TLMM_SDC2_CLK_DRV_SHFT,
 	},
-	
+	/* SDC2 CMD */
 	{
 		.pull_mask = TLMM_SDC2_CMD_PULL_MASK,
 		.pull_shft = TLMM_SDC2_CMD_PULL_SHFT,
 		.drv_mask = TLMM_SDC2_CMD_DRV_MASK,
 		.drv_shft = TLMM_SDC2_CMD_DRV_SHFT,
 	},
-	
+	/* SDC2 DATA */
 	{
 		.pull_mask = TLMM_SDC2_DATA_PULL_MASK,
 		.pull_shft = TLMM_SDC2_DATA_PULL_SHFT,
 		.drv_mask = TLMM_SDC2_DATA_DRV_MASK,
 		.drv_shft = TLMM_SDC2_DATA_DRV_SHFT,
 	},
-	
+	/* SDC3 CLK */
 	{
 		.pull_mask = TLMMV3_SDC3_CLK_PULL_MASK,
 		.pull_shft = TLMMV3_SDC3_CLK_PULL_SHFT,
 		.drv_mask = TLMMV3_SDC3_CLK_DRV_MASK,
 		.drv_shft = TLMMV3_SDC3_CLK_DRV_SHFT,
 	},
-	
+	/* SDC3 CMD */
 	{
 		.pull_mask = TLMMV3_SDC3_CMD_PULL_MASK,
 		.pull_shft = TLMMV3_SDC3_CMD_PULL_SHFT,
 		.drv_mask = TLMMV3_SDC3_CMD_DRV_MASK,
 		.drv_shft = TLMMV3_SDC3_CMD_DRV_SHFT,
 	},
-	
+	/* SDC3 DATA */
 	{
 		.pull_mask = TLMMV3_SDC3_DATA_PULL_MASK,
 		.pull_shft = TLMMV3_SDC3_DATA_PULL_SHFT,
@@ -264,7 +264,7 @@ static int msm_tlmm_sdc_cfg(uint pin_no, unsigned long *config,
 	cfg_reg = reg_base + offset;
 	id = pinconf_to_config_param(*config);
 	val = readl_relaxed(cfg_reg);
-	
+	/* Get mask and shft values for this config type */
 	switch (id) {
 	case PIN_CONFIG_BIAS_DISABLE:
 		mask = sdc_regs[pin_no].pull_mask;
@@ -331,7 +331,7 @@ static int msm_tlmm_qdsd_cfg(uint pin_no, unsigned long *config,
 	cfg_reg = pinfo->reg_base;
 	id = pinconf_to_config_param(*config);
 	val = readl_relaxed(cfg_reg);
-	
+	/* Get mask and shft values for this config type */
 	switch (id) {
 	case PIN_CONFIG_BIAS_DISABLE:
 		mask = TLMMV_QDSD_PULL_MASK;
@@ -379,7 +379,7 @@ static int msm_tlmm_qdsd_cfg(uint pin_no, unsigned long *config,
 
 	if (write) {
 		val &= ~(mask << shft);
-		
+		/* QDSD software override bit */
 		val |= ((data << shft) | BIT(31));
 		writel_relaxed(val, cfg_reg);
 	} else {
@@ -398,7 +398,7 @@ static int msm_tlmm_gp_cfg(uint pin_no, unsigned long *config,
 
 	id = pinconf_to_config_param(*config);
 	val = readl_relaxed(cfg_reg);
-	
+	/* Get mask and shft values for this config type */
 	switch (id) {
 	case PIN_CONFIG_BIAS_DISABLE:
 		mask = TLMM_GP_PULL_MASK;
@@ -461,7 +461,7 @@ static int msm_tlmm_gp_cfg(uint pin_no, unsigned long *config,
 		shft = TLMM_GP_DIR_SHFT;
 		inout_reg = TLMM_GP_INOUT(pinfo, pin_no);
 		if (write) {
-			
+			/* GPIO_IN (b0) of TLMM_GPIO_IN_OUT is read-only */
 			data = 0;
 		} else {
 			inout_val = readl_relaxed(inout_reg);
@@ -483,49 +483,49 @@ static int msm_tlmm_gp_cfg(uint pin_no, unsigned long *config,
 }
 
 static const struct msm_ebi_regs ebi_regs[MSM_PINTYPE_EBI_REGS_MAX] = {
-	
+	/* EBI2 CS*/
 	{
 		.pull_mask = TLMM_EBI2_CS_PULL_MASK,
 		.pull_shft = TLMM_EBI2_CS_PULL_SHFT,
 		.drv_mask = TLMM_EBI2_CS_DRV_MASK,
 		.drv_shft = TLMM_EBI2_CS_DRV_SHFT,
 	},
-	
+	/* EBI2 OE */
 	{
 		.pull_mask = TLMM_EBI2_OE_PULL_MASK,
 		.pull_shft = TLMM_EBI2_OE_PULL_SHFT,
 		.drv_mask = TLMM_EBI2_OE_DRV_MASK,
 		.drv_shft = TLMM_EBI2_OE_DRV_SHFT,
 	},
-	
+	/* EBI2 ALE*/
 	{
 		.pull_mask = TLMM_EBI2_ALE_PULL_MASK,
 		.pull_shft = TLMM_EBI2_ALE_PULL_SHFT,
 		.drv_mask = TLMM_EBI2_ALE_DRV_MASK,
 		.drv_shft = TLMM_EBI2_ALE_DRV_SHFT,
 	},
-	
+	/* EBI2 CLE */
 	{
 		.pull_mask = TLMM_EBI2_CLE_PULL_MASK,
 		.pull_shft = TLMM_EBI2_CLE_PULL_SHFT,
 		.drv_mask = TLMM_EBI2_CLE_DRV_MASK,
 		.drv_shft = TLMM_EBI2_CLE_DRV_SHFT,
 	},
-	
+	/* EBI2 WE*/
 	{
 		.pull_mask = TLMM_EBI2_WE_PULL_MASK,
 		.pull_shft = TLMM_EBI2_WE_PULL_SHFT,
 		.drv_mask = TLMM_EBI2_WE_DRV_MASK,
 		.drv_shft = TLMM_EBI2_WE_DRV_SHFT,
 	},
-	
+	/* EBI2 BUSY */
 	{
 		.pull_mask = TLMM_EBI2_BUSY_PULL_MASK,
 		.pull_shft = TLMM_EBI2_BUSY_PULL_SHFT,
 		.drv_mask = TLMM_EBI2_BUSY_DRV_MASK,
 		.drv_shft = TLMM_EBI2_BUSY_DRV_SHFT,
 	},
-	
+	/* EBI2 DATA */
 	{
 		.pull_mask = TLMM_EBI2_DATA_PULL_MASK,
 		.pull_shft = TLMM_EBI2_DATA_PULL_SHFT,
@@ -550,7 +550,7 @@ static int msm_tlmm_ebi_cfg(uint pin_no, unsigned long *config,
 	cfg_reg = reg_base + offset;
 	id = pinconf_to_config_param(*config);
 	val = readl_relaxed(cfg_reg);
-	
+	/* Get mask and shft values for this config type */
 	switch (id) {
 	case PIN_CONFIG_BIAS_DISABLE:
 		mask = ebi_regs[pin_no].pull_mask;

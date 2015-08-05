@@ -46,10 +46,10 @@ static const struct afe_clk_cfg lpass_clk_cfg_default = {
 	0,
 };
 enum {
-	STATUS_PORT_STARTED, 
-	
+	STATUS_PORT_STARTED, /* track if AFE port has started */
+	/* track AFE Tx port status for bi-directional transfers */
 	STATUS_TX_PORT,
-	
+	/* track AFE Rx port status for bi-directional transfers */
 	STATUS_RX_PORT,
 	STATUS_MAX
 };
@@ -189,7 +189,7 @@ static int msm_dai_q6_auxpcm_hw_params(
 
 	if (test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) ||
 	    test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status)) {
-		
+		/* AUXPCM DAI in use */
 		if (dai_data->rate != params_rate(params)) {
 			dev_err(dai->dev, "%s: rate mismatch of running DAI\n",
 			__func__);
@@ -339,7 +339,7 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 
 	lpass_pcm_src_clk = (struct afe_clk_cfg *) &aux_dai_data->clk_cfg;
 
-	rc = afe_close(aux_dai_data->rx_pid); 
+	rc = afe_close(aux_dai_data->rx_pid); /* can block */
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close PCM_RX  AFE port\n");
 
@@ -477,7 +477,7 @@ static int msm_dai_q6_auxpcm_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		
+		/* afe_open will be called from prepare */
 		return 0;
 
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -507,7 +507,7 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 
 	if (test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) ||
 	    test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status)) {
-		rc = afe_close(aux_dai_data->rx_pid); 
+		rc = afe_close(aux_dai_data->rx_pid); /* can block */
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close AUXPCM RX AFE port\n");
 		rc = afe_close(aux_dai_data->tx_pid);
@@ -838,9 +838,9 @@ static int msm_dai_q6_spdif_dai_remove(struct snd_soc_dai *dai)
 
 	dai_data = dev_get_drvdata(dai->dev);
 
-	
+	/* If AFE port is still up, close it */
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		rc = afe_close(dai->id); 
+		rc = afe_close(dai->id); /* can block */
 
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close AFE port\n");
@@ -985,7 +985,7 @@ static int msm_dai_q6_i2s_hw_params(struct snd_pcm_hw_params *params,
 	dai_data->port_config.i2s.i2s_cfg_minor_version =
 						AFE_API_VERSION_I2S_CONFIG;
 	dai_data->port_config.i2s.data_format =  AFE_LINEAR_PCM_DATA;
-	
+	/* Q6 only supports 16 as now */
 	dai_data->port_config.i2s.bit_width = 16;
 	dai_data->port_config.i2s.channel_mode = 1;
 
@@ -1074,7 +1074,7 @@ static int msm_dai_q6_afe_rtproxy_hw_params(struct snd_pcm_hw_params *params,
 
 	dai_data->port_config.rtproxy.rt_proxy_cfg_minor_version =
 				AFE_API_VERSION_RT_PROXY_CONFIG;
-	dai_data->port_config.rtproxy.bit_width = 16; 
+	dai_data->port_config.rtproxy.bit_width = 16; /* Q6 only supports 16 */
 	dai_data->port_config.rtproxy.interleaved = 1;
 	dai_data->port_config.rtproxy.frame_size = params_period_bytes(params);
 	dai_data->port_config.rtproxy.jitter_allowance =
@@ -1093,7 +1093,7 @@ static int msm_dai_q6_psuedo_port_hw_params(struct snd_pcm_hw_params *params,
 	dai_data->channels = params_channels(params);
 	dai_data->rate = params_rate(params);
 
-	
+	/* Q6 only supports 16 as now */
 	dai_data->port_config.pseudo_port.pseud_port_cfg_minor_version =
 				AFE_API_VERSION_PSEUDO_PORT_CONFIG;
 	dai_data->port_config.pseudo_port.num_channels =
@@ -1182,7 +1182,7 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		pr_debug("%s: stop pseudo port:%d\n", __func__,  dai->id);
-		rc = afe_close(dai->id); 
+		rc = afe_close(dai->id); /* can block */
 
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close AFE port\n");
@@ -1198,10 +1198,10 @@ static int msm_dai_q6_cdc_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBS_CFS:
-		dai_data->port_config.i2s.ws_src = 1; 
+		dai_data->port_config.i2s.ws_src = 1; /* CPU is master */
 		break;
 	case SND_SOC_DAIFMT_CBM_CFM:
-		dai_data->port_config.i2s.ws_src = 0; 
+		dai_data->port_config.i2s.ws_src = 0; /* CPU is slave */
 		break;
 	default:
 		pr_err("%s: fmt 0x%x\n",
@@ -1353,10 +1353,10 @@ static int msm_dai_q6_dai_remove(struct snd_soc_dai *dai)
 
 	dai_data = dev_get_drvdata(dai->dev);
 
-	
+	/* If AFE port is still up, close it */
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		pr_debug("%s: stop pseudo port:%d\n", __func__,  dai->id);
-		rc = afe_close(dai->id); 
+		rc = afe_close(dai->id); /* can block */
 
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close AFE port\n");
@@ -2223,10 +2223,10 @@ static int msm_dai_q6_dai_mi2s_remove(struct snd_soc_dai *dai)
 		dev_get_drvdata(dai->dev);
 	int rc;
 
-	
+	/* If AFE port is still up, close it */
 	if (test_bit(STATUS_PORT_STARTED,
 		     mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask)) {
-		rc = afe_close(MI2S_RX); 
+		rc = afe_close(MI2S_RX); /* can block */
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close MI2S_RX port\n");
 		clear_bit(STATUS_PORT_STARTED,
@@ -2234,7 +2234,7 @@ static int msm_dai_q6_dai_mi2s_remove(struct snd_soc_dai *dai)
 	}
 	if (test_bit(STATUS_PORT_STARTED,
 		     mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask)) {
-		rc = afe_close(MI2S_TX); 
+		rc = afe_close(MI2S_TX); /* can block */
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close MI2S_TX port\n");
 		clear_bit(STATUS_PORT_STARTED,

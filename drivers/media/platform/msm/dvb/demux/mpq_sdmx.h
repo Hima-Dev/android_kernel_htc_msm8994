@@ -103,11 +103,11 @@ enum sdmx_status {
 };
 
 enum sdmx_filter {
-	SDMX_PES_FILTER,		
-	SDMX_SEPARATED_PES_FILTER,	
-	SDMX_SECTION_FILTER,		
-	SDMX_PCR_FILTER,		
-	SDMX_RAW_FILTER,		
+	SDMX_PES_FILTER,		/* Other PES */
+	SDMX_SEPARATED_PES_FILTER,	/* Separated PES (for decoder) */
+	SDMX_SECTION_FILTER,		/* Section */
+	SDMX_PCR_FILTER,		/* PCR */
+	SDMX_RAW_FILTER,		/* Recording */
 };
 
 enum sdmx_raw_out_format {
@@ -345,4 +345,4 @@ static inline int sdmx_set_log_level(int session_handle,
 
 #endif
 
-#endif 
+#endif /* _MPQ_SDMX_H */

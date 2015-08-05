@@ -171,7 +171,7 @@ static const inline bool is_cpu_secure(void)
 
 	asm volatile ("mrc p14, 0, %0, c0, c1, 0" : "=r" (dscr));
 
-	
+	/* BIT(18) - NS bit; 1 = NS; 0 = S */
 	if (BIT(18) & dscr)
 		return false;
 	else
@@ -221,9 +221,9 @@ static int gic_suspend_one(struct gic_chip_data *gic)
 	for (i = 0; i * 32 < gic->gic_irqs; i++) {
 		gic->enabled_irqs[i]
 			= readl_relaxed(base + GIC_DIST_ENABLE_SET + i * 4);
-		
+		/* disable all of them */
 		writel_relaxed(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4);
-		
+		/* enable the wakeup set */
 		writel_relaxed(gic->wakeup_irqs[i],
 			base + GIC_DIST_ENABLE_SET + i * 4);
 	}
@@ -306,9 +306,9 @@ static void gic_resume_one(struct gic_chip_data *gic)
 	void __iomem *base = gic_data_dist_base(gic);
 	gic_show_resume_irq(gic);
 	for (i = 0; i * 32 < gic->gic_irqs; i++) {
-		
+		/* disable all of them */
 		writel_relaxed(0xffffffff, base + GIC_DIST_ENABLE_CLEAR + i * 4);
-		
+		/* enable the enabled set */
 		writel_relaxed(gic->enabled_irqs[i],
 			base + GIC_DIST_ENABLE_SET + i * 4);
 	}
@@ -358,7 +358,7 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 	bool enabled = false;
 	u32 val;
 
-	
+	/* Interrupt configuration for SGIs can't be changed */
 	if (gicirq < 16)
 		return -EINVAL;
 
@@ -396,7 +396,7 @@ static int gic_retrigger(struct irq_data *d)
 	if (gic_arch_extn.irq_retrigger)
 		return gic_arch_extn.irq_retrigger(d);
 
-	
+	/* the genirq layer expects 0 if we can't retrigger in hardware */
 	return 0;
 }
 
@@ -436,7 +436,7 @@ static int gic_set_wake(struct irq_data *d, unsigned int on)
 	unsigned int gicirq = gic_irq(d);
 	struct gic_chip_data *gic_data = irq_data_get_irq_chip_data(d);
 
-	
+	/* per-cpu interrupts cannot be wakeup interrupts */
 	WARN_ON(gicirq < 32);
 
 	reg_offset = gicirq / 32;
@@ -786,7 +786,7 @@ static int gic_notifier(struct notifier_block *self, unsigned long cmd,
 
 	for (i = 0; i < MAX_GIC_NR; i++) {
 #ifdef CONFIG_GIC_NON_BANKED
-		
+		/* Skip over unused GICs */
 		if (!gic_data[i].get_base)
 			continue;
 #endif
@@ -873,11 +873,11 @@ void gic_set_irq_secure(unsigned int irq)
 		gicd_isr_reg &= ~BIT(gic_irq(d) % 32);
 		writel_relaxed(gicd_isr_reg, gic_dist_base(d) +
 				GIC_DIST_IGROUP + gic_irq(d) / 32 * 4);
-		
+		/* Also increase the priority of that irq */
 		gicd_pri_reg = readl_relaxed(gic_dist_base(d) +
 					GIC_DIST_PRI + (gic_irq(d) * 4 / 4));
 		gicd_pri_reg &= mask;
-		gicd_pri_reg |= 0x80; 
+		gicd_pri_reg |= 0x80; /* Priority of 0x80 > 0xA0 */
 		writel_relaxed(gicd_pri_reg, gic_dist_base(d) + GIC_DIST_PRI +
 				gic_irq(d) * 4 / 4);
 		mb();
@@ -915,10 +915,10 @@ static int gic_irq_domain_xlate(struct irq_domain *d,
 	if (intsize < 3)
 		return -EINVAL;
 
-	
+	/* Get the interrupt number and add 16 to skip over SGIs */
 	*out_hwirq = intspec[1] + 16;
 
-	
+	/* For SPIs, we need to add 16 more to get the GIC irq ID number */
 	if (!intspec[0])
 		*out_hwirq += 16;
 
@@ -958,7 +958,7 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 
 	gic = &gic_data[gic_nr];
 #ifdef CONFIG_GIC_NON_BANKED
-	if (percpu_offset) { 
+	if (percpu_offset) { /* Frankein-GIC without banked registers... */
 		unsigned int cpu;
 
 		gic->dist_base.percpu_base = alloc_percpu(void __iomem *);
@@ -979,7 +979,7 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 		gic_set_base_accessor(gic, gic_get_percpu_base);
 	} else
 #endif
-	{			
+	{			/* Normal, sane GIC... */
 		WARN(percpu_offset,
 		     "GIC_NON_BANKED not enabled, ignoring %08x offset!",
 		     percpu_offset);

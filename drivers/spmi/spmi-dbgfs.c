@@ -132,7 +132,7 @@ static int spmi_dfs_open(struct spmi_ctrl_data *ctrl_data, struct file *file)
 		return -EINVAL;
 	}
 
-	
+	/* Per file "transaction" data */
 	trans = kzalloc(sizeof(*trans), GFP_KERNEL);
 
 	if (!trans) {
@@ -140,7 +140,7 @@ static int spmi_dfs_open(struct spmi_ctrl_data *ctrl_data, struct file *file)
 		return -ENOMEM;
 	}
 
-	
+	/* Allocate log buffer */
 	log = kzalloc(logbufsize, GFP_KERNEL);
 
 	if (!log) {
@@ -295,36 +295,36 @@ write_next_line_to_log(struct spmi_trans *trans, int offset, size_t *pcnt)
 	int items_to_read = min(ARRAY_SIZE(data) - padding, *pcnt);
 	int items_to_log = min(ITEMS_PER_LINE, padding + items_to_read);
 
-	
+	/* Buffer needs enough space for an entire line */
 	if ((log->len - log->wpos) < MAX_LINE_LENGTH)
 		goto done;
 
-	
+	/* Read the desired number of "items" */
 	if (spmi_read_data(trans->ctrl, data, offset, items_to_read))
 		goto done;
 
 	*pcnt -= items_to_read;
 
-	
+	/* Each line starts with the aligned offset (20-bit address) */
 	cnt = print_to_log(log, "%5.5X ", offset & 0xffff0);
 	if (cnt == 0)
 		goto done;
 
-	
+	/* If the offset is unaligned, add padding to right justify items */
 	for (i = 0; i < padding; ++i) {
 		cnt = print_to_log(log, "-- ");
 		if (cnt == 0)
 			goto done;
 	}
 
-	
+	/* Log the data items */
 	for (j = 0; i < items_to_log; ++i, ++j) {
 		cnt = print_to_log(log, "%2.2X ", data[j]);
 		if (cnt == 0)
 			goto done;
 	}
 
-	
+	/* If the last character was a space, then replace it with a newline */
 	if (log->wpos > 0 && log->data[log->wpos - 1] == ' ')
 		log->data[log->wpos - 1] = '\n';
 
@@ -342,24 +342,24 @@ write_raw_data_to_log(struct spmi_trans *trans, int offset, size_t *pcnt)
 	int cnt = 0;
 	int items_to_read = min(ARRAY_SIZE(data), *pcnt);
 
-	
+	/* Buffer needs enough space for an entire line */
 	if ((log->len - log->wpos) < 80)
 		goto done;
 
-	
+	/* Read the desired number of "items" */
 	if (spmi_read_data(trans->ctrl, data, offset, items_to_read))
 		goto done;
 
 	*pcnt -= items_to_read;
 
-	
+	/* Log the data items */
 	for (i = 0; i < items_to_read; ++i) {
 		cnt = print_to_log(log, "0x%2.2X ", data[i]);
 		if (cnt == 0)
 			goto done;
 	}
 
-	
+	/* If the last character was a space, then replace it with a newline */
 	if (log->wpos > 0 && log->data[log->wpos - 1] == ' ')
 		log->data[log->wpos - 1] = '\n';
 
@@ -386,10 +386,10 @@ static int get_log_data(struct spmi_trans *trans)
 	else
 		write_to_log = write_next_line_to_log;
 
-	
+	/* Reset the log buffer 'pointers' */
 	log->wpos = log->rpos = 0;
 
-	
+	/* Keep reading data until the log is full */
 	do {
 		last_cnt = item_cnt;
 		cnt = write_to_log(trans, offset, &item_cnt);
@@ -426,7 +426,7 @@ static ssize_t spmi_dfs_reg_write(struct file *file, const char __user *buf,
 	struct spmi_trans *trans = file->private_data;
 	u32 offset = trans->offset;
 
-	
+	/* Make a copy of the user data */
 	char *kbuf = kmalloc(count + 1, GFP_KERNEL);
 	if (!kbuf)
 		return -ENOMEM;
@@ -442,10 +442,10 @@ static ssize_t spmi_dfs_reg_write(struct file *file, const char __user *buf,
 	*ppos += count;
 	kbuf[count] = '\0';
 
-	
+	/* Override the text buffer with the raw data */
 	values = kbuf;
 
-	
+	/* Parse the data in the buffer.  It should be a string of numbers */
 	while (sscanf(kbuf + pos, "%i%n", &data, &bytes_read) == 1) {
 		pos += bytes_read;
 		values[cnt++] = data & 0xff;
@@ -454,7 +454,7 @@ static ssize_t spmi_dfs_reg_write(struct file *file, const char __user *buf,
 	if (!cnt)
 		goto free_buf;
 
-	
+	/* Perform the SPMI write(s) */
 	ret = spmi_write_data(trans->ctrl, values, offset, cnt);
 
 	if (ret) {
@@ -477,7 +477,7 @@ static ssize_t spmi_dfs_reg_read(struct file *file, char __user *buf,
 	size_t ret;
 	size_t len;
 
-	
+	/* Is the the log buffer empty */
 	if (log->rpos >= log->wpos) {
 		if (get_log_data(trans) <= 0)
 			return 0;
@@ -491,7 +491,7 @@ static ssize_t spmi_dfs_reg_read(struct file *file, char __user *buf,
 		return -EFAULT;
 	}
 
-	
+	/* 'ret' is the number of bytes not copied */
 	len -= ret;
 
 	*ppos += len;
@@ -698,7 +698,7 @@ int spmi_dfs_add_controller(struct spmi_controller *ctrl)
 	if (!root)
 		return -ENOENT;
 
-	
+	/* Allocate transaction data for the controller */
 	ctrl_data = kzalloc(sizeof(*ctrl_data), GFP_KERNEL);
 	if (!ctrl_data)
 		return -ENOMEM;

@@ -44,16 +44,16 @@ enum {
 };
 
 struct msm_audio_eq_band {
-	uint16_t     band_idx; 
-	uint32_t     filter_type; 
-	uint32_t     center_freq_hz; 
-	uint32_t     filter_gain; 
-			
+	uint16_t     band_idx; /* The band index, 0 .. 11 */
+	uint32_t     filter_type; /* Filter band type */
+	uint32_t     center_freq_hz; /* Filter band center frequency */
+	uint32_t     filter_gain; /* Filter band initial gain (dB) */
+			/* Range is +12 dB to -12 dB with 1dB increments. */
 	uint32_t     q_factor;
 } __packed;
 
 struct msm_audio_eq_stream_config {
-	uint32_t	enable; 
+	uint32_t	enable; /* Number of consequtive bands specified */
 	uint32_t	num_bands;
 	struct msm_audio_eq_band	eq_bands[EQ_BAND_MAX];
 } __packed;

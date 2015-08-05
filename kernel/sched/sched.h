@@ -109,9 +109,9 @@ struct task_group {
 #endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
-	
+	/* schedulable entities of this group on each cpu */
 	struct sched_entity **se;
-	
+	/* runqueue "owned" by this group on each cpu */
 	struct cfs_rq **cfs_rq;
 	unsigned long shares;
 
@@ -191,11 +191,11 @@ extern void sched_move_task(struct task_struct *tsk);
 extern int sched_group_set_shares(struct task_group *tg, unsigned long shares);
 #endif
 
-#else 
+#else /* CONFIG_CGROUP_SCHED */
 
 struct cfs_bandwidth { };
 
-#endif	
+#endif	/* CONFIG_CGROUP_SCHED */
 
 #ifdef CONFIG_SCHED_HMP
 
@@ -260,8 +260,8 @@ struct cfs_rq {
 	u64 throttled_clock_task_time;
 	int throttled, throttle_count;
 	struct list_head throttled_list;
-#endif 
-#endif 
+#endif /* CONFIG_CFS_BANDWIDTH */
+#endif /* CONFIG_FAIR_GROUP_SCHED */
 };
 
 static inline int rt_bandwidth_enabled(void)
@@ -289,7 +289,7 @@ struct rt_rq {
 	int rt_throttled;
 	u64 rt_time;
 	u64 rt_runtime;
-	
+	/* Nests inside the rq lock: */
 	raw_spinlock_t rt_runtime_lock;
 
 #ifdef CONFIG_RT_GROUP_SCHED
@@ -335,7 +335,7 @@ struct rq {
 #endif
 	int skip_clock_update;
 
-	
+	/* capture load from *all* tasks on this cpu: */
 	struct load_weight load;
 	unsigned long nr_load_updates;
 	u64 nr_switches;
@@ -373,13 +373,13 @@ struct rq {
 	unsigned long cpu_power;
 
 	unsigned char idle_balance;
-	
+	/* For active balancing */
 	int post_schedule;
 	int active_balance;
 	int push_cpu;
 	struct task_struct *push_task;
 	struct cpu_stop_work active_balance_work;
-	
+	/* cpu of this runqueue: */
 	int cpu;
 	int online;
 
@@ -439,7 +439,7 @@ struct rq {
 	u64 prev_steal_time_rq;
 #endif
 
-	
+	/* calc_load related fields */
 	unsigned long calc_load_update;
 	long calc_load_active;
 
@@ -452,19 +452,19 @@ struct rq {
 #endif
 
 #ifdef CONFIG_SCHEDSTATS
-	
+	/* latency stats */
 	struct sched_info rq_sched_info;
 	unsigned long long rq_cpu_time;
-	
+	/* could above be rq->cfs_rq.exec_clock + rq->rt_rq.rt_runtime ? */
 
-	
+	/* sys_sched_yield() stats */
 	unsigned int yld_count;
 
-	
+	/* schedule() stats */
 	unsigned int sched_count;
 	unsigned int sched_goidle;
 
-	
+	/* try_to_wake_up() stats */
 	unsigned int ttwu_count;
 	unsigned int ttwu_local;
 #endif
@@ -668,7 +668,7 @@ static inline int sched_cpu_high_irqload(int cpu)
 	return sched_irqload(cpu) >= sysctl_sched_cpu_high_irqload;
 }
 
-#else	
+#else	/* CONFIG_SCHED_HMP */
 
 struct hmp_sched_stats;
 
@@ -726,7 +726,7 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 	return cpumask_test_cpu(dst_cpu, &rq->freq_domain_cpumask);
 }
 
-#else	
+#else	/* CONFIG_SCHED_FREQ_INPUT */
 
 #define sched_migration_fixup	0
 
@@ -737,7 +737,7 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 	return 1;
 }
 
-#endif	
+#endif	/* CONFIG_SCHED_FREQ_INPUT */
 
 #ifdef CONFIG_SCHED_HMP
 
@@ -755,7 +755,7 @@ static inline int mark_reserved(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	
+	/* Name boost_flags as hmp_flags? */
 	return test_and_set_bit(CPU_RESERVED, &rq->hmp_flags);
 }
 
@@ -776,7 +776,7 @@ extern void reset_all_window_stats(u64 window_start, unsigned int window_size);
 extern void boost_kick(int cpu);
 extern int sched_boost(void);
 
-#else 
+#else /* CONFIG_SCHED_HMP */
 
 #define sched_enable_hmp 0
 #define sched_freq_legacy_mode 1
@@ -823,7 +823,7 @@ static inline void set_task_rq(struct task_struct *p, unsigned int cpu)
 #endif
 }
 
-#else 
+#else /* CONFIG_CGROUP_SCHED */
 
 static inline void set_task_rq(struct task_struct *p, unsigned int cpu) { }
 static inline struct task_group *task_group(struct task_struct *p)
@@ -867,12 +867,12 @@ enum {
 #if defined(CONFIG_SCHED_DEBUG) && defined(HAVE_JUMP_LABEL)
 static __always_inline bool static_branch__true(struct static_key *key)
 {
-	return static_key_true(key); 
+	return static_key_true(key); /* Not out of line branch. */
 }
 
 static __always_inline bool static_branch__false(struct static_key *key)
 {
-	return static_key_false(key); 
+	return static_key_false(key); /* Out of line branch. */
 }
 
 #define SCHED_FEAT(name, enabled)					\
@@ -887,9 +887,9 @@ static __always_inline bool static_branch_##name(struct static_key *key) \
 
 extern struct static_key sched_feat_keys[__SCHED_FEAT_NR];
 #define sched_feat(x) (static_branch_##x(&sched_feat_keys[__SCHED_FEAT_##x]))
-#else 
+#else /* !(SCHED_DEBUG && HAVE_JUMP_LABEL) */
 #define sched_feat(x) (sysctl_sched_features & (1UL << __SCHED_FEAT_##x))
-#endif 
+#endif /* SCHED_DEBUG && HAVE_JUMP_LABEL */
 
 #ifdef CONFIG_NUMA_BALANCING
 #define sched_feat_numa(x) sched_feat(x)
@@ -897,11 +897,11 @@ extern struct static_key sched_feat_keys[__SCHED_FEAT_NR];
 #define numabalancing_enabled sched_feat_numa(NUMA)
 #else
 extern bool numabalancing_enabled;
-#endif 
+#endif /* CONFIG_SCHED_DEBUG */
 #else
 #define sched_feat_numa(x) (0)
 #define numabalancing_enabled (0)
-#endif 
+#endif /* CONFIG_NUMA_BALANCING */
 
 static inline u64 global_rt_period(void)
 {
@@ -1118,7 +1118,7 @@ static inline void idle_enter_fair(struct rq *this_rq) {}
 static inline void idle_exit_fair(struct rq *this_rq) {}
 #endif
 
-#else	
+#else	/* CONFIG_SMP */
 
 static inline void idle_balance(int cpu, struct rq *rq)
 {
@@ -1160,7 +1160,7 @@ static inline void inc_nr_running(struct rq *rq)
 #ifdef CONFIG_NO_HZ_FULL
 	if (rq->nr_running == 2) {
 		if (tick_nohz_full_cpu(rq->cpu)) {
-			
+			/* Order rq->nr_running write against the IPI */
 			smp_wmb();
 			smp_send_reschedule(rq->cpu);
 		}
@@ -1217,7 +1217,7 @@ static inline int hrtick_enabled(struct rq *rq)
 	return 0;
 }
 
-#endif 
+#endif /* CONFIG_SCHED_HRTICK */
 
 #ifdef CONFIG_SMP
 extern void sched_avg_update(struct rq *rq);
@@ -1298,7 +1298,7 @@ static inline void double_rq_lock(struct rq *rq1, struct rq *rq2)
 	BUG_ON(!irqs_disabled());
 	if (rq1 == rq2) {
 		raw_spin_lock(&rq1->lock);
-		__acquire(rq2->lock);	
+		__acquire(rq2->lock);	/* Fake it out ;) */
 	} else {
 		if (rq1 < rq2) {
 			raw_spin_lock(&rq1->lock);
@@ -1400,7 +1400,7 @@ static inline u64 irq_time_read(int cpu)
 
 	return irq_time;
 }
-#else 
+#else /* CONFIG_64BIT */
 static inline void irq_time_write_begin(void)
 {
 }
@@ -1413,5 +1413,5 @@ static inline u64 irq_time_read(int cpu)
 {
 	return per_cpu(cpu_softirq_time, cpu) + per_cpu(cpu_hardirq_time, cpu);
 }
-#endif 
-#endif 
+#endif /* CONFIG_64BIT */
+#endif /* CONFIG_IRQ_TIME_ACCOUNTING */

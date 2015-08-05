@@ -211,4 +211,4 @@ int ion_handle_put(struct ion_handle *handle);
 int ion_client_set_debug_name(struct ion_client *client,
 				const char *debug_name);
 
-#endif 
+#endif /* _ION_PRIV_H */

@@ -113,11 +113,11 @@ static struct interrupt_config private_intr_config[NUM_SMD_SUBSYSTEMS] = {
 	},
 	[SMD_MODEM_Q6_FW] = {
 		.smd.irq_handler = smd_modemfw_irq_handler,
-		.smsm.irq_handler = NULL, 
+		.smsm.irq_handler = NULL, /* does not support smsm */
 	},
 	[SMD_RPM] = {
 		.smd.irq_handler = smd_rpm_irq_handler,
-		.smsm.irq_handler = NULL, 
+		.smsm.irq_handler = NULL, /* does not support smsm */
 	},
 };
 
@@ -228,7 +228,7 @@ static void *smd_memcpy_to_fifo(void *dest, const void *src, size_t num_bytes)
 		num_bytes--;
 	}
 
-	
+	/* Do double word copies */
 	while (num_bytes >= sizeof(union fifo_mem)) {
 		__raw_writeq_no_log(temp_src->u64, temp_dst);
 		temp_dst++;
@@ -236,7 +236,7 @@ static void *smd_memcpy_to_fifo(void *dest, const void *src, size_t num_bytes)
 		num_bytes -= sizeof(union fifo_mem);
 	}
 
-	
+	/* Copy remaining bytes */
 	while (num_bytes--) {
 		__raw_writeb_no_log(temp_src->u8, temp_dst);
 		temp_src = (union fifo_mem *)((uintptr_t)temp_src + 1);
@@ -260,7 +260,7 @@ static void *smd_memcpy_from_fifo(void *dest, const void *src, size_t num_bytes)
 		num_bytes--;
 	}
 
-	
+	/* Do double word copies */
 	while (num_bytes >= sizeof(union fifo_mem)) {
 		temp_dst->u64 = __raw_readq_no_log(temp_src);
 		temp_dst++;
@@ -268,7 +268,7 @@ static void *smd_memcpy_from_fifo(void *dest, const void *src, size_t num_bytes)
 		num_bytes -= sizeof(union fifo_mem);
 	}
 
-	
+	/* Copy remaining bytes */
 	while (num_bytes--) {
 		temp_dst->u8 = __raw_readb_no_log(temp_src);
 		temp_src = (union fifo_mem *)((uintptr_t)temp_src + 1);
@@ -578,7 +578,7 @@ struct remote_proc_info {
 	unsigned free_space;
 	struct work_struct probe_work;
 	struct list_head ch_list;
-	
+	/* 2 total supported tables of channels */
 	unsigned char ch_allocated[SMEM_NUM_SMD_STREAM_CHANNELS * 2];
 	bool skip_pil;
 };
@@ -872,18 +872,18 @@ void smd_channel_reset(uint32_t restart_pid)
 	shared_sec = smem_get_entry(SMEM_CHANNEL_ALLOC_TBL_2, &sec_size,
 								restart_pid, 0);
 
-	
+	/* reset SMSM entry */
 	if (smsm_info.state) {
 		writel_relaxed(0, SMSM_STATE_ADDR(restart_pid));
 
-		
+		/* restart SMSM init handshake */
 		if (restart_pid == SMSM_MODEM) {
 			smsm_change_state(SMSM_APPS_STATE,
 				SMSM_INIT | SMSM_SMD_LOOPBACK | SMSM_RESET,
 				0);
 		}
 
-		
+		/* notify SMSM processors */
 		smsm_irq_handler(0, 0);
 		notify_modem_smsm();
 		notify_dsp_smsm();
@@ -891,7 +891,7 @@ void smd_channel_reset(uint32_t restart_pid)
 		notify_wcnss_smsm();
 	}
 
-	
+	/* change all remote states to CLOSING */
 	mutex_lock(&smd_probe_lock);
 	spin_lock_irqsave(&smd_lock, flags);
 	smd_channel_reset_state(shared_pri, PRI_ALLOC_TBL, SMD_SS_CLOSING,
@@ -906,7 +906,7 @@ void smd_channel_reset(uint32_t restart_pid)
 	mb();
 	smd_fake_irq_handler(0);
 
-	
+	/* change all remote states to CLOSED */
 	mutex_lock(&smd_probe_lock);
 	spin_lock_irqsave(&smd_lock, flags);
 	smd_channel_reset_state(shared_pri, PRI_ALLOC_TBL, SMD_SS_CLOSED,
@@ -1046,7 +1046,7 @@ static int ch_read(struct smd_channel *ch, void *_data, int len)
 
 static void update_stream_state(struct smd_channel *ch)
 {
-	
+	/* streams have no special state requiring updating */
 }
 
 static void update_packet_state(struct smd_channel *ch)
@@ -1055,11 +1055,11 @@ static void update_packet_state(struct smd_channel *ch)
 	int r;
 	const char *peripheral = NULL;
 
-	
+	/* can't do anything if we're in the middle of a packet */
 	while (ch->current_packet == 0) {
-		
+		/* discard 0 length packets if any */
 
-		
+		/* don't bother unless we can get the full header */
 		if (smd_stream_read_avail(ch) < SMD_HEADER_SIZE)
 			return;
 
@@ -1186,7 +1186,7 @@ static void smd_state_change(struct smd_channel *ch,
 		break;
 	case SMD_SS_FLUSHING:
 	case SMD_SS_RESET:
-		
+		/* we should force them to close? */
 		break;
 	case SMD_SS_CLOSED:
 		if (ch->half_ch->get_state(ch->send) == SMD_SS_OPENED) {
@@ -1583,7 +1583,7 @@ static int smd_alloc(struct smd_channel *ch, int table_id,
 		return -EINVAL;
 	}
 
-	
+	/* buffer must be a multiple of 32 size */
 	if ((buffer_sz & (SZ_32 - 1)) != 0) {
 		SMD_INFO("Buffer size: %u not multiple of 32\n", buffer_sz);
 		return -EINVAL;
@@ -1614,7 +1614,7 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm, int table_id,
 		return -ENODEV;
 	}
 
-	
+	/* probe_worker guarentees ch->type will be a valid type */
 	if (ch->type == SMD_APPS_MODEM)
 		ch->notify_other_cpu = notify_modem_smd;
 	else if (ch->type == SMD_APPS_QDSP)
@@ -1736,12 +1736,12 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 	ch = smd_get_channel(name, edge);
 	if (!ch) {
 		spin_lock_irqsave(&smd_lock, flags);
-		
+		/* check opened list for port */
 		list_for_each_entry(ch,
 			&remote_info[edge_to_pids[edge].remote_pid].ch_list,
 			ch_list) {
 			if (!strcmp(name, ch->name)) {
-				
+				/* channel is already open */
 				spin_unlock_irqrestore(&smd_lock, flags);
 				SMD_DBG("smd_open: channel '%s' already open\n",
 					ch->name);
@@ -1749,35 +1749,35 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 			}
 		}
 
-		
+		/* check closing list for port */
 		list_for_each_entry(ch, &smd_ch_closing_list, ch_list) {
 			if (!strncmp(name, ch->name, 20) &&
 				(edge == ch->type)) {
-				
+				/* channel exists, but is being closed */
 				spin_unlock_irqrestore(&smd_lock, flags);
 				return -EAGAIN;
 			}
 		}
 
-		
+		/* check closing workqueue list for port */
 		list_for_each_entry(ch, &smd_ch_to_close_list, ch_list) {
 			if (!strncmp(name, ch->name, 20) &&
 				(edge == ch->type)) {
-				
+				/* channel exists, but is being closed */
 				spin_unlock_irqrestore(&smd_lock, flags);
 				return -EAGAIN;
 			}
 		}
 		spin_unlock_irqrestore(&smd_lock, flags);
 
-		
+		/* one final check to handle closing->closed race condition */
 		ch = smd_get_channel(name, edge);
 		if (!ch)
 			return -ENODEV;
 	}
 
 	if (ch->half_ch->get_fSTATE(ch->send)) {
-		
+		/* remote side hasn't acknowledged our last state transition */
 		SMD_INFO("%s: ch %d valid, waiting for remote to ack state\n",
 				__func__, ch->n);
 		msleep(250);
@@ -2232,7 +2232,7 @@ static int smsm_init(void)
 		return 0;
 	first = 0;
 
-	
+	/* Verify that remote spinlock is not deadlocked */
 	remote_spinlock = smem_get_remote_spinlock();
 	j_start = jiffies;
 	while (!remote_spin_trylock_irqsave(remote_spinlock, flags)) {
@@ -2282,7 +2282,7 @@ static int smsm_init(void)
 				__raw_writel(0x0,
 					SMSM_INTR_MASK_ADDR(i, SMSM_APPS));
 
-			
+			/* Configure legacy modem bits */
 			__raw_writel(LEGACY_MODEM_SMSM_MASK,
 				SMSM_INTR_MASK_ADDR(SMSM_MODEM_STATE,
 					SMSM_APPS));
@@ -2328,7 +2328,7 @@ static void smsm_cb_snapshot(uint32_t use_wakeup_source)
 		spin_unlock_irqrestore(&smsm_snapshot_count_lock, flags);
 	}
 
-	
+	/* queue state entries */
 	for (n = 0; n < SMSM_NUM_ENTRIES; n++) {
 		new_state = __raw_readl(SMSM_STATE_ADDR(n));
 
@@ -2346,7 +2346,7 @@ static void smsm_cb_snapshot(uint32_t use_wakeup_source)
 		goto restore_snapshot_count;
 	}
 
-	
+	/* queue wakelock usage flag */
 	ret = kfifo_in(&smsm_snapshot_fifo,
 			&use_wakeup_source, sizeof(use_wakeup_source));
 	if (ret != sizeof(use_wakeup_source)) {
@@ -2521,7 +2521,7 @@ uint32_t smsm_get_state(uint32_t smsm_entry)
 {
 	uint32_t rv = 0;
 
-	
+	/* needs interface change to return error code */
 	if (smsm_entry >= SMSM_NUM_ENTRIES) {
 		pr_err("smsm_change_state: Invalid entry %d",
 		       smsm_entry);
@@ -2592,7 +2592,7 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 			return;
 		}
 
-		
+		/* read wakelock flag */
 		ret = kfifo_out(&smsm_snapshot_fifo, &use_wakeup_source,
 				sizeof(use_wakeup_source));
 		if (ret != sizeof(use_wakeup_source)) {
@@ -2628,7 +2628,20 @@ void notify_smsm_cb_clients_worker(struct work_struct *work)
 	}
 }
 
-
+/**
+ * Registers callback for SMSM state notifications when the specified
+ * bits change.
+ *
+ * @smsm_entry  Processor entry to deregister
+ * @mask        Bits to deregister (if result is 0, callback is removed)
+ * @notify      Notification function to deregister
+ * @data        Opaque data passed in to callback
+ *
+ * @returns Status code
+ *  <0 error code
+ *  0  inserted new entry
+ *  1  updated mask of existing entry
+ */
 int smsm_state_cb_register(uint32_t smsm_entry, uint32_t mask,
 		void (*notify)(void *, uint32_t, uint32_t), void *data)
 {
@@ -2644,7 +2657,7 @@ int smsm_state_cb_register(uint32_t smsm_entry, uint32_t mask,
 	mutex_lock(&smsm_lock);
 
 	if (!smsm_states) {
-		
+		/* smsm not yet initialized */
 		ret = -ENODEV;
 		goto cleanup;
 	}
@@ -2678,7 +2691,7 @@ int smsm_state_cb_register(uint32_t smsm_entry, uint32_t mask,
 		new_mask |= mask;
 	}
 
-	
+	/* update interrupt notification mask */
 	if (smsm_entry == SMSM_MODEM_STATE)
 		new_mask |= LEGACY_MODEM_SMSM_MASK;
 
@@ -2700,7 +2713,20 @@ cleanup:
 }
 EXPORT_SYMBOL(smsm_state_cb_register);
 
-
+/**
+ * Deregisters for SMSM state notifications for the specified bits.
+ *
+ * @smsm_entry  Processor entry to deregister
+ * @mask        Bits to deregister (if result is 0, callback is removed)
+ * @notify      Notification function to deregister
+ * @data        Opaque data passed in to callback
+ *
+ * @returns Status code
+ *  <0 error code
+ *  0  not found
+ *  1  updated mask
+ *  2  removed callback
+ */
 int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 		void (*notify)(void *, uint32_t, uint32_t), void *data)
 {
@@ -2716,7 +2742,7 @@ int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 	mutex_lock(&smsm_lock);
 
 	if (!smsm_states) {
-		
+		/* smsm not yet initialized */
 		mutex_unlock(&smsm_lock);
 		return -ENODEV;
 	}
@@ -2729,7 +2755,7 @@ int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 			cb_info->mask &= ~mask;
 			ret = 1;
 			if (!cb_info->mask) {
-				
+				/* no mask bits set, remove callback */
 				list_del(&cb_info->cb_list);
 				kfree(cb_info);
 				ret = 2;
@@ -2739,7 +2765,7 @@ int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 		new_mask |= cb_info->mask;
 	}
 
-	
+	/* update interrupt notification mask */
 	if (smsm_entry == SMSM_MODEM_STATE)
 		new_mask |= LEGACY_MODEM_SMSM_MASK;
 

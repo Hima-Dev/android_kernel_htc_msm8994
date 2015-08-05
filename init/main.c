@@ -233,7 +233,7 @@ static int __init unknown_bootoption(char *param, char *val, const char *unused)
 		return 0;
 
 	if (val) {
-		
+		/* Environment option */
 		unsigned int i;
 		for (i = 0; envp_init[i]; i++) {
 			if (i == MAX_INIT_ENVS) {
@@ -245,7 +245,7 @@ static int __init unknown_bootoption(char *param, char *val, const char *unused)
 		}
 		envp_init[i] = param;
 	} else {
-		
+		/* Command line option */
 		unsigned int i;
 		for (i = 0; argv_init[i]; i++) {
 			if (i == MAX_INIT_ARGS) {
@@ -274,7 +274,7 @@ static int __init rdinit_setup(char *str)
 	unsigned int i;
 
 	ramdisk_execute_command = str;
-	
+	/* See "auto" comment in init_setup */
 	for (i = 1; i < MAX_INIT_ARGS; i++)
 		argv_init[i] = NULL;
 	return 1;
@@ -384,7 +384,7 @@ static int __init do_early_param(char *param, char *val, const char *unused)
 				pr_warn("Malformed early option '%s'\n", param);
 		}
 	}
-	
+	/* We accept everything at this stage. */
 	return 0;
 }
 
@@ -498,7 +498,7 @@ asmlinkage void __init start_kernel(void)
 	rcu_init();
 	tick_nohz_init();
 	radix_tree_init();
-	
+	/* init some links before init_ISA_irqs() */
 	early_irq_init();
 	init_IRQ();
 	tick_init();
@@ -558,7 +558,7 @@ asmlinkage void __init start_kernel(void)
 	dbg_late_init();
 	vfs_caches_init(totalram_pages);
 	signals_init();
-	
+	/* rootfs populating might need page-writeback */
 	page_writeback_init();
 #ifdef CONFIG_PROC_FS
 	proc_root_init();
@@ -570,7 +570,7 @@ asmlinkage void __init start_kernel(void)
 
 	check_bugs();
 
-	acpi_early_init(); 
+	acpi_early_init(); /* before LAPIC and SMP init */
 	sfi_init_late();
 
 	if (efi_enabled(EFI_RUNTIME_SERVICES)) {
@@ -746,7 +746,7 @@ static noinline void __init kernel_init_freeable(void);
 static int __ref kernel_init(void *unused)
 {
 	kernel_init_freeable();
-	
+	/* need to finish all async __init code before freeing the memory */
 	async_synchronize_full();
 	free_initmem();
 	mark_rodata_ro();

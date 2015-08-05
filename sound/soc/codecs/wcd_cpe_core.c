@@ -150,7 +150,7 @@ static int wcd_cpe_get_sfr_dump(struct wcd_cpe_core *core)
 free_sfr_dump:
 	kfree(sfr_dump);
 done:
-	
+	/* Even if SFR dump failed, do not return error */
 	return 0;
 }
 
@@ -241,7 +241,7 @@ static int wcd_cpe_load_each_segment(struct wcd_cpe_core *core,
 		return -EINVAL;
 	}
 
-	
+	/* file size can be 0 for bss segments */
 	if (phdr->p_filesz == 0 || phdr->p_memsz == 0)
 		return 0;
 
@@ -399,7 +399,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 	elf_ptr = fw->data + sizeof(*ehdr);
 
 	if (load_type == ELF_FLAG_EXECUTE) {
-		
+		/* Reset CPE first */
 		ret = cpe_svc_reset(core->cpe_handle);
 		if (IS_ERR_VALUE(ret)) {
 			dev_err(core->dev,
@@ -414,7 +414,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 
 	wcd_cpe_bus_vote_max_bw(core, true);
 
-	
+	/* parse every program header and request corresponding firmware */
 	for (phdr_idx = 0; phdr_idx < ehdr->e_phnum; phdr_idx++) {
 		phdr = (struct elf32_phdr *)elf_ptr;
 		load_segment = false;
@@ -627,7 +627,7 @@ bool wcd_cpe_is_online_state(void *core_handle)
 		return !core->ssr_entry.offline;
 	} else {
 		pr_err("%s: Core handle NULL\n", __func__);
-		
+		/* still return 1- offline if core ptr null */
 		return false;
 	}
 }
@@ -650,7 +650,7 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 				__func__, ret);
 			goto done;
 		}
-		
+		/* Dload data section */
 		ret = wcd_cpe_load_fw(core, ELF_FLAG_RW);
 		if (ret) {
 			dev_err(core->dev,
@@ -676,7 +676,7 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 			goto fail_boot;
 		}
 
-		
+		/* wait for CPE to be online */
 		dev_dbg(core->dev,
 			"%s: waiting for CPE bootup\n",
 			__func__);
@@ -728,7 +728,7 @@ static int wcd_cpe_boot_ssr(struct wcd_cpe_core *core)
 		rc = -EINVAL;
 		goto fail;
 	}
-	
+	/* Load the instruction section and mark CPE as online */
 	rc = wcd_cpe_load_fw(core, ELF_FLAG_EXECUTE);
 	if (rc) {
 		dev_err(core->dev,
@@ -769,7 +769,11 @@ static void wcd_cpe_set_and_complete(struct wcd_cpe_core *core,
 	WCD_CPE_REL_LOCK(&core->ssr_lock, "SSR");
 }
 
-
+/*
+ * wcd_cpe_ssr_work: work function to handle CPE SSR
+ * @work: work that is scheduled to perform CPE shutdown
+ *	and restart
+ */
 void wcd_cpe_ssr_work(struct work_struct *work)
 {
 
@@ -783,7 +787,7 @@ void wcd_cpe_ssr_work(struct work_struct *work)
 		return;
 	}
 
-	
+	/* Obtain pm request up in case of suspend mode */
 	pm_qos_add_request(&core->pm_qos_req,
 			   PM_QOS_CPU_DMA_LATENCY,
 			   PM_QOS_DEFAULT_VALUE);
@@ -921,7 +925,7 @@ static irqreturn_t svass_exception_irq(int irq, void *data)
 	if (status & SVASS_FATAL_IRQS) {
 		wcd_cpe_ssr_event(core, WCD_CPE_SSR_EVENT);
 	} else {
-		
+		/* Make sure all error interrupts are cleared */
 		snd_soc_update_bits(core->codec,
 				    TOMTOM_A_SVASS_INT_CLR,
 				    0x3F, 0x3F);
@@ -1117,11 +1121,11 @@ static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core)
 		goto fail_engine_irq;
 	}
 
-	
+	/* Make sure all error interrupts are cleared */
 	snd_soc_update_bits(codec, TOMTOM_A_SVASS_INT_CLR,
 			    0x3F, 0x3F);
 
-	
+	/* Enable required error interrupts */
 	snd_soc_update_bits(codec, TOMTOM_A_SVASS_INT_MASK,
 			    0x3F, 0x0C);
 
@@ -1454,7 +1458,7 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 
 	wcd_cpe_debugfs_init(core);
 
-	
+	/* Setup the ramdump device and buffer */
 	core->cpe_ramdump_dev = create_ramdump_device("cpe",
 						      core->dev);
 	if (!core->cpe_ramdump_dev) {
@@ -1627,13 +1631,25 @@ done:
 	return ret;
 }
 
-
+/*
+ * fill_cmi_header: fill the cmi header with specified values
+ *
+ * @hdr: header to be updated with values
+ * @session_id: session id of the header,
+ *		in case of AFE service it is port_id
+ * @service_id: afe/lsm, etc
+ * @version: update the version field in header
+ * @payload_size: size of the payload following after header
+ * @opcode: opcode of the message
+ * @obm_flag: indicates if this header is for obm message
+ *
+ */
 static int fill_cmi_header(struct cmi_hdr *hdr,
 			   u8 session_id, u8 service_id,
 			   bool version, u8 payload_size,
 			   u16 opcode, bool obm_flag)
 {
-	
+	/* sanitize the data */
 	if (!IS_VALID_SESSION_ID(session_id) ||
 	    !IS_VALID_SERVICE_ID(service_id) ||
 	    !IS_VALID_PLD_SIZE(payload_size)) {
@@ -1762,7 +1778,13 @@ end_ret:
 	return ret;
 }
 
-
+/*
+ * wcd_cpe_cmd_shmem_alloc: compose and send lsm shared
+ *			    memory allocation command
+ * @core_handle: handle to cpe core
+ * @session: session for which the command needs to be sent
+ * @size: size of memory to be allocated
+ */
 static int wcd_cpe_cmd_lsm_shmem_alloc(void *core_handle,
 			struct cpe_lsm_session *session,
 			u32 size)
@@ -2245,7 +2267,7 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 	session->priv_d = lsm_priv_d;
 	mutex_init(&session->lsm_lock);
 	if (afe_register_service) {
-		
+		/* Register for AFE Service */
 		core->cmi_afe_handle = cmi_register(wcd_cpe_cmi_afe_cb,
 						CMI_CPE_AFE_SERVICE_ID);
 		wcd_cpe_initialize_afe_port_data();
@@ -2601,7 +2623,7 @@ static int slim_master_read_enable(void *core_handle,
 	wcd9xxx = codec->control_data;
 	lab_s = &session->lab;
 	lsm_params = &lab_s->hw_params;
-	
+	/* The sequence should be maintained strictly */
 	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 	if (core->cpe_cdc_cb->cdc_ext_clk)
 		core->cpe_cdc_cb->cdc_ext_clk(codec, true, false);
@@ -2703,7 +2725,7 @@ static int wcd_cpe_lsm_stop_lab(void *core_handle,
 	wcd9xxx = codec->control_data;
 	lab_s = &session->lab;
 	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
-	
+	/* This seqeunce should be followed strictly for closing sequence */
 	if (core->cpe_cdc_cb->lab_cdc_ch_ctl)
 		core->cpe_cdc_cb->lab_cdc_ch_ctl(codec, 0);
 	else
@@ -2832,7 +2854,13 @@ rel_bus_vote:
 }
 
 
-
+/*
+ * wcd_cpe_afe_shmem_alloc: allocate the cpe memory for afe service
+ * @core: handle to cpe core
+ * @port_cfg: configuration data for the port which needs
+ *	      memory to be allocated on CPE
+ * @size: size of the memory to be allocated
+ */
 static int wcd_cpe_afe_shmem_alloc(
 	struct wcd_cpe_core *core,
 	struct wcd_cmi_afe_port_data *port_d,

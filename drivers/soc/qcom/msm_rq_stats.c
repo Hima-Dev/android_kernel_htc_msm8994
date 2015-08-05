@@ -209,7 +209,7 @@ static struct kobj_attribute hotplug_disabled_attr = __ATTR_RO(hotplug_disable);
 
 static void def_work_fn(struct work_struct *work)
 {
-	
+	/* Notify polling threads on change of value */
 	sysfs_notify(rq_info.kobj, NULL, "def_timer_ms");
 }
 
@@ -220,7 +220,7 @@ static ssize_t run_queue_avg_show(struct kobject *kobj,
 	unsigned long flags = 0;
 
 	spin_lock_irqsave(&rq_lock, flags);
-	
+	/* rq avg currently available only on one core */
 	val = rq_info.rq_avg;
 	rq_info.rq_avg = 0;
 	spin_unlock_irqrestore(&rq_lock, flags);
@@ -327,7 +327,7 @@ static int init_rq_attribs(void)
 	rq_info.rq_avg = 0;
 	rq_info.attr_group = &rq_attr_group;
 
-	
+	/* Create /sys/devices/system/cpu/cpu0/rq-stats/... */
 	rq_info.kobj = kobject_create_and_add("rq-stats",
 			&get_cpu_device(0)->kobj);
 	if (!rq_info.kobj)
@@ -349,7 +349,7 @@ static int __init msm_rq_stats_init(void)
 	struct cpufreq_policy cpu_policy;
 
 #ifndef CONFIG_SMP
-	
+	/* Bail out if this is not an SMP Target */
 	rq_info.init = 0;
 	return -ENOSYS;
 #endif
@@ -392,7 +392,7 @@ late_initcall(msm_rq_stats_init);
 static int __init msm_rq_stats_early_init(void)
 {
 #ifndef CONFIG_SMP
-	
+	/* Bail out if this is not an SMP Target */
 	rq_info.init = 0;
 	return -ENOSYS;
 #endif

@@ -216,7 +216,7 @@ static struct clk *mux_get_parent(struct clk *c)
 			return mux->parents[i].src;
 	}
 
-	
+	/* Unfamiliar parent. */
 	return NULL;
 }
 
@@ -322,7 +322,7 @@ static int _find_safe_div(struct clk *c, unsigned long rate)
 	if (!d->safe_freq)
 		return 0;
 
-	
+	/* Find the max safe freq that is lesser than fast */
 	for (i = data->max_div; i >= data->min_div; i--)
 		if (mult_frac(d->safe_freq, numer, i) <= fast)
 			safe_div = i;
@@ -511,7 +511,16 @@ struct clk_ops clk_ops_slave_div = {
 	.list_registers = div_clk_list_registers,
 };
 
-
+/**
+ * External clock
+ * Some clock controllers have input clock signal that come from outside the
+ * clock controller. That input clock signal might then be used as a source for
+ * several clocks inside the clock controller. This external clock
+ * implementation models this input clock signal by just passing on the requests
+ * to the clock's parent, the original external clock source. The driver for the
+ * clock controller should clk_get() the original external clock in the probe
+ * function and set is as a parent to this external clock..
+ */
 
 long parent_round_rate(struct clk *c, unsigned long rate)
 {
@@ -545,7 +554,7 @@ static struct clk *ext_get_parent(struct clk *c)
 static enum handoff ext_handoff(struct clk *c)
 {
 	c->rate = clk_get_rate(c->parent);
-	
+	/* Similar reasoning applied in div_handoff, see comment there. */
 	return HANDOFF_DISABLED_CLK;
 }
 
@@ -736,7 +745,7 @@ static int mux_div_clk_set_rate(struct clk *c, unsigned long rate)
 	if (rc)
 		goto err_pre_reparent;
 
-	
+	/* Set divider and mux src atomically */
 	rc = __set_src_div(md, new_parent, new_div);
 	if (rc)
 		goto err_set_src_div;
@@ -747,7 +756,7 @@ static int mux_div_clk_set_rate(struct clk *c, unsigned long rate)
 	return 0;
 
 err_set_src_div:
-	
+	/* Not switching to new_parent, so disable it */
 	__clk_post_reparent(c, new_parent, &flags);
 err_pre_reparent:
 	rc = clk_set_rate(old_parent, old_prate);

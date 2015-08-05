@@ -100,9 +100,9 @@ enum {
 	AUDIO_DEVICE_OUT_COUNT
 };
 
-#define AUDIO_DEVICE_COMBO 0x400000 
+#define AUDIO_DEVICE_COMBO 0x400000 /* bit 23 */
 
-enum { 
+enum { /* cache block */
 	CB_0 = 0,
 	CB_1,
 	CB_2,
@@ -115,7 +115,7 @@ enum {
 	CB_COUNT
 };
 
-enum { 
+enum { /* cache block description */
 	CBD_DEV_MASK = 0,
 	CBD_OFFSG,
 	CBD_CMD0,
@@ -446,7 +446,7 @@ static int _sendcache_pre(struct audio_client *ac)
 	offset = _c_bl[cidx][CBD_OFFSG];
 	cmd = _c_bl[cidx][CBD_CMD0];
 	size = _c_bl[cidx][CBD_SZ0];
-	
+	/* check for integer overflow */
 	if (offset > (UINT_MAX - size))
 		err = -EINVAL;
 	if ((_depc_size == 0) || !_depc || (size == 0) ||
@@ -526,7 +526,7 @@ NT_MODE_GOTO:
 	cmd = _c_bl[cidx][CBD_CMD2];
 	size = _c_bl[cidx][CBD_SZ2];
 
-	
+	/* check for integer overflow */
 	if (offset > (UINT_MAX - size))
 		err = -EINVAL;
 	if ((_depc_size == 0) || !_depc || (err != 0) || (size == 0) ||
@@ -579,7 +579,7 @@ static int _enable_post_put_control(struct snd_kcontrol *kcontrol,
 
 	_is_hpx_enabled = flag ? true : false;
 	msm_pcm_routing_acquire_lock();
-	
+	/* send cache postmix params when hpx is set On */
 	for (be_index = 0; be_index < MSM_BACKEND_DAI_MAX; be_index++) {
 		msm_pcm_routing_get_bedai_info(be_index, &msm_bedai);
 		port_id = msm_bedai.port_id;
@@ -684,7 +684,7 @@ int msm_dts_eagle_set_stream_gain(struct audio_client *ac, int lgain, int rgain)
 			return -EINVAL;
 		}
 		val = _c_bl[idx][CBD_OFFSG] + _vol_cmds[i][2];
-		
+		/* check for integer overflow */
 		if (val > (UINT_MAX - _vol_cmds[i][1]))
 			err = -EINVAL;
 		if ((err != 0) || ((val + _vol_cmds[i][1]) >= _depc_size)) {
@@ -720,7 +720,7 @@ int msm_dts_eagle_handle_asm(struct dts_eagle_param_desc *depd, char *buf,
 
 	eagle_asm_dbg("%s: set/get asm", __func__);
 
-	
+	/* special handling for ALSA route, to accommodate 64 bit platforms */
 	if (depd == NULL) {
 		long *arg_ = (long *)buf;
 		depd = &depd_;
@@ -770,7 +770,7 @@ int msm_dts_eagle_handle_asm(struct dts_eagle_param_desc *depd, char *buf,
 				return -EINVAL;
 			}
 			offset = _c_bl[tgt][CBD_OFFSG] + depd->offset;
-			
+			/* check for integer overflow */
 			if (offset > (UINT_MAX - depd->size))
 				err = -EINVAL;
 			if ((err != 0) || (offset + depd->size) >= _depc_size) {
@@ -808,7 +808,7 @@ DTS_EAGLE_IOCTL_GET_PARAM_PRE_EXIT:
 			return -EINVAL;
 		}
 		offset = _c_bl[tgt][CBD_OFFSG] + depd->offset;
-		
+		/* check for integer overflow */
 		if (offset > (UINT_MAX - depd->size))
 			err = -EINVAL;
 		if ((err != 0) || ((offset + depd->size) >= _depc_size)) {
@@ -994,7 +994,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 				return -EINVAL;
 			}
 			offset = _c_bl[cb][CBD_OFFSG] + depd.offset;
-			
+			/* check for integer overflow */
 			if (offset > (UINT_MAX - depd.size))
 				err = -EINVAL;
 			if ((err != 0) ||
@@ -1045,7 +1045,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 			return -EINVAL;
 		}
 		offset = _c_bl[tgt][CBD_OFFSG] + depd.offset;
-		
+		/* check for integer overflow */
 		if (offset > (UINT_MAX - depd.size))
 			err = -EINVAL;
 		if ((err != 0) || ((offset + depd.size) >= _depc_size)) {
