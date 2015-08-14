@@ -38,14 +38,6 @@
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
-enum msm_sensor_sensor_slave_info_type {
-	MSM_SENSOR_SLAVEADDR_DATA,
-	MSM_SENSOR_IDREGADDR_DATA,
-	MSM_SENSOR_SENSOR_ID_DATA,
-	MSM_SENSOR_SENIDMASK_DATA,
-	MSM_SENSOR_NUM_ID_INFO_DATA,
-};
-
 struct msm_sensor_ctrl_t;
 
 enum msm_sensor_state_t {
@@ -95,7 +87,7 @@ struct msm_sensor_ctrl_t {
 	struct device_node *of_node;
 	enum msm_camera_stream_type_t camera_stream_type;
 	uint32_t set_mclk_23880000;
-	uint8_t driver_ic;
+	uint8_t driver_ic; 
 };
 
 int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp);
